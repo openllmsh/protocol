@@ -28,7 +28,7 @@ OpenLLM client against this and nothing else.
 ## Install
 
 ```sh
-bun install github:quantidexyz/openllmp#latest
+bun install github:quantidexyz/openllmp # latest
 ```
 
 ```ts

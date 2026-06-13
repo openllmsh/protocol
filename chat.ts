@@ -156,7 +156,7 @@ export const ChatCompletionRequest = S.Struct({
    * `toChatGptRequest` re-emits it. Set by `fromResponsesRequest`, read ONLY by
    * `toChatGptRequest`, and STRIPPED before every openai-family upstream (it is
    * not a real OpenAI field). Mirrors `reasoning_items` (opaque Responses
-   * carrier). See `@openllm/wire/adapters/responses`.
+   * carrier). See `@quantidexyz/openllmw/adapters/responses`.
    */
   responses_tools: S.optional(S.Array(S.Unknown)),
   stream_options: S.optional(

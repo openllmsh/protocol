@@ -145,15 +145,6 @@ const IntegrationPayload = S.Struct({
   slug: ArtifactSlug,
   target: S.optional(ArtifactSlug),
 });
-const MintSetupTokenPayload = S.Struct({
-  slug: SubscriptionProviderSlug,
-  /** The TARGET daemon's API-key id — an ownership-checked row selector on
-   *  the cloud (`/api/daemon/relay-credential`), never a path or command. */
-  target_key: S.String,
-  /** The target daemon's X25519 public key (SPKI DER, base64). */
-  target_pubkey: Base64Blob,
-});
-const ReceiveSetupTokenPayload = S.Struct({ sealed: Base64Blob });
 /** A remote-Claude headless-login code submission: the X25519-sealed OAuth
  *  authorization code the user pasted from the hosted callback page. Opened on
  *  the target daemon and written to the waiting `claude auth login` stdin. The
@@ -202,11 +193,6 @@ const commandVariants = <F extends S.Struct.Fields>(addressing: F) =>
     }),
     S.Struct({
       ...addressing,
-      kind: S.Literal("connect_setup_token"),
-      payload: ProviderPayload,
-    }),
-    S.Struct({
-      ...addressing,
       kind: S.Literal("cancel_connect"),
       payload: ProviderPayload,
     }),
@@ -234,16 +220,6 @@ const commandVariants = <F extends S.Struct.Fields>(addressing: F) =>
       ...addressing,
       kind: S.Literal("uninstall_integration"),
       payload: IntegrationPayload,
-    }),
-    S.Struct({
-      ...addressing,
-      kind: S.Literal("mint_setup_token"),
-      payload: MintSetupTokenPayload,
-    }),
-    S.Struct({
-      ...addressing,
-      kind: S.Literal("receive_setup_token"),
-      payload: ReceiveSetupTokenPayload,
     }),
     S.Struct({
       ...addressing,
@@ -428,23 +404,6 @@ export const DaemonStatus = S.Struct({
   integrations: S.optional(S.Array(DaemonInstalledIntegration)),
 });
 export type TDaemonStatus = S.Schema.Type<typeof DaemonStatus>;
-
-// ─── POST /api/daemon/relay-credential (daemon → cloud → daemon) ──────
-//
-// A daemon that minted a Claude setup-token in the user's OWN browser (the
-// this-machine daemon) seals it to a TARGET daemon's `pubkey` and relays the
-// CIPHERTEXT here; the cloud — having verified `target_key` belongs to the
-// same user — enqueues a `receive_setup_token` command to that key. The cloud
-// never sees the plaintext token (it can't open the sealed box).
-export const DaemonRelayCredential = S.Struct({
-  /** The target daemon's API key id (must belong to the caller). */
-  target_key: S.String,
-  /** The sealed-box blob (base64) — opaque to the cloud. */
-  sealed: S.String,
-});
-export type TDaemonRelayCredential = S.Schema.Type<
-  typeof DaemonRelayCredential
->;
 
 /**
  * Canonical payload the cloud HMAC-signs for the same-machine 307, and the

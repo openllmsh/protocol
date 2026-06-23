@@ -1,16 +1,17 @@
 import { Schema as S } from "effect";
+import { RelayCommandLifecycleFrame } from "./control-channel";
 import { DaemonCommand, DaemonCommandAck } from "./daemon";
 
-// ─── Daemon relay (push over a Sandbox WebSocket fed by Neon CDC) ─────
+// ─── Daemon relay (push over a Sandbox WebSocket, in-memory routing) ──
 //
-// Replaces the `GET /api/daemon/poll` long-poll transport with a
-// persistent WebSocket each end (daemon AND browser) holds to a relay
-// running in a Vercel Sandbox. The relay consumes Neon logical
-// replication off `daemon_commands` and pushes each new row down the
-// matching daemon socket; daemon acks + status fan out to the user's open
-// dashboards. The data model (one `sk-llm` key, `api_key_activity`,
-// `daemon_commands`) is unchanged — only the transport. See
-// `docs/proposals/daemon-relay-websocket-push.md`.
+// A persistent WebSocket each end (daemon AND browser) holds to a relay
+// running in a Vercel Sandbox. The relay routes commands IN MEMORY: a
+// watcher's `enqueue` is forwarded straight to the matching daemon socket
+// and the daemon's terminal `ack` rides back as a live `command_lifecycle`
+// frame — there is no `daemon_commands` mailbox and no Neon CDC. The one
+// durable write the relay keeps is `api_key_activity` presence/status, read
+// by the stateless `/v1/*` proxy + a cold dashboard load. See
+// `docs/proposals/daemon-owned-state-stateless-relay.md`.
 
 /** Which end a connect ticket authorizes. A `daemon` socket receives
  *  commands for its `key_id` and sends acks/status; a `watcher` socket
@@ -47,28 +48,22 @@ export const resolveDatabaseTarget = (
 ): TRelayDatabaseTarget =>
   vercelEnv === "production" ? "production" : "pre-production";
 
-/** The Neon logical-replication publication + slot names. Plain per-database
- *  constants: each environment is its own Neon branch, so the names never
- *  collide and need no target suffix. The migration that creates them
- *  (`packages/db/migrations/*_daemon_relay_cdc.sql`) uses these literals; the
- *  relay subscribes them. See proposal §4.1 + Phase 0. */
-export const RELAY_PUBLICATION = "daemon_relay_pub";
+/** The name of the retired daemon-relay logical-replication slot. The relay no
+ *  longer subscribes it (commands route in memory) — this is kept ONLY so
+ *  `packages/db/migrate.ts` can DROP a leftover slot on deploy (Phase 5
+ *  demolition). The matching `daemon_relay_pub` publication is dropped by
+ *  `migrations/0007_chunky_expediter.sql` using its literal name. */
 export const RELAY_SLOT = "daemon_relay_slot";
 
-/** The per-environment relay identity. The SANDBOX name is target-scoped
- *  (sandbox names share one Vercel-project namespace); the publication/slot are
- *  the per-DB constants above. Pure derivation (no env, no I/O) so the cloud
- *  provisioner and the relay agree. */
+/** The per-environment relay identity — just the sandbox name now (the
+ *  publication/slot the CDC era carried are gone). Pure derivation (no env, no
+ *  I/O) so the cloud provisioner and the relay agree. */
 export type TRelayNames = {
   readonly relayName: string;
-  readonly pubName: string;
-  readonly slotName: string;
 };
 
 export const relayNamesFor = (target: TRelayDatabaseTarget): TRelayNames => ({
   relayName: `daemon-relay-${target}`,
-  pubName: RELAY_PUBLICATION,
-  slotName: RELAY_SLOT,
 });
 
 /**
@@ -130,26 +125,27 @@ export const RelayWelcomeFrame = S.Struct({
 });
 export type TRelayWelcomeFrame = S.Schema.Type<typeof RelayWelcomeFrame>;
 
-/** relay → daemon. One command to run (fed by the replication stream or a
- *  connect-time replay of pending rows). */
+/** relay → daemon. One command to run, routed in memory the instant the watcher
+ *  enqueues it (no durable mailbox). `id` is a relay-generated uuid. */
 export const RelayCommandFrame = S.Struct({
   type: S.Literal("command"),
   command: DaemonCommand,
 });
 export type TRelayCommandFrame = S.Schema.Type<typeof RelayCommandFrame>;
 
-/** daemon → relay. A command result; the relay writes it to
- *  `daemon_commands.status` + `result`. */
+/** daemon → relay. A terminal command result; the relay forwards it to the
+ *  originating watcher as a `command_lifecycle` frame (no `daemon_commands`
+ *  row to update). */
 export const RelayAckFrame = S.Struct({
   type: S.Literal("ack"),
   ack: DaemonCommandAck,
 });
 export type TRelayAckFrame = S.Schema.Type<typeof RelayAckFrame>;
 
-/** daemon → relay. Heartbeat + per-provider snapshot (mirrors the old
- *  `POST /api/daemon/status` body). `active:false` is the graceful-exit
- *  beacon. The relay writes `api_key_activity` and fans the snapshot out to
- *  the user's watchers. */
+/** daemon → relay. Heartbeat + per-provider snapshot. `active:false` is the
+ *  graceful-exit beacon. The relay folds the snapshot into
+ *  `api_key_activity.daemon_status_json` (durable, read by the proxy + a cold
+ *  HTTP load) and fans it out to the user's watchers (`status_push`). */
 export const RelayStatusFrame = S.Struct({
   type: S.Literal("status"),
   active: S.optional(S.Boolean),
@@ -159,10 +155,11 @@ export const RelayStatusFrame = S.Struct({
 export type TRelayStatusFrame = S.Schema.Type<typeof RelayStatusFrame>;
 
 /** watcher → relay. The dashboard enqueues a control command for one of the
- *  user's keys (replaces `POST /api/daemon/cmd`). The relay verifies the
- *  watcher's `user_id` owns `key_id`, then writes the durable
- *  `daemon_commands` row. `req_id` correlates the relay's `enqueue_ack` so the
- *  browser learns the row id / any error; omit it for fire-and-forget. */
+ *  user's keys. The relay authorizes it by REGISTRY MEMBERSHIP — a watcher may
+ *  address `key_id` K iff a daemon socket for K is connected with the same
+ *  `user_id` (off that daemon's ticket) — then routes it to that socket in
+ *  memory. `req_id` correlates the relay's `enqueue_ack`; omit it for
+ *  fire-and-forget. */
 export const RelayEnqueueFrame = S.Struct({
   type: S.Literal("enqueue"),
   req_id: S.optional(S.String),
@@ -172,8 +169,9 @@ export const RelayEnqueueFrame = S.Struct({
 });
 export type TRelayEnqueueFrame = S.Schema.Type<typeof RelayEnqueueFrame>;
 
-/** relay → watcher. The result of an `enqueue` carrying a `req_id`: the new
- *  `daemon_commands` id on success, or an error (e.g. the key isn't owned). */
+/** relay → watcher. The result of an `enqueue` carrying a `req_id`: the
+ *  relay-generated command id on success, or an error (`daemon_offline` /
+ *  `invalid_command`). */
 export const RelayEnqueueAckFrame = S.Struct({
   type: S.Literal("enqueue_ack"),
   req_id: S.String,
@@ -210,13 +208,17 @@ export type TRelayPongFrame = S.Schema.Type<typeof RelayPongFrame>;
 
 // NOTE: older daemon binaries also sent `received` (a per-command delivery
 // receipt) and `resync` (a periodic "re-push my pending rows" floor). Both are
-// retired: delivery is now marked optimistically on push and recovered by the
-// relay's own periodic sweep over non-terminal rows, so neither frame has a
-// consumer. They are deliberately NOT in the union — an old daemon's frames
-// fail decode and are silently dropped (`parseFrame` → null), which is the
-// designed legacy tolerance.
+// retired — there is no durable mailbox to redeliver from anymore — so neither
+// has a consumer. They are deliberately NOT in the union; an old daemon's frames
+// fail decode and are silently dropped (`parseFrame` → null), the designed
+// legacy tolerance.
 
-/** The full frame union, discriminated on `type`. */
+/** The full frame union, discriminated on `type`. `command_lifecycle` (relay →
+ *  watcher) is the stateless-relay command receipt: the relay forwards the
+ *  daemon's terminal `ack` to the originating watcher as a live lifecycle
+ *  update, so the dashboard releases an optimistic button off the socket — no
+ *  DB `command_seq` cursor. See `control-channel.ts` +
+ *  `docs/proposals/daemon-owned-state-stateless-relay.md`. */
 export const RelayFrame = S.Union(
   RelayHelloFrame,
   RelayWelcomeFrame,
@@ -227,6 +229,7 @@ export const RelayFrame = S.Union(
   RelayEnqueueAckFrame,
   RelayStatusPushFrame,
   RelayPresenceFrame,
+  RelayCommandLifecycleFrame,
   RelayPingFrame,
   RelayPongFrame,
 );

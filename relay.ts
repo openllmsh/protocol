@@ -1,4 +1,5 @@
 import { Schema as S } from "effect";
+import { RelayCommandLifecycleFrame } from "./control-channel";
 import { DaemonCommand, DaemonCommandAck } from "./daemon";
 
 // ─── Daemon relay (push over a Sandbox WebSocket fed by Neon CDC) ─────
@@ -216,7 +217,12 @@ export type TRelayPongFrame = S.Schema.Type<typeof RelayPongFrame>;
 // fail decode and are silently dropped (`parseFrame` → null), which is the
 // designed legacy tolerance.
 
-/** The full frame union, discriminated on `type`. */
+/** The full frame union, discriminated on `type`. `command_lifecycle` (relay →
+ *  watcher) is the stateless-relay command receipt: the relay forwards the
+ *  daemon's terminal `ack` to the originating watcher as a live lifecycle
+ *  update, so the dashboard releases an optimistic button off the socket — no
+ *  DB `command_seq` cursor. See `control-channel.ts` +
+ *  `docs/proposals/daemon-owned-state-stateless-relay.md`. */
 export const RelayFrame = S.Union(
   RelayHelloFrame,
   RelayWelcomeFrame,
@@ -227,6 +233,7 @@ export const RelayFrame = S.Union(
   RelayEnqueueAckFrame,
   RelayStatusPushFrame,
   RelayPresenceFrame,
+  RelayCommandLifecycleFrame,
   RelayPingFrame,
   RelayPongFrame,
 );

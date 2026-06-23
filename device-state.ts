@@ -77,15 +77,23 @@ export type TDeviceState = S.Schema.Type<typeof DeviceState>;
 // additively; the full `RelayFrame` union swap happens with the Phase 3 relay
 // rewrite.
 
-/** relay → watcher. A key's daemon presence and/or device-state changed.
- *  `online:false` is the offline flip (the relay holds no socket for the key);
- *  `device_state` is present iff `online:true`. */
-export const RelayDeviceStateFrame = S.Struct({
-  type: S.Literal("device_state"),
-  key_id: S.String,
-  online: S.Boolean,
-  device_state: S.optional(DeviceState),
-});
+/** relay → watcher. A key's daemon presence and/or device-state changed. The
+ *  `online`/`device_state` invariant is encoded structurally: `online:true`
+ *  ALWAYS carries a `device_state`; `online:false` is the offline flip (the
+ *  relay holds no socket for the key) and never carries one. */
+export const RelayDeviceStateFrame = S.Union(
+  S.Struct({
+    type: S.Literal("device_state"),
+    key_id: S.String,
+    online: S.Literal(true),
+    device_state: DeviceState,
+  }),
+  S.Struct({
+    type: S.Literal("device_state"),
+    key_id: S.String,
+    online: S.Literal(false),
+  }),
+);
 export type TRelayDeviceStateFrame = S.Schema.Type<
   typeof RelayDeviceStateFrame
 >;

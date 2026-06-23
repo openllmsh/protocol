@@ -53,14 +53,19 @@ export const TerminalCommandState = S.Literal("done", "not_done", "error");
 export type TTerminalCommandState = S.Schema.Type<typeof TerminalCommandState>;
 
 /**
- * One snapshot of a command's progress. The browser correlates by the `req_id`
- * it minted at enqueue; `kind` is informational (display / dedup). `message` is
- * a brief, human-readable line set on `error` (e.g. `daemon_offline`) and
- * optionally on `not_done`.
+ * One snapshot of a command's progress. `req_id` is the id the browser minted at
+ * enqueue (the relay echoes it back — always present). `slug` is the command's
+ * target provider when it has one (connect/logout/…), so the browser can release
+ * the optimistic-pending ticket for THAT provider only — absent for whole-daemon
+ * commands (refresh/auto-update), where the browser falls back to clearing the
+ * key's tickets. `kind` is informational (display / dedup). `message` is a brief,
+ * human-readable line set on `error` (e.g. `daemon_offline`) and optionally on
+ * `not_done`.
  */
 export const CommandLifecycle = S.Struct({
   req_id: S.String,
   key_id: S.String,
+  slug: S.optional(S.String),
   kind: DaemonCommandKind,
   state: CommandState,
   message: S.optional(S.String),

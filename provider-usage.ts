@@ -72,11 +72,11 @@ export const ProviderUsageSnapshot = S.Union(
     note: S.String,
   }),
   /**
-   * Provider returned an error or doesn't surface anything usable — including
-   * a provider that exposes NO usage API to the CLI token at all (Grok: xAI
-   * forbids usage queries from the OAuth token). The UI shows `reason`, plus an
-   * optional `link` rendered as a button to the provider's own usage / billing
-   * page when the figures can only be checked there.
+   * Provider returned an error or doesn't surface anything usable — e.g. not
+   * signed in, the vendor usage endpoint rejected the token, or the plan exposes
+   * no quota window the daemon can read. The UI shows `reason`, plus an optional
+   * `link` rendered as a button to the provider's own usage / billing page when
+   * the figures can only be checked there.
    */
   S.Struct({
     kind: S.Literal("unavailable"),

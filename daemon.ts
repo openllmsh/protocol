@@ -206,11 +206,6 @@ const commandVariants = <F extends S.Struct.Fields>(addressing: F) =>
     }),
     S.Struct({
       ...addressing,
-      kind: S.Literal("cli_install"),
-      payload: ProviderPayload,
-    }),
-    S.Struct({
-      ...addressing,
       kind: S.Literal("install_integration"),
       payload: IntegrationPayload,
     }),
@@ -265,7 +260,6 @@ export const DaemonCommandKind = S.Literal(
   "connect_device_code",
   "cancel_connect",
   "logout",
-  "cli_install",
   "install_integration",
   "uninstall_integration",
   "submit_login_code",
@@ -312,9 +306,11 @@ export type TDaemonCommandAck = S.Schema.Type<typeof DaemonCommandAck>;
 export const DaemonProviderConnection = S.Struct({
   provider: S.String,
   connected: S.Boolean,
-  /** The daemon's ISOLATED copy of this vendor CLI is installed under
-   *  ~/.openllm/cli/<provider>/ (NOT the user's PATH). When false the UI
-   *  shows an Install button before Connect. */
+  /** The vendor CLI the daemon runs is installed on the machine. The daemon
+   *  never installs it — installs are user-run (the daemon install script or by
+   *  hand); the daemon lazily auto-links its isolated run-view
+   *  (~/.openllm/cli/<provider>/) to the host binary. When false the dashboard
+   *  prompts the user to (re-)run the daemon installer. */
   cli_installed: S.Boolean,
   /** Version of the isolated CLI, when installed + readable. */
   cli_version: S.optional(S.String),
@@ -338,12 +334,6 @@ export const DaemonProviderConnection = S.Struct({
       }),
     ),
   ),
-  /** The daemon is downloading/installing this provider's isolated CLI right
-   *  now. Pushed immediately when a `cli_install` command starts so the card
-   *  shows a synced "Installing…" state (survives a refresh, unlike a local
-   *  optimistic flag); cleared when the install finishes + `cli_installed`
-   *  flips true. */
-  installing: S.optional(S.Boolean),
   /** Metadata-only usage snapshot for a CONNECTED provider, read locally by
    *  the daemon and pushed with its status. Absent when not connected or the
    *  read failed. */
@@ -351,18 +341,6 @@ export const DaemonProviderConnection = S.Struct({
 });
 export type TDaemonProviderConnection = S.Schema.Type<
   typeof DaemonProviderConnection
->;
-
-// POST /cli-install/:slug — install the daemon's isolated copy of a
-// vendor CLI. Returns the resulting install state.
-export const DaemonCliInstallResponse = S.Struct({
-  provider: S.String,
-  installed: S.Boolean,
-  version: S.optional(S.NullOr(S.String)),
-  detail: S.optional(S.String),
-});
-export type TDaemonCliInstallResponse = S.Schema.Type<
-  typeof DaemonCliInstallResponse
 >;
 
 // Outcome of the daemon's last cloud bootstrap — drives the dashboard's

@@ -432,7 +432,7 @@ export const NO_DAEMON_HEADER = "x-openllm-no-daemon";
 /** Headers the daemon stamps on EVERY cloud control call (poll/status/bootstrap
  *  /requests/relay/search) so the cloud can record which device a key's daemon
  *  runs on — `api_key_activity.device_id`/`device_label`. The id is the daemon's
- *  stable opaque per-machine UUID (`OPENLLM_DEVICE_ID` in `~/.openllm/daemon.env`); the label is the
+ *  stable opaque per-machine UUID (`OPENLLM_DEVICE_ID` in `~/.openllm/.env`); the label is the
  *  host's `os.hostname()` for the dashboard to show. Both metadata-only (no
  *  token, no content). Lets the dashboard tell two daemons behind one NAT apart
  *  — device code + IP, not IP alone. See

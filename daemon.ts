@@ -1,5 +1,6 @@
 import { Schema as S } from "effect";
 import { FallbackGroup, ModelFallbackBinding } from "./config";
+import { ProviderModelEntry } from "./models";
 import { ProviderUsageSnapshot } from "./provider-usage";
 import { RequestStatus } from "./stats";
 
@@ -89,6 +90,29 @@ export const DaemonRecordRequest = S.Struct({
   endpoint: S.optional(S.NullOr(S.String)),
 });
 export type TDaemonRecordRequest = S.Schema.Type<typeof DaemonRecordRequest>;
+
+// ─── POST /api/daemon/models (daemon → cloud) ────────────────────────
+//
+// The daemon writer for `public.model_cache` (live-provider-model-catalog
+// proposal §4): the live model lists the daemon's CONNECTED delegates
+// report from their vendors' own list endpoints. Metadata only — model
+// ids + optional display/context data, never a credential. `user_id` is
+// deliberately ABSENT (derived from the authenticating `sk-llm-...` key,
+// same posture as `DaemonRecordRequest`), and the handler restricts
+// `provider` to the subscription set so a daemon can never overwrite the
+// cloud-owned API-key rows.
+export const DaemonModelReportEntry = S.Struct({
+  provider: S.String,
+  models: S.Array(ProviderModelEntry),
+});
+export type TDaemonModelReportEntry = S.Schema.Type<
+  typeof DaemonModelReportEntry
+>;
+
+export const DaemonModelReport = S.Struct({
+  entries: S.Array(DaemonModelReportEntry),
+});
+export type TDaemonModelReport = S.Schema.Type<typeof DaemonModelReport>;
 
 // ─── POST /api/daemon/search (daemon → cloud) ────────────────────────
 //

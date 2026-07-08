@@ -373,6 +373,11 @@ export const DaemonInstalledIntegration = S.Struct({
   kind: S.Literal("plugin", "setup"),
   slug: S.String,
   installed: S.Boolean,
+  /** Installed but the managed config no longer matches what the CURRENT
+   *  bundle would write (version drift or manual edits). Only meaningful when
+   *  `installed` is true; absent = unknown/converged (old daemons and scripts
+   *  never report it). Drives the dashboard's "Reinstall" CTA. */
+  diverged: S.optional(S.Boolean),
 });
 export type TDaemonInstalledIntegration = S.Schema.Type<
   typeof DaemonInstalledIntegration

@@ -13,6 +13,7 @@ export const OpenAIEndpointKind = S.Literal(
   "chat",
   "embeddings",
   "images",
+  "videos",
   "audio_transcription",
   "audio_speech",
 );
@@ -431,6 +432,87 @@ export const GoogleImageProviderOptions = S.Struct({
 });
 export type TGoogleImageProviderOptions = S.Schema.Type<
   typeof GoogleImageProviderOptions
+>;
+
+// ─── OpenAI — video generation (Sora, async job surface) ─────────────────────
+
+// The upstream video job object returned by POST /v1/videos and
+// GET /v1/videos/{id}. Kept lenient — `status` stays a plain string so
+// an unrecognized upstream state degrades to `in_progress` in the
+// provider's fromBody instead of failing schema decode.
+export const OpenAIVideoJob = S.Struct({
+  id: S.String,
+  status: S.String,
+  created_at: S.optional(S.Number),
+  progress: S.optional(S.NullOr(S.Number)),
+  seconds: S.optional(S.Union(S.String, S.Number)),
+  size: S.optional(S.String),
+  error: S.optional(
+    S.NullOr(
+      S.Struct({
+        code: S.optional(S.String),
+        message: S.optional(S.String),
+      }),
+    ),
+  ),
+});
+export type TOpenAIVideoJob = S.Schema.Type<typeof OpenAIVideoJob>;
+
+export const OpenAIVideoProviderOptions = S.Struct({
+  providerModelId: S.String,
+});
+export type TOpenAIVideoProviderOptions = S.Schema.Type<
+  typeof OpenAIVideoProviderOptions
+>;
+
+// ─── Google AI Studio — video generation (Veo, predictLongRunning) ──────────
+
+export const GoogleVideoCreateRequest = S.Struct({
+  instances: S.Array(
+    S.Struct({
+      prompt: S.String,
+    }),
+  ),
+  parameters: S.Struct({
+    aspectRatio: S.optional(S.String),
+    resolution: S.optional(S.String),
+    durationSeconds: S.optional(S.Number),
+  }),
+});
+export type TGoogleVideoCreateRequest = S.Schema.Type<
+  typeof GoogleVideoCreateRequest
+>;
+
+// predictLongRunning returns a bare long-running-operation handle.
+export const GoogleVideoOperationRef = S.Struct({
+  name: S.String,
+});
+export type TGoogleVideoOperationRef = S.Schema.Type<
+  typeof GoogleVideoOperationRef
+>;
+
+// GET /v1beta/{operation.name} — the poll envelope. `response` is left
+// opaque; the provider extracts the generated video URI with a typed
+// walker (`generateVideoResponse.generatedSamples[0].video.uri`, with a
+// `generatedVideos` fallback some Veo revisions use).
+export const GoogleVideoOperation = S.Struct({
+  name: S.optional(S.String),
+  done: S.optional(S.Boolean),
+  error: S.optional(
+    S.Struct({
+      code: S.optional(S.Number),
+      message: S.optional(S.String),
+    }),
+  ),
+  response: S.optional(S.Unknown),
+});
+export type TGoogleVideoOperation = S.Schema.Type<typeof GoogleVideoOperation>;
+
+export const GoogleVideoProviderOptions = S.Struct({
+  providerModelId: S.String,
+});
+export type TGoogleVideoProviderOptions = S.Schema.Type<
+  typeof GoogleVideoProviderOptions
 >;
 
 // ─── Bedrock — Amazon Titan v2 embeddings ────────────────────────────────────

@@ -6,6 +6,7 @@ export const ModelCapability = S.Literal(
   "transcription",
   "speech",
   "image_generation",
+  "video_generation",
   "vision",
   "tools",
   "json_mode",

@@ -89,6 +89,21 @@ export type TCustomApiCatalogEntry = S.Schema.Type<
   typeof CustomApiCatalogEntry
 >;
 
+/**
+ * One subscription the user has told us they pay for. `plan` is a plan id
+ * from the app's per-provider plan catalog, or `custom` — the escape hatch
+ * for regional pricing / seats / a plan we don't list, where `monthly_usd`
+ * carries the amount the user typed.
+ */
+export const SubscriptionPlanSelection = S.Struct({
+  provider: S.String,
+  plan: S.String,
+  monthly_usd: S.optional(S.Number),
+});
+export type TSubscriptionPlanSelection = S.Schema.Type<
+  typeof SubscriptionPlanSelection
+>;
+
 export const ExtraConfig = S.Struct({
   search_provider: S.optional(S.String),
   custom_apis: S.optional(S.Array(CustomApiCatalogEntry)),
@@ -103,6 +118,18 @@ export const ExtraConfig = S.Struct({
    * daemon isn't connected). Set on connect; never auto-removed.
    */
   subscription_providers: S.optional(S.Array(S.String)),
+  /**
+   * What the user pays each month for the subscriptions above — declared
+   * by hand on the overview savings card, one row per connected provider.
+   * There is no vendor API that reports a plan tier, so the user picks it
+   * (`plan` is a catalog id like `max_5x`, or `custom` when they type the
+   * amount). `monthly_usd` is read only for `custom`; catalogued plans
+   * resolve their list price from the app's plan catalog so a price change
+   * ships as a code change. Drives the savings math: subscription spend is
+   * a COST, netted against what the same usage would have cost at metered
+   * API rates.
+   */
+  subscription_plans: S.optional(S.Array(SubscriptionPlanSelection)),
   /**
    * Default tier aliases (`ultra` / `plus` / `lite`) the user explicitly
    * DELETED from the chains editor. Derivation of virtual default chains

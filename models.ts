@@ -103,6 +103,15 @@ export const ExtendedModel = S.Struct({
   max_input_tokens: S.optional(S.Number),
   max_output_tokens: S.optional(S.Number),
   pricing: S.optional(ModelPricing),
+  /**
+   * Subscription models only: what the same tokens would cost at
+   * metered API pricing. Distinct from `pricing` — subscription usage
+   * bills $0 per token (flat vendor subscription), so `pricing` stays
+   * unset while this field feeds the overview savings computation.
+   * Derived from the metered sibling's `pricing` where one exists
+   * (see `subscriptionTwin` in the api catalog).
+   */
+  api_equivalent_pricing: S.optional(ModelPricing),
   deprecated: S.optional(S.Boolean),
   // Embedding-only metadata — see ExtendedModelCard for semantics.
   dimension_presets: S.optional(S.Array(S.Number)),

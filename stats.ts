@@ -49,6 +49,15 @@ export const UserStats = S.Struct({
   total_tokens_in: S.Number,
   total_tokens_out: S.Number,
   total_cost_usd: S.Number,
+  /**
+   * What the same window's usage would have cost at pure metered API
+   * pricing: non-subscription rows contribute their real `cost_usd`;
+   * subscription rows (which log cost 0) are re-priced from the static
+   * catalog pricing at API-equivalent per-token rates. Drives the
+   * overview savings bar (`total_api_equivalent_cost_usd -
+   * total_cost_usd` = what OpenLLM subscription routing saved).
+   */
+  total_api_equivalent_cost_usd: S.Number,
   by_model: S.Array(ModelBreakdown),
   daily: S.Array(DailyBucket),
 });

@@ -137,16 +137,17 @@ export type TAdminStats = S.Schema.Type<typeof AdminStats>;
 // ─── Stacked / grouped requests for the overview "Recent Requests" table ─────
 
 /**
- * A horizontal grouping of recent requests by (model, endpoint) within a
+ * A horizontal grouping of recent requests by (provider, model) within a
  * sliding window. The overview table renders one row per group with an
  * `N×` badge; expanding fans out the individual rows via
- * `requestItems`.
+ * `requestItems`, each carrying its own endpoint.
  */
 export const GroupedRequest = S.Struct({
   id: S.String,
   provider: S.String,
   model: S.NullOr(S.String),
-  endpoint: S.NullOr(S.String),
+  /** Distinct endpoints inside the bucket (empty when all rows had none). */
+  endpoints: S.Array(S.String),
   count: S.Number,
   tokens_in: S.Number,
   tokens_out: S.Number,

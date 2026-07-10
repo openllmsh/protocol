@@ -45,7 +45,24 @@ const InputAudioPart = S.Struct({
   }),
 });
 
-const ContentPart = S.Union(TextPart, ImageUrlPart, InputAudioPart);
+/**
+ * OpenAI-native file attachment (PDFs etc.). `file_data` is a data URL
+ * (`data:<mime>;base64,<b64>`); `file_id` references a provider-side
+ * uploaded file. The canonical carrier for Anthropic `document` blocks
+ * on cross-provider hops.
+ */
+const FilePart = S.Struct({
+  type: S.Literal("file"),
+  file: S.Struct({
+    file_data: S.optional(S.String),
+    file_id: S.optional(S.String),
+    filename: S.optional(S.String),
+  }),
+  cache_control: S.optional(S.NullOr(CacheControl)),
+});
+export type TFilePart = S.Schema.Type<typeof FilePart>;
+
+const ContentPart = S.Union(TextPart, ImageUrlPart, InputAudioPart, FilePart);
 
 const MessageContent = S.Union(S.String, S.Array(ContentPart));
 

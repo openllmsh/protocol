@@ -45,6 +45,12 @@ const AnthropicCacheControl = S.Struct({ type: S.Literal("ephemeral") });
 const AnthropicTextBlock = S.Struct({
   type: S.Literal("text"),
   text: S.String,
+  // Citation-bearing text blocks (returned when a document block has
+  // `citations.enabled` and replayed verbatim as assistant history).
+  // Kept opaque — the gateway never re-parses citations downstream, but
+  // without this field the parsed-body re-serialize path (dispatch-chain
+  // mutation branch) would silently strip them.
+  citations: S.optional(S.Unknown),
   cache_control: S.optional(S.NullOr(AnthropicCacheControl)),
 });
 
@@ -55,11 +61,65 @@ const AnthropicImageSource = S.Union(
     data: S.String,
   }),
   S.Struct({ type: S.Literal("url"), url: S.String }),
+  // Files API reference (beta `files-api-2025-04-14`).
+  S.Struct({ type: S.Literal("file"), file_id: S.String }),
 );
 
 const AnthropicImageBlock = S.Struct({
   type: S.Literal("image"),
   source: AnthropicImageSource,
+  cache_control: S.optional(S.NullOr(AnthropicCacheControl)),
+});
+
+/** PDF / plain-text / custom-content document attachments. */
+const AnthropicDocumentSource = S.Union(
+  S.Struct({
+    type: S.Literal("base64"),
+    media_type: S.String,
+    data: S.String,
+  }),
+  S.Struct({ type: S.Literal("url"), url: S.String }),
+  S.Struct({
+    type: S.Literal("text"),
+    media_type: S.String,
+    data: S.String,
+  }),
+  // Custom-content documents — kept opaque: the gateway never
+  // re-parses the inner block list downstream.
+  S.Struct({ type: S.Literal("content"), content: S.Unknown }),
+  // Files API reference (beta `files-api-2025-04-14`).
+  S.Struct({ type: S.Literal("file"), file_id: S.String }),
+);
+
+const AnthropicDocumentBlock = S.Struct({
+  type: S.Literal("document"),
+  source: AnthropicDocumentSource,
+  title: S.optional(S.NullOr(S.String)),
+  context: S.optional(S.NullOr(S.String)),
+  citations: S.optional(S.Struct({ enabled: S.Boolean })),
+  cache_control: S.optional(S.NullOr(AnthropicCacheControl)),
+});
+export type TAnthropicDocumentBlock = S.Schema.Type<
+  typeof AnthropicDocumentBlock
+>;
+
+/** RAG search-result blocks (citable sources supplied by the client). */
+const AnthropicSearchResultBlock = S.Struct({
+  type: S.Literal("search_result"),
+  source: S.String,
+  title: S.String,
+  content: S.Array(AnthropicTextBlock),
+  citations: S.optional(S.Unknown),
+  cache_control: S.optional(S.NullOr(AnthropicCacheControl)),
+});
+export type TAnthropicSearchResultBlock = S.Schema.Type<
+  typeof AnthropicSearchResultBlock
+>;
+
+/** Code-execution container file reference (Files API upload). */
+const AnthropicContainerUploadBlock = S.Struct({
+  type: S.Literal("container_upload"),
+  file_id: S.String,
   cache_control: S.optional(S.NullOr(AnthropicCacheControl)),
 });
 
@@ -74,11 +134,19 @@ const AnthropicToolUseBlock = S.Struct({
 const AnthropicToolResultBlock = S.Struct({
   type: S.Literal("tool_result"),
   tool_use_id: S.String,
-  // A tool_result may carry image blocks alongside text (e.g. a tool
-  // returning a screenshot) — a normal, documented Anthropic shape.
+  // A tool_result may carry image / document / search_result blocks
+  // alongside text (e.g. a tool returning a screenshot or a retrieved
+  // document) — all normal, documented Anthropic shapes.
   content: S.Union(
     S.String,
-    S.Array(S.Union(AnthropicTextBlock, AnthropicImageBlock)),
+    S.Array(
+      S.Union(
+        AnthropicTextBlock,
+        AnthropicImageBlock,
+        AnthropicDocumentBlock,
+        AnthropicSearchResultBlock,
+      ),
+    ),
   ),
   is_error: S.optional(S.Boolean),
   cache_control: S.optional(S.NullOr(AnthropicCacheControl)),
@@ -131,6 +199,9 @@ const AnthropicRedactedThinkingBlock = S.Struct({
 export const AnthropicContentBlock = S.Union(
   AnthropicTextBlock,
   AnthropicImageBlock,
+  AnthropicDocumentBlock,
+  AnthropicSearchResultBlock,
+  AnthropicContainerUploadBlock,
   AnthropicToolUseBlock,
   AnthropicToolResultBlock,
   AnthropicThinkingBlock,
@@ -304,6 +375,13 @@ const AnthropicCompactionDelta = S.Struct({
   content: S.optional(S.Unknown),
 });
 
+/** Streamed citation attachment for a text block (document citations
+ * enabled) — kept opaque; only decoded (non-passthrough) streams see it. */
+const AnthropicCitationsDelta = S.Struct({
+  type: S.Literal("citations_delta"),
+  citation: S.Unknown,
+});
+
 const AnthropicContentBlockDeltaEvent = S.Struct({
   type: S.Literal("content_block_delta"),
   index: S.Number,
@@ -313,6 +391,7 @@ const AnthropicContentBlockDeltaEvent = S.Struct({
     AnthropicThinkingDelta,
     AnthropicSignatureDelta,
     AnthropicCompactionDelta,
+    AnthropicCitationsDelta,
   ),
 });
 

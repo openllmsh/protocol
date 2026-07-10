@@ -24,6 +24,14 @@ const ResponsesInputContentPart = S.Union(
     image_url: S.String,
     detail: S.optional(S.Literal("auto", "low", "high")),
   }),
+  S.Struct({
+    type: S.Literal("input_file"),
+    filename: S.optional(S.String),
+    // Data URL (`data:<mime>;base64,<b64>`) — same encoding as the
+    // canonical chat `file` part's `file_data`.
+    file_data: S.optional(S.String),
+    file_id: S.optional(S.NullOr(S.String)),
+  }),
 );
 
 const ResponsesMessageItem = S.Struct({

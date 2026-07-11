@@ -94,6 +94,14 @@ export const DaemonRecordRequest = S.Struct({
   idempotency_key: S.optional(S.NullOr(S.String)),
   error: S.optional(S.NullOr(S.String)),
   endpoint: S.optional(S.NullOr(S.String)),
+  /** Obscured vendor-account identity of the credential that SERVED this
+   *  hop — the same `sha256("openllm-account-v1:<provider>:<id>")` digest
+   *  the status frame reports, computed from the token that ran the
+   *  request. Lets the usage-calibration estimator attribute this row's
+   *  cost to the right meter series when a provider has several accounts.
+   *  Optional so daemons predating the field still record (the cloud
+   *  stores null → the estimator's conservative null pool). */
+  account_hash: S.optional(S.String),
 });
 export type TDaemonRecordRequest = S.Schema.Type<typeof DaemonRecordRequest>;
 

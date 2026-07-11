@@ -61,26 +61,56 @@ export type TDailyBucket = S.Schema.Type<typeof DailyBucket>;
  * may present them as "≥ $X"; `tightness` near 1 means the estimate has
  * converged and can read as "≈".
  */
+export const InferredWindowUsage = S.Struct({
+  window_label: S.String,
+  percent_used: S.Number,
+  used_usd: S.Number,
+  headroom_usd: S.Number,
+  bracket_usd: S.Number,
+});
+export type TInferredWindowUsage = S.Schema.Type<typeof InferredWindowUsage>;
+
+/**
+ * One vendor ACCOUNT's inferred figures — the per-account detail behind a
+ * provider's rollup when several accounts are calibrated at once (two
+ * machines on two logins). Note an account's figures are ACCOUNT-level:
+ * every openllm user linked to the same vendor account sees the same
+ * numbers — that is by design, not double counting to be "fixed" (the
+ * meter is the account's).
+ */
+export const InferredAccountUsage = S.Struct({
+  /** Obscured account identity (`sha256("openllm-account-v1:…")`), or null
+   *  for the legacy assumed-single-account series. */
+  account_hash: S.NullOr(S.String),
+  off_gateway_usd: S.Number,
+  current_window: S.NullOr(InferredWindowUsage),
+  pair_count: S.Number,
+  tightness: S.Number,
+});
+export type TInferredAccountUsage = S.Schema.Type<typeof InferredAccountUsage>;
+
 export const InferredProviderUsage = S.Struct({
   provider: S.String,
   /** API-eq value of 30-day usage the gateway never saw (other devices /
-   *  raw CLI / vendor apps). Lower bound. */
+   *  raw CLI / vendor apps). Lower bound; with several accounts, the sum
+   *  of their independent lower bounds. */
   off_gateway_usd: S.Number,
   /** The in-progress window's figures, when a calibrated series has a
-   *  current reading — drives the providers-page headroom line. */
-  current_window: S.NullOr(
-    S.Struct({
-      window_label: S.String,
-      percent_used: S.Number,
-      used_usd: S.Number,
-      headroom_usd: S.Number,
-      bracket_usd: S.Number,
-    }),
-  ),
-  /** Valid calibration pairs behind K̂ — 0 pairs never reaches here. */
+   *  current reading — drives the providers-page headroom line. NULL when
+   *  several accounts are calibrated (each has its own in-progress window;
+   *  read `accounts` instead). */
+  current_window: S.NullOr(InferredWindowUsage),
+  /** Valid calibration pairs behind K̂ — 0 pairs never reaches here. With
+   *  several accounts: the SUM across accounts (evidence volume). */
   pair_count: S.Number,
-  /** 0–1; ≥ ~0.8 reads as converged ("≈" instead of "≥"). */
+  /** 0–1; ≥ ~0.8 reads as converged ("≈" instead of "≥"). With several
+   *  accounts: the MIN across accounts, so the conservative "≥" rendering
+   *  wins whenever any account is still loose. */
   tightness: S.Number,
+  /** Per-account detail, present only when ≥2 accounts calibrated for this
+   *  provider. Absent in the single-account case — the top-level fields
+   *  ARE that account's. */
+  accounts: S.optional(S.Array(InferredAccountUsage)),
 });
 export type TInferredProviderUsage = S.Schema.Type<
   typeof InferredProviderUsage

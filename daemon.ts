@@ -120,6 +120,12 @@ export const DaemonModelReportEntry = S.Struct({
   // Same per-list bound as `ProviderModelList` (defense-in-depth on
   // this authenticated write path).
   models: ProviderModelList,
+  /** Vendor CLI version (bare semver) that OBSERVED this list. Some
+   *  vendors gate model visibility by client version (Codex does), so
+   *  the cloud uses this to refuse a write that would replace a fresh
+   *  row produced by a NEWER CLI on another device. Optional so daemons
+   *  built before the field still report (their writes stay permissive). */
+  cli_version: S.optional(S.String.pipe(S.maxLength(64))),
 });
 export type TDaemonModelReportEntry = S.Schema.Type<
   typeof DaemonModelReportEntry

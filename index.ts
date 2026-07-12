@@ -10,5 +10,6 @@ export * from "./provider-usage";
 export * from "./providers";
 export * from "./relay";
 export * from "./responses";
+export * from "./semver";
 export * from "./stats";
 export * from "./streaming";

@@ -355,7 +355,9 @@ export type TDaemonCmdRequest = S.Schema.Type<typeof DaemonCmdRequest>;
  *  `ack`/`status` frames in `relay.ts` carry these). */
 export const DaemonCommandAck = S.Struct({
   id: S.String,
-  status: S.Literal("done", "error"),
+  /** `ack` confirms that the daemon dequeued the command. Terminal outcomes
+   * retain the previous ack shape for older relay binaries. */
+  status: S.Literal("ack", "done", "not_done", "error"),
   result: S.optional(S.Unknown),
 });
 export type TDaemonCommandAck = S.Schema.Type<typeof DaemonCommandAck>;

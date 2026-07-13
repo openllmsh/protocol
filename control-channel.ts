@@ -20,6 +20,10 @@ export type { TDaemonCommand, TDaemonCommandKind } from "./daemon";
 // control-channel contract from one module.
 export { DaemonCommand, DaemonCommandKind } from "./daemon";
 
+/** Additive relay protocol version. Peers without it use legacy best-effort
+ * ordering until their daemon binary is upgraded. */
+export const RELAY_PROTOCOL_VERSION = 2;
+
 /**
  * The command lifecycle — daemon-asserted, pushed live over the socket.
  * Replaces the old `DaemonCommandAck { status: "done" | "error" }` binary with
@@ -64,8 +68,12 @@ export type TTerminalCommandState = S.Schema.Type<typeof TerminalCommandState>;
  */
 export const CommandLifecycle = S.Struct({
   req_id: S.String,
+  command_id: S.optional(S.String),
   key_id: S.String,
+  daemon_session_id: S.optional(S.String),
   slug: S.optional(S.String),
+  integration_kind: S.optional(S.Literal("plugin", "setup")),
+  target: S.optional(S.String),
   kind: DaemonCommandKind,
   state: CommandState,
   message: S.optional(S.String),

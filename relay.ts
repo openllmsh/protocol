@@ -168,6 +168,8 @@ export type TRelayChannelResponse = S.Schema.Type<typeof RelayChannelResponse>;
 export const RelayHelloFrame = S.Struct({
   type: S.Literal("hello"),
   ticket: S.String,
+  /** Daemon protocol capability; absent daemons retain legacy compatibility. */
+  protocol_version: S.optional(S.Number),
   /** Daemon only: initial per-provider `TDaemonStatus` snapshot, folded
    *  into `api_key_activity.daemon_status_json` on connect. */
   status: S.optional(S.Unknown),
@@ -185,6 +187,10 @@ export const RelayWelcomeFrame = S.Struct({
    *  `api_key_activity` row (ungraceful relay death) is corrected the instant a
    *  watcher (re)connects. Live status keeps flowing via `status_push`. */
   snapshot: S.optional(S.Array(S.String)),
+  /** Daemon only: relay-assigned connection epoch for ordered snapshots. */
+  daemon_session_id: S.optional(S.String),
+  daemon_session_started_at_ms: S.optional(S.Number),
+  protocol_version: S.optional(S.Number),
 });
 export type TRelayWelcomeFrame = S.Schema.Type<typeof RelayWelcomeFrame>;
 
@@ -213,6 +219,9 @@ export const RelayStatusFrame = S.Struct({
   type: S.Literal("status"),
   active: S.optional(S.Boolean),
   status: S.optional(S.Unknown),
+  /** Present for protocol-v2 daemon status snapshots. */
+  daemon_session_id: S.optional(S.String),
+  status_seq: S.optional(S.Number),
   acks: S.optional(S.Array(DaemonCommandAck)),
 });
 export type TRelayStatusFrame = S.Schema.Type<typeof RelayStatusFrame>;
@@ -250,6 +259,9 @@ export const RelayStatusPushFrame = S.Struct({
   type: S.Literal("status_push"),
   key_id: S.String,
   status: S.Unknown,
+  daemon_session_id: S.optional(S.String),
+  daemon_session_started_at_ms: S.optional(S.Number),
+  status_seq: S.optional(S.Number),
 });
 export type TRelayStatusPushFrame = S.Schema.Type<typeof RelayStatusPushFrame>;
 

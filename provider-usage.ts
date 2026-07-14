@@ -77,6 +77,29 @@ export const ProviderUsageSnapshot = S.Union(
      * read. See `packages/daemon/src/usage-cache.ts`.
      */
     stale: S.optional(S.Boolean),
+    /**
+     * Feature-scoped pools metering DIFFERENT usage than `windows` (e.g.
+     * Codex's per-model promo pools under `additional_rate_limits`).
+     * DISPLAY-ONLY: the relay persists only `windows` for calibration —
+     * a separate pool priced against the main meter's K̂ would be wrong,
+     * and pools must never become the card's tightest-window meter.
+     */
+    extra_pools: S.optional(S.Array(ProviderUsageWindow)),
+    /**
+     * Vendor credit state, when reported (Codex's `credits` +
+     * `rate_limit_reset_credits`). Display-only — lets the card account
+     * for capacity that exists OUTSIDE the quota windows.
+     */
+    credits: S.optional(
+      S.Struct({
+        /** Raw balance string as the vendor reports it ("0", "1250"). */
+        balance: S.String,
+        /** Vendor reports the balance as unlimited. */
+        unlimited: S.optional(S.Boolean),
+        /** Limit-reset credits available (each lifts a hit limit). */
+        reset_credits: S.optional(S.Number),
+      }),
+    ),
   }),
   /**
    * Subscription plan / entitlements snapshot. No live quota number;

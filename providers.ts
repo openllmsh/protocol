@@ -170,8 +170,7 @@ const AnthropicCompactionBlock = S.Struct({
 // passthrough) put in a response must also decode on the way back in —
 // otherwise the routing-time parse 400s the gateway's own output (#181).
 
-/** Native server-side tool call — spliced into responses by
- * `buildAnthropicWebSearchBlocks` and returned by Anthropic passthrough. */
+/** Native server-side tool call returned by genuine Anthropic passthrough. */
 const AnthropicServerToolUseBlock = S.Struct({
   type: S.Literal("server_tool_use"),
   id: S.String,

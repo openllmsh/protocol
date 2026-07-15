@@ -312,6 +312,13 @@ export const AnthropicUsage = S.Struct({
   output_tokens: S.Number,
   cache_creation_input_tokens: S.optional(S.NullOr(S.Number)),
   cache_read_input_tokens: S.optional(S.NullOr(S.Number)),
+  /** Server-tool activity this turn. Clients (Claude Code's WebSearch) read
+   *  `web_search_requests` to count searches — set both by genuine Anthropic
+   *  passthrough and by the gateway's cross-wire re-encode of provider-hosted
+   *  search (`server_search_calls`). */
+  server_tool_use: S.optional(
+    S.NullOr(S.Struct({ web_search_requests: S.optional(S.Number) })),
+  ),
 });
 export type TAnthropicUsage = S.Schema.Type<typeof AnthropicUsage>;
 
@@ -410,6 +417,10 @@ const AnthropicMessageDeltaEvent = S.Struct({
     input_tokens: S.optional(S.NullOr(S.Number)),
     cache_creation_input_tokens: S.optional(S.NullOr(S.Number)),
     cache_read_input_tokens: S.optional(S.NullOr(S.Number)),
+    /** Server-tool counters on the terminal delta (mirrors `AnthropicUsage`). */
+    server_tool_use: S.optional(
+      S.NullOr(S.Struct({ web_search_requests: S.optional(S.Number) })),
+    ),
   }),
 });
 

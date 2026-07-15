@@ -80,6 +80,25 @@ const UserMessage = S.Struct({
   cache_control: S.optional(S.NullOr(CacheControl)),
 });
 
+/**
+ * One PROVIDER-executed (hosted/server-side) web search that ran inside the
+ * upstream turn — e.g. Codex hosted `web_search` on a chatgpt native hop.
+ * Canonical and wire-neutral: client wires re-encode it (Anthropic →
+ * `server_tool_use` + `web_search_tool_result` blocks and
+ * `usage.server_tool_use.web_search_requests`). The gateway never executes
+ * anything to produce one of these — it only REPORTS what the provider did;
+ * result contents stay provider-internal (only the queries are visible).
+ */
+export const ServerSearchCall = S.Struct({
+  /** Provider item id (e.g. Codex `ws_…`) — becomes the block id. */
+  id: S.String,
+  /** The primary query the provider searched. */
+  query: S.String,
+  /** Fan-out queries when the provider reports them (Codex `action.queries`). */
+  queries: S.optional(S.Array(S.String)),
+});
+export type TServerSearchCall = S.Schema.Type<typeof ServerSearchCall>;
+
 const AssistantMessage = S.Struct({
   role: S.Literal("assistant"),
   content: S.optional(S.NullOr(MessageContent)),
@@ -90,6 +109,10 @@ const AssistantMessage = S.Struct({
   reasoning_content: S.optional(S.NullishOr(S.String)),
   /** Terminal `response.completed` reasoning round-trip (LiteLLM `Delta.reasoning_items`). */
   reasoning_items: S.optional(S.NullishOr(S.Array(S.Unknown))),
+  /** Provider-executed hosted web searches this turn (see `ServerSearchCall`).
+   *  Optional on inbound history replay too — the gateway emits it, so it must
+   *  also decode on the way back in (#181). */
+  server_search_calls: S.optional(S.NullishOr(S.Array(ServerSearchCall))),
   cache_control: S.optional(S.NullOr(CacheControl)),
 });
 
@@ -293,6 +316,9 @@ const ChatChunkDelta = S.Struct({
   refusal: S.optional(S.NullishOr(S.String)),
   reasoning_content: S.optional(S.NullishOr(S.String)),
   reasoning_items: S.optional(S.NullishOr(S.Array(S.Unknown))),
+  /** Provider-executed hosted web searches, emitted once per completed
+   *  provider search item (see `ServerSearchCall`). */
+  server_search_calls: S.optional(S.NullishOr(S.Array(ServerSearchCall))),
 });
 
 const ChatChunkChoice = S.Struct({

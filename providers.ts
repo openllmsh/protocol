@@ -307,18 +307,21 @@ export const AnthropicStopReason = S.Literal(
 );
 export type TAnthropicStopReason = S.Schema.Type<typeof AnthropicStopReason>;
 
+/** Server-tool activity counters. Clients (Claude Code's WebSearch) read
+ *  `web_search_requests` to count searches — set both by genuine Anthropic
+ *  passthrough and by the gateway's cross-wire re-encode of provider-hosted
+ *  search (`server_search_calls`). ONE definition shared by the response
+ *  usage and the terminal `message_delta` usage so the two can't drift. */
+const AnthropicServerToolUseUsage = S.Struct({
+  web_search_requests: S.optional(S.Number),
+});
+
 export const AnthropicUsage = S.Struct({
   input_tokens: S.Number,
   output_tokens: S.Number,
   cache_creation_input_tokens: S.optional(S.NullOr(S.Number)),
   cache_read_input_tokens: S.optional(S.NullOr(S.Number)),
-  /** Server-tool activity this turn. Clients (Claude Code's WebSearch) read
-   *  `web_search_requests` to count searches — set both by genuine Anthropic
-   *  passthrough and by the gateway's cross-wire re-encode of provider-hosted
-   *  search (`server_search_calls`). */
-  server_tool_use: S.optional(
-    S.NullOr(S.Struct({ web_search_requests: S.optional(S.Number) })),
-  ),
+  server_tool_use: S.optional(S.NullOr(AnthropicServerToolUseUsage)),
 });
 export type TAnthropicUsage = S.Schema.Type<typeof AnthropicUsage>;
 
@@ -418,9 +421,7 @@ const AnthropicMessageDeltaEvent = S.Struct({
     cache_creation_input_tokens: S.optional(S.NullOr(S.Number)),
     cache_read_input_tokens: S.optional(S.NullOr(S.Number)),
     /** Server-tool counters on the terminal delta (mirrors `AnthropicUsage`). */
-    server_tool_use: S.optional(
-      S.NullOr(S.Struct({ web_search_requests: S.optional(S.Number) })),
-    ),
+    server_tool_use: S.optional(S.NullOr(AnthropicServerToolUseUsage)),
   }),
 });
 

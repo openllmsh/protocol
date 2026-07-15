@@ -138,27 +138,6 @@ export const DaemonModelReport = S.Struct({
 });
 export type TDaemonModelReport = S.Schema.Type<typeof DaemonModelReport>;
 
-// ─── POST /api/daemon/search (daemon → cloud) ────────────────────────
-//
-// The content-free web_search callback (coreless proposal §5). When a
-// subscription model the daemon is serving calls the openllm web_search
-// tool, the daemon POSTs ONLY the query here; the cloud recovers the DEK
-// from the daemon's `sk-llm` key, runs the search with the user's vault
-// search credential, and returns the results. The conversation never
-// crosses — only the query (a tool input bound for a third-party engine).
-export const DaemonSearchRequest = S.Struct({ query: S.String });
-export type TDaemonSearchRequest = S.Schema.Type<typeof DaemonSearchRequest>;
-
-export const DaemonSearchResponse = S.Struct({
-  /** Tool-result string fed back to the model on the follow-up turn. */
-  content: S.String,
-  /** Native Anthropic `server_tool_use` block (messages-surface splice). */
-  server_tool_use: S.Unknown,
-  /** Native Anthropic `web_search_tool_result` block. */
-  tool_result: S.Unknown,
-});
-export type TDaemonSearchResponse = S.Schema.Type<typeof DaemonSearchResponse>;
-
 // ─── Daemon control relay (cloud ⇄ daemon over the WebSocket relay) ──
 //
 // The daemon dials OUT and holds ONE WebSocket to the relay (it fetches the

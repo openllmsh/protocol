@@ -1,4 +1,4 @@
-# Contributing to `@quantidexyz/openllmp`
+# Contributing to `@openllmsh/protocol`
 
 This repository is a **read-only mirror**, regenerated from the OpenLLM
 monorepo on every release. Do not expect merges here to stick — the mirror's
@@ -11,7 +11,7 @@ there, and the next release re-mirrors it back. Your PR is then closed as
 
 ## License of contributions
 
-`openllmp` is **MIT**. By contributing you agree your contribution is provided
+`protocol` is **MIT**. By contributing you agree your contribution is provided
 under the MIT License. Please sign off your commits (DCO):
 
 ```

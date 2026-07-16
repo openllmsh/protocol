@@ -5,12 +5,12 @@ import { Schema as S } from "effect";
  * surface the Codex CLI speaks (it dropped chat-completions: `wire_api="chat"`
  * errors). We model the SUBSET Codex emits + expects; unknown extra keys are
  * tolerated (the structs aren't sealed). The gateway adapts a Responses
- * request → canonical ChatCompletion (`@quantidexyz/openllmw/adapters/responses`), runs
+ * request → canonical ChatCompletion (`@openllmsh/wire/adapters/responses`), runs
  * the normal pipeline, and adapts the canonical response/stream back to
  * Responses shape.
  *
  * The request shape mirrors (inverts) `toChatGptRequest`'s body in
- * `@quantidexyz/openllmw/providers/chatgpt/request.ts`, which is the same Responses
+ * `@openllmsh/wire/providers/chatgpt/request.ts`, which is the same Responses
  * API the daemon already speaks UPSTREAM to chatgpt.com.
  */
 

@@ -5,7 +5,7 @@
   </picture>
 </p>
 
-<p align="center"><b>openllmp</b> — the public protocol surface for OpenLLM.</p>
+<p align="center"><b>protocol</b> — the public protocol surface for OpenLLM.</p>
 
 <p align="center">
   <a href="./LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-green.svg"></a>
@@ -28,11 +28,11 @@ OpenLLM client against this and nothing else.
 ## Install
 
 ```sh
-bun install github:quantidexyz/openllmp # latest
+bun install github:openllmsh/protocol # latest
 ```
 
 ```ts
-import { ChatCompletionRequest } from "@quantidexyz/openllmp";
+import { ChatCompletionRequest } from "@openllmsh/protocol";
 import { Schema } from "effect";
 
 const req = Schema.decodeUnknownSync(ChatCompletionRequest)(body);

@@ -77,15 +77,16 @@ export const DaemonBootstrap = S.Struct({
    */
   active_sub_method: S.optional(S.NullOr(SubMethod)),
   /**
-   * Cloud-controlled opt-in for the daemon's SIGNED-PLAN CACHE
-   * (`DAEMON_PLAN_CACHE` on the cloud, default off): when true, a `/v1/*`
-   * request that reaches the daemon directly WITHOUT a `?__plan=` may be
-   * served against the most recent cloud-signed plan tuple for the same
-   * model alias within a short TTL, skipping the per-request cloud round
-   * trip. The signature is still verified per request (the cached tuple is
-   * exactly what the cloud signed); staleness is bounded by the TTL. Off /
-   * absent → the daemon keeps requiring a plan on every request (the
-   * pre-rider behavior). See
+   * Cloud-controlled toggle for the daemon's SIGNED-PLAN CACHE
+   * (`DAEMON_PLAN_CACHE` on the cloud, default ON — an explicit `0`/`false`
+   * disables): when true, a `/v1/*` request that reaches the daemon
+   * directly WITHOUT a `?__plan=` may be served against the most recent
+   * cloud-signed plan tuple for the same model alias within a short TTL,
+   * skipping the per-request cloud round trip. The signature is still
+   * verified per request (the cached tuple is exactly what the cloud
+   * signed); staleness is bounded by the TTL. False → the daemon requires
+   * a plan on every request; ABSENT (a cloud predating the field) → the
+   * daemon also keeps the cache off (the cloud is the one authority). See
    * docs/proposals/sub-method-simplified-execution.md §4.
    */
   plan_cache: S.optional(S.Boolean),

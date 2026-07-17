@@ -21,6 +21,17 @@ export const DaemonCatalogEntry = S.Struct({
 });
 export type TDaemonCatalogEntry = S.Schema.Type<typeof DaemonCatalogEntry>;
 
+/**
+ * How a subscription hop EXECUTES after the cloud selected + signed it:
+ * `bridge` = the native vendor-runtime path (Claude Code stream-json /
+ * Codex app-server); `handrolled` = the manual upstream-HTTP transport.
+ * A cloud-controlled preference, published in the bootstrap payload —
+ * never a daemon-local env. See
+ * `docs/proposals/active-sub-method.md` + `sub-method-simplified-execution.md`.
+ */
+export const SubMethod = S.Literal("bridge", "handrolled");
+export type TSubMethod = S.Schema.Type<typeof SubMethod>;
+
 export const DaemonBootstrap = S.Struct({
   catalog: S.Array(DaemonCatalogEntry),
   provider_prefixes: S.Array(S.String),
@@ -55,6 +66,16 @@ export const DaemonBootstrap = S.Struct({
    * See `packages/daemon/src/cli-self-update.ts`.
    */
   latest_cli_version: S.optional(S.NullOr(S.String)),
+  /**
+   * The cloud's resolved `ACTIVE_SUB_METHOD` preference (server process env,
+   * parsed cloud-side: only lowercase `bridge`/`handrolled`; unset/invalid →
+   * null = no preference). The daemon samples it from its cached bootstrap
+   * snapshot once per hop at selection time; an unsupported preference for a
+   * provider resolves to that provider's default method (`methods[0]` in the
+   * daemon's capability table). Optional so older clouds keep bootstrapping
+   * older daemons.
+   */
+  active_sub_method: S.optional(S.NullOr(SubMethod)),
 });
 export type TDaemonBootstrap = S.Schema.Type<typeof DaemonBootstrap>;
 

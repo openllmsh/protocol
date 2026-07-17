@@ -77,6 +77,20 @@ export const DaemonBootstrap = S.Struct({
    */
   active_sub_method: S.optional(S.NullOr(SubMethod)),
   /**
+   * Per-provider overrides layered on top of `active_sub_method` — parsed
+   * cloud-side from the same `ACTIVE_SUB_METHOD` env (`provider:method`
+   * entries, e.g. `bridge,kimi_code:handrolled`). For a hop the daemon
+   * resolves `overrides[provider] ?? active_sub_method` before the
+   * capability check; an override for an unsupported method still falls
+   * back to the provider default. String-keyed (not the closed slug
+   * literal) so a newer cloud advertising a slug this daemon predates
+   * never fails bootstrap decode. Optional/null so older clouds keep
+   * bootstrapping newer daemons and vice versa.
+   */
+  active_sub_methods: S.optional(
+    S.NullOr(S.Record({ key: S.String, value: SubMethod })),
+  ),
+  /**
    * Cloud-controlled toggle for the daemon's SIGNED-PLAN CACHE
    * (`DAEMON_PLAN_CACHE` on the cloud, default ON — an explicit `0`/`false`
    * disables): when true, a `/v1/*` request that reaches the daemon

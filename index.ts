@@ -7,6 +7,7 @@ export * from "./device-state";
 export * from "./errors";
 export * from "./models";
 export * from "./provider-usage";
+export * from "./registry-pointer";
 export * from "./providers";
 export * from "./relay";
 export * from "./responses";

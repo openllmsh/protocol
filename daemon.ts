@@ -213,7 +213,7 @@ export type TSubscriptionProviderSlug = S.Schema.Type<
 >;
 
 /** Integration areas served by the gateway install pipeline. */
-export const DaemonIntegrationKind = S.Literal("plugin", "setup");
+export const DaemonIntegrationKind = S.Literal("extension", "setup");
 export type TDaemonIntegrationKind = S.Schema.Type<
   typeof DaemonIntegrationKind
 >;
@@ -458,7 +458,7 @@ export type TDaemonCloudState = S.Schema.Type<typeof DaemonCloudState>;
  *  Install vs ✓ installed / Uninstall button. See
  *  `docs/proposals/daemon-integration-triggers.md` §7. */
 export const DaemonInstalledIntegration = S.Struct({
-  kind: S.Literal("plugin", "setup"),
+  kind: S.Literal("extension", "setup"),
   slug: S.String,
   installed: S.Boolean,
   /** Installed but the managed config no longer matches what the CURRENT

@@ -246,6 +246,11 @@ const SubmitLoginCodePayload = S.Struct({
   sealed: Base64Blob,
 });
 const SetAutoUpdatePayload = S.Struct({ enabled: S.Boolean });
+/** Toggle the daemon's local-first gateway mode (`OPENLLM_LOCAL_GATEWAY` in
+ *  `~/.openllm/.env`, default ON): serve direct client requests via the
+ *  signed-plan flow instead of pure passthrough. See
+ *  `docs/proposals/local-first-gateway.md` §3. */
+const SetLocalGatewayPayload = S.Struct({ enabled: S.Boolean });
 /** `refresh` scoped to one provider's usage cache; bare `{}` clears all. */
 const RefreshPayload = S.Struct({
   slug: S.optional(SubscriptionProviderSlug),
@@ -313,6 +318,11 @@ const commandVariants = <F extends S.Struct.Fields>(addressing: F) =>
     }),
     S.Struct({
       ...addressing,
+      kind: S.Literal("set_local_gateway"),
+      payload: SetLocalGatewayPayload,
+    }),
+    S.Struct({
+      ...addressing,
       kind: S.Literal("refresh"),
       payload: S.optional(RefreshPayload),
     }),
@@ -351,6 +361,7 @@ export const DaemonCommandKind = S.Literal(
   "uninstall_integration",
   "submit_login_code",
   "set_auto_update",
+  "set_local_gateway",
   "refresh",
   "status",
   "update",
@@ -489,6 +500,13 @@ export const DaemonStatus = S.Struct({
    *  Absent on daemons too old to report it — those always self-updated, so the
    *  switch then reads as on. See `packages/daemon/src/auto-update-pref.ts`. */
   auto_update: S.optional(S.Boolean),
+  /** Whether local-first gateway mode is enabled (`OPENLLM_LOCAL_GATEWAY`,
+   *  OPT-OUT, default on): direct client requests (base URL = the daemon)
+   *  are served via the signed-plan flow; off = pure passthrough to the
+   *  origin. Toggled via the `set_local_gateway` command; absent on daemons
+   *  too old to report it (those have no local-first path — the switch then
+   *  hides). See `docs/proposals/local-first-gateway.md`. */
+  local_gateway: S.optional(S.Boolean),
   /** Result of the last bootstrap — see `DaemonCloudState`. */
   cloud_state: DaemonCloudState,
   /** This daemon's X25519 public key (SPKI DER, base64). Lets ANOTHER of the
@@ -535,6 +553,28 @@ export const daemonPlanSigningPayload = (
   providerModelIds: string,
   origin: string,
 ): string => `${plan}\n${providerModelIds}\n${origin}`;
+
+// ─── GET /api/daemon/plan (daemon → cloud) ───────────────────────────
+//
+// The local-first gateway's plan fetch: the SAME signed tuple a
+// same-machine 307 carries in its query, returned as JSON so a daemon
+// serving a DIRECT client request can obtain a plan without the request
+// body transiting the cloud. The daemon verifies `sig` with the
+// bootstrap-delivered per-user key (`planSignatureOk`) before caching or
+// executing — the endpoint earns no more trust than a 307 does. See
+// `docs/proposals/local-first-gateway.md` §4.1.
+export const DaemonPlanResponse = S.Struct({
+  /** Comma-joined ordered `provider/model` chain (the 307's `__plan`). */
+  plan: S.String,
+  /** Parallel concrete `provider_model_id`s (the 307's `__pmids`). */
+  pmids: S.String,
+  /** The issuing deployment's origin (the 307's `__origin`). */
+  origin: S.String,
+  /** HMAC over the canonical payload; null when the cloud has no signing
+   *  secret configured (dev) — the daemon then treats it as unsigned. */
+  sig: S.NullOr(S.String),
+});
+export type TDaemonPlanResponse = S.Schema.Type<typeof DaemonPlanResponse>;
 
 /** Header a managed client sets when it FOLLOWED a 307 to its loopback and
  *  the daemon refused (stopped/crashed): "route me without the daemon", so the

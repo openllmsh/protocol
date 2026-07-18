@@ -78,8 +78,11 @@ export type TInferredWindowUsage = S.Schema.Type<typeof InferredWindowUsage>;
  *   - `used_usd`     — API-eq value of the account's metered usage over
  *                      the stats month, all devices. Lower bound.
  *   - `bracket_usd`  — the subscription's monthly capacity at API-eq
- *                      rates: one full window's value amortized to 30
- *                      days (bracket × 30d/window-length). Lower bound.
+ *                      rates: max(one full window's value amortized to
+ *                      30 days, Σ observed window grants — scheduled AND
+ *                      promotional off-schedule resets each credit a
+ *                      full window when first observed near 0). Lower
+ *                      bound; guarantees used ≤ bracket.
  *   - `headroom_usd` — max(0, bracket − used).
  *
  * Being duration-normalized, the index is immune to vendor window

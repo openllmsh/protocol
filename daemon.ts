@@ -460,6 +460,8 @@ export type TDaemonCloudState = S.Schema.Type<typeof DaemonCloudState>;
 export const DaemonInstalledIntegration = S.Struct({
   kind: S.Literal("extension", "setup"),
   slug: S.String,
+  /** Client target for an extension; plain setups omit it. */
+  target: S.optional(S.String),
   installed: S.Boolean,
   /** Installed but the managed config no longer matches what the CURRENT
    *  bundle would write (version drift or manual edits). Only meaningful when

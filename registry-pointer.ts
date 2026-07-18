@@ -104,6 +104,15 @@ export const validateRegistryRawUrl = (
       "registry URL identity does not match the requested integration",
     );
   }
+  const canonical = registryRawUrl(
+    commit,
+    expected.area,
+    expected.slug,
+    expected.filename,
+  );
+  if (value !== canonical) {
+    throw new Error("registry URL is not canonical");
+  }
 
   return { commit, area: expected.area, slug, filename: expected.filename };
 };

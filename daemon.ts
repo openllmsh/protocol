@@ -229,11 +229,20 @@ const ArtifactSlug = S.String.pipe(S.pattern(/^[a-z0-9][a-z0-9-]{0,63}$/));
 // '=' characters only at the end (valid base64 format).
 const Base64Blob = S.String.pipe(S.pattern(/^[A-Za-z0-9+/]+={0,2}$/));
 
+/** The closed set of install-time gateway modes: which base URL a client
+ *  setup bakes — the local daemon (`local`, the default) or the cloud
+ *  origin. ONE schema for every wire field and TS union that carries it. */
+export const GatewayMode = S.Literal("local", "cloud");
+export type TGatewayMode = S.Schema.Type<typeof GatewayMode>;
+
 const ProviderPayload = S.Struct({ slug: SubscriptionProviderSlug });
 const IntegrationPayload = S.Struct({
   kind: DaemonIntegrationKind,
   slug: ArtifactSlug,
   target: S.optional(ArtifactSlug),
+  /** Which base URL the install bakes (`--gateway`). Only meaningful on
+   *  `install_integration` for setups declaring `gateway_modes`. */
+  gateway: S.optional(GatewayMode),
 });
 /** A remote-Claude headless-login code submission: the X25519-sealed OAuth
  *  authorization code the user pasted from the hosted callback page. Opened on
@@ -466,6 +475,11 @@ export const DaemonInstalledIntegration = S.Struct({
   /** Installed catalog version reported by the `-s` probe (absent when the
    *  script can't determine one). Display-only. */
   version: S.optional(S.String),
+  /** The gateway mode this item was installed with (`--gateway` stamp):
+   *  which base URL the setup baked. Absent on stamps predating the field
+   *  and on setups that bake no base URL. Drives the dashboard's
+   *  "reinstall required" prompt when the desired mode differs. */
+  gateway: S.optional(GatewayMode),
   /** The registry artifact commit the installed script came from (absent on
    *  pre-stamp installs). Display-only — links the device's version. */
   installed_commit: S.optional(S.String),
@@ -535,6 +549,28 @@ export const daemonPlanSigningPayload = (
   providerModelIds: string,
   origin: string,
 ): string => `${plan}\n${providerModelIds}\n${origin}`;
+
+// ─── GET /api/daemon/plan (daemon → cloud) ───────────────────────────
+//
+// The local-first gateway's plan fetch: the SAME signed tuple a
+// same-machine 307 carries in its query, returned as JSON so a daemon
+// serving a DIRECT client request can obtain a plan without the request
+// body transiting the cloud. The daemon verifies `sig` with the
+// bootstrap-delivered per-user key (`planSignatureOk`) before caching or
+// executing — the endpoint earns no more trust than a 307 does. See
+// `docs/proposals/local-first-gateway.md` §4.1.
+export const DaemonPlanResponse = S.Struct({
+  /** Comma-joined ordered `provider/model` chain (the 307's `__plan`). */
+  plan: S.String,
+  /** Parallel concrete `provider_model_id`s (the 307's `__pmids`). */
+  pmids: S.String,
+  /** The issuing deployment's origin (the 307's `__origin`). */
+  origin: S.String,
+  /** HMAC over the canonical payload; null when the cloud has no signing
+   *  secret configured (dev) — the daemon then treats it as unsigned. */
+  sig: S.NullOr(S.String),
+});
+export type TDaemonPlanResponse = S.Schema.Type<typeof DaemonPlanResponse>;
 
 /** Header a managed client sets when it FOLLOWED a 307 to its loopback and
  *  the daemon refused (stopped/crashed): "route me without the daemon", so the

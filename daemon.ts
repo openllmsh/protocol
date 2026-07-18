@@ -213,7 +213,7 @@ export type TSubscriptionProviderSlug = S.Schema.Type<
 >;
 
 /** Integration areas served by the gateway install pipeline. */
-export const DaemonIntegrationKind = S.Literal("plugin", "setup");
+export const DaemonIntegrationKind = S.Literal("extension", "setup");
 export type TDaemonIntegrationKind = S.Schema.Type<
   typeof DaemonIntegrationKind
 >;
@@ -458,9 +458,17 @@ export type TDaemonCloudState = S.Schema.Type<typeof DaemonCloudState>;
  *  Install vs ✓ installed / Uninstall button. See
  *  `docs/proposals/daemon-integration-triggers.md` §7. */
 export const DaemonInstalledIntegration = S.Struct({
-  kind: S.Literal("plugin", "setup"),
+  kind: S.Literal("extension", "setup"),
   slug: S.String,
+  /** Client target for an extension; plain setups omit it. */
+  target: S.optional(S.String),
   installed: S.Boolean,
+  /** Installed catalog version reported by the `-s` probe (absent when the
+   *  script can't determine one). Display-only. */
+  version: S.optional(S.String),
+  /** The registry artifact commit the installed script came from (absent on
+   *  pre-stamp installs). Display-only — links the device's version. */
+  installed_commit: S.optional(S.String),
   /** Installed but the managed config no longer matches what the CURRENT
    *  bundle would write (version drift or manual edits). Only meaningful when
    *  `installed` is true; absent = unknown/converged (old daemons and scripts

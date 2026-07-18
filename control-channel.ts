@@ -72,7 +72,7 @@ export const CommandLifecycle = S.Struct({
   key_id: S.String,
   daemon_session_id: S.optional(S.String),
   slug: S.optional(S.String),
-  integration_kind: S.optional(S.Literal("plugin", "setup")),
+  integration_kind: S.optional(S.Literal("extension", "setup")),
   target: S.optional(S.String),
   kind: DaemonCommandKind,
   state: CommandState,

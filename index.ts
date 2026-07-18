@@ -8,6 +8,7 @@ export * from "./errors";
 export * from "./models";
 export * from "./provider-usage";
 export * from "./providers";
+export * from "./registry-pointer";
 export * from "./relay";
 export * from "./responses";
 export * from "./semver";

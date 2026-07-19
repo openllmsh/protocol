@@ -554,7 +554,9 @@ export const DaemonStatus = S.Struct({
     S.Array(
       S.Struct({
         id: S.String,
-        cli: S.String,
+        // Same closed vocabulary as `RelaySessionOpenFrame.cli` — a session
+        // can only ever host one of the known subscription CLIs.
+        cli: SubscriptionProviderSlug,
         started_at_ms: S.Number,
         /** A consumer channel is currently bound. */
         attached: S.Boolean,

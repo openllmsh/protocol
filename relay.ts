@@ -293,6 +293,11 @@ export type TRelayPresenceFrame = S.Schema.Type<typeof RelayPresenceFrame>;
  *  frames stay well under WS payload bounds after b64 inflation. */
 export const TUNNEL_CHUNK_MAX = 48 * 1024;
 
+/** Base64 length of a maximal chunk (4 chars per 3 raw bytes — 48 KiB is
+ *  a multiple of 3, so no padding slack). Bounds every `data_b64` field so
+ *  a peer can't ship an arbitrarily large frame past the splitters. */
+export const TUNNEL_CHUNK_B64_MAX = (TUNNEL_CHUNK_MAX / 3) * 4;
+
 /** Idle deadline for a tunnel with no frame activity in either direction —
  *  the relay closes both ends `reason:"timeout"` on its keepalive tick. */
 export const TUNNEL_IDLE_TIMEOUT_MS = 120_000;
@@ -482,7 +487,9 @@ export const RelaySessionIoFrame = S.Struct({
   session_id: SessionId,
   dir: S.Literal("in", "out"),
   seq: S.Number,
-  data_b64: S.String,
+  // Bounded to one maximal chunk after b64 inflation — matches the
+  // sender-side `sendOut` splitter (TUNNEL_CHUNK_MAX raw bytes/frame).
+  data_b64: S.String.pipe(S.maxLength(TUNNEL_CHUNK_B64_MAX)),
 });
 export type TRelaySessionIoFrame = S.Schema.Type<typeof RelaySessionIoFrame>;
 

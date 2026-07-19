@@ -273,6 +273,139 @@ export const RelayPresenceFrame = S.Struct({
 });
 export type TRelayPresenceFrame = S.Schema.Type<typeof RelayPresenceFrame>;
 
+// ─── Subscription tunnel (consumer ⇄ relay ⇄ serving daemon) ─────────
+//
+// A consumer (browser watcher socket, or another daemon's socket) opens a
+// virtual byte channel through the relay to a SERVING daemon, which
+// dispatches the request against its own local `/v1/*` data plane and
+// streams the response back. Same-user only (registry-membership auth,
+// exactly like `enqueue`); the vendor subscription token never crosses —
+// only OpenLLM-wire request/response bytes do. The relay never buffers:
+// frames are forwarded synchronously between the two endpoint sockets.
+// See `docs/features/sub-tunnel-and-chat-sessions.md` §1.
+
+/** Max raw bytes per `tunnel_data` chunk (pre-base64). Shared by the
+ *  serving daemon's response splitter and any consumer request splitter so
+ *  frames stay well under WS payload bounds after b64 inflation. */
+export const TUNNEL_CHUNK_MAX = 48 * 1024;
+
+/** Idle deadline for a tunnel with no frame activity in either direction —
+ *  the relay closes both ends `reason:"timeout"` on its keepalive tick. */
+export const TUNNEL_IDLE_TIMEOUT_MS = 120_000;
+
+/** The `/v1` surface a tunneled request targets. A closed vocabulary — the
+ *  serving daemon maps it to its OWN local endpoint path, so no free URL
+ *  path ever crosses the relay (mirrors the listener's surface
+ *  discriminator). */
+export const TunnelSurface = S.Literal(
+  "chat_completions",
+  "messages",
+  "responses",
+  "responses_compact",
+);
+export type TTunnelSurface = S.Schema.Type<typeof TunnelSurface>;
+
+/** The ONLY request headers a consumer may forward — a closed struct, not a
+ *  free map, per the relay's reviewable-vocabulary posture. Everything else
+ *  (auth, plan params) is the serving daemon's own business. */
+export const TunnelForwardHeaders = S.Struct({
+  content_type: S.optional(S.Literal("application/json")),
+  accept: S.optional(S.Literal("application/json", "text/event-stream")),
+  anthropic_version: S.optional(S.String.pipe(S.maxLength(32))),
+  anthropic_beta: S.optional(S.String.pipe(S.maxLength(256))),
+});
+export type TTunnelForwardHeaders = S.Schema.Type<typeof TunnelForwardHeaders>;
+
+/** Response metadata carried on the FIRST `dir:"res"` data frame. */
+export const TunnelResponseHeaders = S.Struct({
+  content_type: S.optional(S.String.pipe(S.maxLength(128))),
+  is_sse: S.optional(S.Boolean),
+});
+export type TTunnelResponseHeaders = S.Schema.Type<
+  typeof TunnelResponseHeaders
+>;
+
+/** consumer → relay → serving daemon. Open a tunnel to the daemon serving
+ *  `key_id`. The CONSUMER mints `tunnel_id` (uuid); the relay authorizes by
+ *  registry membership (same `user_id`, live daemon socket, not the sender
+ *  itself) and forwards the frame verbatim. */
+export const RelayTunnelOpenFrame = S.Struct({
+  type: S.Literal("tunnel_open"),
+  tunnel_id: S.String,
+  key_id: S.String,
+  method: S.Literal("POST"),
+  surface: TunnelSurface,
+  headers: S.optional(TunnelForwardHeaders),
+  /** Consuming-device tag, threaded into serving-side usage recording. */
+  consumer: S.optional(S.Literal("browser", "daemon")),
+});
+export type TRelayTunnelOpenFrame = S.Schema.Type<typeof RelayTunnelOpenFrame>;
+
+export const TunnelOpenError = S.Literal(
+  "daemon_offline",
+  "tunnel_refused",
+  "tunnel_busy",
+  "invalid_tunnel",
+  "overloaded",
+);
+export type TTunnelOpenError = S.Schema.Type<typeof TunnelOpenError>;
+
+/** serving daemon → relay → consumer (or relay-minted on auth failure). */
+export const RelayTunnelOpenAckFrame = S.Struct({
+  type: S.Literal("tunnel_open_ack"),
+  tunnel_id: S.String,
+  ok: S.Boolean,
+  error: S.optional(TunnelOpenError),
+});
+export type TRelayTunnelOpenAckFrame = S.Schema.Type<
+  typeof RelayTunnelOpenAckFrame
+>;
+
+/** Both directions. One body chunk, base64 (frames are JSON text — binary WS
+ *  frames are dropped). `seq` starts at 0 per direction (WS is ordered; seq
+ *  is a cheap integrity assert + room for credit-based flow control later).
+ *  The first `dir:"res"` frame carries `status` + `res_headers`. */
+export const RelayTunnelDataFrame = S.Struct({
+  type: S.Literal("tunnel_data"),
+  tunnel_id: S.String,
+  seq: S.Number,
+  dir: S.Literal("req", "res"),
+  data_b64: S.String,
+  status: S.optional(S.Number),
+  res_headers: S.optional(TunnelResponseHeaders),
+});
+export type TRelayTunnelDataFrame = S.Schema.Type<typeof RelayTunnelDataFrame>;
+
+/** Sender-side EOF for one direction (request fully sent / response fully
+ *  streamed). A tunnel completes normally after both directions end. */
+export const RelayTunnelEndFrame = S.Struct({
+  type: S.Literal("tunnel_end"),
+  tunnel_id: S.String,
+  dir: S.Literal("req", "res"),
+});
+export type TRelayTunnelEndFrame = S.Schema.Type<typeof RelayTunnelEndFrame>;
+
+export const TunnelCloseReason = S.Literal(
+  "done",
+  "consumer_gone",
+  "daemon_gone",
+  "timeout",
+  "protocol_error",
+  "overloaded",
+);
+export type TTunnelCloseReason = S.Schema.Type<typeof TunnelCloseReason>;
+
+/** Either side / relay-minted — hard teardown. The serving daemon aborts its
+ *  in-flight dispatch; the consumer errors its pending Response stream. */
+export const RelayTunnelCloseFrame = S.Struct({
+  type: S.Literal("tunnel_close"),
+  tunnel_id: S.String,
+  reason: S.optional(TunnelCloseReason),
+});
+export type TRelayTunnelCloseFrame = S.Schema.Type<
+  typeof RelayTunnelCloseFrame
+>;
+
 /** Keepalive (both directions). The relay pings below Cloudflare's
  *  proxied-WS idle bound; a missed pong is the relay's dead-peer signal. */
 export const RelayPingFrame = S.Struct({ type: S.Literal("ping") });
@@ -305,6 +438,11 @@ export const RelayFrame = S.Union(
   RelayStatusPushFrame,
   RelayPresenceFrame,
   RelayCommandLifecycleFrame,
+  RelayTunnelOpenFrame,
+  RelayTunnelOpenAckFrame,
+  RelayTunnelDataFrame,
+  RelayTunnelEndFrame,
+  RelayTunnelCloseFrame,
   RelayPingFrame,
   RelayPongFrame,
 );

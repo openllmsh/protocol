@@ -104,6 +104,20 @@ export const DaemonBootstrap = S.Struct({
    * docs/proposals/sub-method-simplified-execution.md §4.
    */
   plan_cache: S.optional(S.Boolean),
+  /**
+   * The user's FLEET subscription servers: for each subscription provider
+   * connected on some ONLINE daemon of this user, the serving daemon's
+   * key id. Computed cloud-side from `api_key_activity` presence + status
+   * (serve-by-default policy — every online device qualifies). A consuming
+   * daemon with no local credential for a subscription hop tunnels the
+   * request to `key_id` over the relay
+   * (`docs/features/sub-tunnel-and-chat-sessions.md` §1). String-keyed
+   * provider so newer slugs never fail an older daemon's decode; optional
+   * so older clouds keep bootstrapping newer daemons.
+   */
+  fleet_subscriptions: S.optional(
+    S.Array(S.Struct({ provider: S.String, key_id: S.String })),
+  ),
 });
 export type TDaemonBootstrap = S.Schema.Type<typeof DaemonBootstrap>;
 

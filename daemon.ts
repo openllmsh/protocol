@@ -544,6 +544,25 @@ export const DaemonStatus = S.Struct({
    *  best-effort). Absent on daemons too old to report it; the dashboard then
    *  offers both Install + Uninstall (idempotent). */
   integrations: S.optional(S.Array(DaemonInstalledIntegration)),
+  /** Whether this daemon can host device chat sessions (PTY — POSIX only;
+   *  false on win32). Absent on daemons too old to report it — the
+   *  dashboard then hides the device variant for this box. */
+  pty_supported: S.optional(S.Boolean),
+  /** Live/dormant device sessions hosted on this box (feature §2.2) —
+   *  lets the dashboard mark which sessions can `attach` vs `continue`. */
+  sessions: S.optional(
+    S.Array(
+      S.Struct({
+        id: S.String,
+        cli: S.String,
+        started_at_ms: S.Number,
+        /** A consumer channel is currently bound. */
+        attached: S.Boolean,
+        /** The PTY is still running (attach re-binds; false → continue). */
+        live: S.Boolean,
+      }),
+    ),
+  ),
 });
 export type TDaemonStatus = S.Schema.Type<typeof DaemonStatus>;
 

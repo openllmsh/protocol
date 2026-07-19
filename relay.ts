@@ -1,6 +1,10 @@
 import { Schema as S } from "effect";
 import { RelayCommandLifecycleFrame } from "./control-channel";
-import { DaemonCommand, DaemonCommandAck } from "./daemon";
+import {
+  DaemonCommand,
+  DaemonCommandAck,
+  SubscriptionProviderSlug,
+} from "./daemon";
 
 // ─── Daemon relay (push over a Sandbox WebSocket, in-memory routing) ──
 //
@@ -406,6 +410,120 @@ export type TRelayTunnelCloseFrame = S.Schema.Type<
   typeof RelayTunnelCloseFrame
 >;
 
+// ─── Device chat sessions (browser ⇄ relay ⇄ daemon PTY) ─────────────
+//
+// A watcher opens a LONG-LIVED full-duplex channel to a daemon, which
+// spawns (or re-attaches) a vendor CLI under a PTY in
+// `~/.openllm/sessions/<id>/` and streams the TUI both ways. Mirrors the
+// tunnel splice (consumer-minted id, same-user registry auth, per-frame
+// in-memory forward, chunk cap) but is its OWN family: a PTY has no
+// request/response shape, no per-direction EOF, and must survive quiet
+// periods (sessions are excluded from the tunnel idle sweep — the daemon
+// owns detached-session reaping). See
+// `docs/features/sub-tunnel-and-chat-sessions.md` §2.2.
+
+/** Session ids are client-minted url-safe tokens (they double as the
+ *  workspace dir name under `~/.openllm/sessions/`). */
+export const SESSION_ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
+export const SessionId = S.String.pipe(S.pattern(SESSION_ID_PATTERN));
+
+/** How long a daemon keeps a DETACHED (no consumer) live PTY before
+ *  killing it. Attached sessions never idle out. */
+export const SESSION_DETACHED_TTL_MS = 30 * 60_000;
+
+/** watcher → relay → daemon. Open a device session on the daemon serving
+ *  `key_id`. `mode`: `spawn` = fresh CLI in a new workspace; `attach` =
+ *  re-bind a LIVE PTY (scrollback replays); `continue` = respawn a DEAD
+ *  session in its existing workspace with the CLI's native continue flag
+ *  where the daemon knows one. */
+export const RelaySessionOpenFrame = S.Struct({
+  type: S.Literal("session_open"),
+  session_id: SessionId,
+  key_id: S.String,
+  cli: SubscriptionProviderSlug,
+  cols: S.Number,
+  rows: S.Number,
+  mode: S.Literal("spawn", "attach", "continue"),
+});
+export type TRelaySessionOpenFrame = S.Schema.Type<
+  typeof RelaySessionOpenFrame
+>;
+
+export const SessionOpenError = S.Literal(
+  "daemon_offline",
+  "pty_unsupported",
+  "cli_not_installed",
+  "session_not_found",
+  "session_busy",
+  "overloaded",
+  "spawn_failed",
+);
+export type TSessionOpenError = S.Schema.Type<typeof SessionOpenError>;
+
+/** daemon → relay → watcher (or relay-minted on auth failure). `live` on
+ *  a successful attach tells the consumer whether the PTY was still
+ *  running (scrollback replay follows) or was respawned. */
+export const RelaySessionOpenAckFrame = S.Struct({
+  type: S.Literal("session_open_ack"),
+  session_id: SessionId,
+  ok: S.Boolean,
+  error: S.optional(SessionOpenError),
+  live: S.optional(S.Boolean),
+});
+export type TRelaySessionOpenAckFrame = S.Schema.Type<
+  typeof RelaySessionOpenAckFrame
+>;
+
+/** Both directions. `dir:"out"` = PTY output → browser (xterm.write);
+ *  `dir:"in"` = keystrokes → PTY. Base64 over the JSON text frame, capped
+ *  at TUNNEL_CHUNK_MAX raw bytes per frame. */
+export const RelaySessionIoFrame = S.Struct({
+  type: S.Literal("session_io"),
+  session_id: SessionId,
+  dir: S.Literal("in", "out"),
+  seq: S.Number,
+  data_b64: S.String,
+});
+export type TRelaySessionIoFrame = S.Schema.Type<typeof RelaySessionIoFrame>;
+
+/** watcher → relay → daemon. The terminal pane resized. */
+export const RelaySessionResizeFrame = S.Struct({
+  type: S.Literal("session_resize"),
+  session_id: SessionId,
+  cols: S.Number,
+  rows: S.Number,
+});
+export type TRelaySessionResizeFrame = S.Schema.Type<
+  typeof RelaySessionResizeFrame
+>;
+
+export const SessionCloseReason = S.Literal(
+  /** Consumer detached (tab closed / navigated away) — the PTY LIVES ON
+   *  (dormant) until the daemon's detached-TTL reaper fires. */
+  "detach",
+  /** The CLI process exited. */
+  "done",
+  /** Explicit user kill. */
+  "killed",
+  "consumer_gone",
+  "daemon_gone",
+  "timeout",
+  "protocol_error",
+);
+export type TSessionCloseReason = S.Schema.Type<typeof SessionCloseReason>;
+
+/** Either side / relay-minted — ends the CHANNEL. `detach` keeps the PTY
+ *  alive daemon-side; every other reason implies the session is over or
+ *  unreachable. */
+export const RelaySessionCloseFrame = S.Struct({
+  type: S.Literal("session_close"),
+  session_id: SessionId,
+  reason: S.optional(SessionCloseReason),
+});
+export type TRelaySessionCloseFrame = S.Schema.Type<
+  typeof RelaySessionCloseFrame
+>;
+
 /** Keepalive (both directions). The relay pings below Cloudflare's
  *  proxied-WS idle bound; a missed pong is the relay's dead-peer signal. */
 export const RelayPingFrame = S.Struct({ type: S.Literal("ping") });
@@ -443,6 +561,11 @@ export const RelayFrame = S.Union(
   RelayTunnelDataFrame,
   RelayTunnelEndFrame,
   RelayTunnelCloseFrame,
+  RelaySessionOpenFrame,
+  RelaySessionOpenAckFrame,
+  RelaySessionIoFrame,
+  RelaySessionResizeFrame,
+  RelaySessionCloseFrame,
   RelayPingFrame,
   RelayPongFrame,
 );

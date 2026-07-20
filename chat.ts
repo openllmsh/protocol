@@ -305,7 +305,9 @@ const ChatChunkDelta = S.Struct({
         S.Struct({
           index: S.Number,
           id: S.optional(S.NullishOr(S.String)),
-          type: S.optional(S.NullishOr(S.Literal("function"))),
+          type: S.optional(
+            S.NullishOr(S.Literal("function", "builtin_function")),
+          ),
           function: S.optional(
             S.NullishOr(
               S.Struct({

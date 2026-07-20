@@ -457,7 +457,13 @@ export const RelaySessionOpenAckFrame = S.Struct({
   session_id: SessionId,
   ok: S.Boolean,
   error: S.optional(SessionOpenError),
+  /** Additive detail for a dead resumable session, if its terminal reason is known. */
+  last_exit_reason: S.optional(
+    S.Literal("evicted", "reaped", "done", "killed"),
+  ),
   live: S.optional(S.Boolean),
+  /** Daemon-minted, monotonically increasing session-open generation. */
+  generation: S.optional(S.Number),
 });
 export type TRelaySessionOpenAckFrame = S.Schema.Type<
   typeof RelaySessionOpenAckFrame
@@ -510,6 +516,8 @@ export const RelaySessionCloseFrame = S.Struct({
   type: S.Literal("session_close"),
   session_id: SessionId,
   reason: S.optional(SessionCloseReason),
+  /** Generation returned by the matching successful session open, when known. */
+  generation: S.optional(S.Number),
 });
 export type TRelaySessionCloseFrame = S.Schema.Type<
   typeof RelaySessionCloseFrame

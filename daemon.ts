@@ -579,6 +579,10 @@ export const DaemonStatus = S.Struct({
         busy: S.optional(S.Boolean),
         /** User-visible session label, bounded for presence snapshots. */
         title: S.optional(S.String.pipe(S.maxLength(80))),
+        /** Terminal reason retained for a dead resumable session. */
+        last_exit_reason: S.optional(
+          S.Literal("evicted", "reaped", "done", "killed"),
+        ),
       }),
     ),
   ),

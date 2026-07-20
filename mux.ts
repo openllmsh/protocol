@@ -138,6 +138,8 @@ export const StreamCtrlPayload = S.Union(
     t: S.Literal("open_ack"),
     ok: S.Boolean,
     live: S.optional(S.Boolean),
+    /** Daemon-minted, monotonically increasing session-open generation. */
+    generation: S.optional(S.Number),
     initial_credit: S.optional(S.Number),
   }),
   S.Struct({

@@ -366,7 +366,7 @@ export const RelayTunnelDataFrame = S.Struct({
   tunnel_id: S.String,
   seq: S.Number,
   dir: S.Literal("req", "res"),
-  data_b64: S.String,
+  data_b64: S.String.pipe(S.maxLength(TUNNEL_CHUNK_B64_MAX)),
   status: S.optional(S.Number),
   res_headers: S.optional(TunnelResponseHeaders),
 });
@@ -429,8 +429,8 @@ export const RelaySessionOpenFrame = S.Struct({
   session_id: SessionId,
   key_id: S.String,
   cli: SubscriptionProviderSlug,
-  cols: S.Number,
-  rows: S.Number,
+  cols: S.Number.pipe(S.between(1, 1024)),
+  rows: S.Number.pipe(S.between(1, 1024)),
   mode: S.Literal("spawn", "attach", "continue"),
   title: S.optional(S.String.pipe(S.maxLength(80))),
 });
@@ -481,8 +481,8 @@ export type TRelaySessionIoFrame = S.Schema.Type<typeof RelaySessionIoFrame>;
 export const RelaySessionResizeFrame = S.Struct({
   type: S.Literal("session_resize"),
   session_id: SessionId,
-  cols: S.Number,
-  rows: S.Number,
+  cols: S.Number.pipe(S.between(1, 1024)),
+  rows: S.Number.pipe(S.between(1, 1024)),
 });
 export type TRelaySessionResizeFrame = S.Schema.Type<
   typeof RelaySessionResizeFrame

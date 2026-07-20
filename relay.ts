@@ -5,6 +5,14 @@ import {
   DaemonCommandAck,
   SubscriptionProviderSlug,
 } from "./daemon";
+import {
+  ChannelCloseReason,
+  ChannelOpenError,
+  SessionId,
+  TunnelForwardHeaders,
+  TunnelResponseHeaders,
+  TunnelSurface,
+} from "./mux";
 
 // ─── Daemon relay (push over a Sandbox WebSocket, in-memory routing) ──
 //
@@ -174,6 +182,9 @@ export const RelayHelloFrame = S.Struct({
   ticket: S.String,
   /** Daemon protocol capability; absent daemons retain legacy compatibility. */
   protocol_version: S.optional(S.Number),
+  /** Open-vocabulary peer capability list.
+   * Unknown capabilities preserve forward compatibility. */
+  caps: S.optional(S.Array(S.String)),
   /** Daemon only: initial per-provider `TDaemonStatus` snapshot, folded
    *  into `api_key_activity.daemon_status_json` on connect. */
   status: S.optional(S.Unknown),
@@ -195,6 +206,12 @@ export const RelayWelcomeFrame = S.Struct({
   daemon_session_id: S.optional(S.String),
   daemon_session_started_at_ms: S.optional(S.Number),
   protocol_version: S.optional(S.Number),
+  /** Relay capabilities. */
+  caps: S.optional(S.Array(S.String)),
+  /** Per-serving-daemon capability snapshots, parallel to `snapshot`. */
+  snapshot_caps: S.optional(
+    S.Record({ key: S.String, value: S.Array(S.String) }),
+  ),
 });
 export type TRelayWelcomeFrame = S.Schema.Type<typeof RelayWelcomeFrame>;
 
@@ -274,6 +291,8 @@ export const RelayPresenceFrame = S.Struct({
   type: S.Literal("presence"),
   key_id: S.String,
   active: S.Boolean,
+  /** Present when an active daemon advertises capabilities. */
+  caps: S.optional(S.Array(S.String)),
 });
 export type TRelayPresenceFrame = S.Schema.Type<typeof RelayPresenceFrame>;
 
@@ -301,38 +320,6 @@ export const TUNNEL_CHUNK_B64_MAX = (TUNNEL_CHUNK_MAX / 3) * 4;
 /** Idle deadline for a tunnel with no frame activity in either direction —
  *  the relay closes both ends `reason:"timeout"` on its keepalive tick. */
 export const TUNNEL_IDLE_TIMEOUT_MS = 120_000;
-
-/** The `/v1` surface a tunneled request targets. A closed vocabulary — the
- *  serving daemon maps it to its OWN local endpoint path, so no free URL
- *  path ever crosses the relay (mirrors the listener's surface
- *  discriminator). */
-export const TunnelSurface = S.Literal(
-  "chat_completions",
-  "messages",
-  "responses",
-  "responses_compact",
-);
-export type TTunnelSurface = S.Schema.Type<typeof TunnelSurface>;
-
-/** The ONLY request headers a consumer may forward — a closed struct, not a
- *  free map, per the relay's reviewable-vocabulary posture. Everything else
- *  (auth, plan params) is the serving daemon's own business. */
-export const TunnelForwardHeaders = S.Struct({
-  content_type: S.optional(S.Literal("application/json")),
-  accept: S.optional(S.Literal("application/json", "text/event-stream")),
-  anthropic_version: S.optional(S.String.pipe(S.maxLength(32))),
-  anthropic_beta: S.optional(S.String.pipe(S.maxLength(256))),
-});
-export type TTunnelForwardHeaders = S.Schema.Type<typeof TunnelForwardHeaders>;
-
-/** Response metadata carried on the FIRST `dir:"res"` data frame. */
-export const TunnelResponseHeaders = S.Struct({
-  content_type: S.optional(S.String.pipe(S.maxLength(128))),
-  is_sse: S.optional(S.Boolean),
-});
-export type TTunnelResponseHeaders = S.Schema.Type<
-  typeof TunnelResponseHeaders
->;
 
 /** consumer → relay → serving daemon. Open a tunnel to the daemon serving
  *  `key_id`. The CONSUMER mints `tunnel_id` (uuid); the relay authorizes by
@@ -426,11 +413,6 @@ export type TRelayTunnelCloseFrame = S.Schema.Type<
 // periods (sessions are excluded from the tunnel idle sweep — the daemon
 // owns detached-session reaping). See
 // `docs/features/sub-tunnel-and-chat-sessions.md` §2.2.
-
-/** Session ids are client-minted url-safe tokens (they double as the
- *  workspace dir name under `~/.openllm/sessions/`). */
-export const SESSION_ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
-export const SessionId = S.String.pipe(S.pattern(SESSION_ID_PATTERN));
 
 /** How long a daemon keeps a DETACHED (no consumer) live PTY before
  *  killing it. Attached sessions never idle out. */
@@ -531,6 +513,43 @@ export type TRelaySessionCloseFrame = S.Schema.Type<
   typeof RelaySessionCloseFrame
 >;
 
+// ─── Mux channels (consumer ⇄ relay ⇄ serving daemon) ─────────────────
+
+/** consumer → relay → serving daemon. Auth runs once when opening this
+ * channel; after acceptance, all subsequent binary frames on both sockets
+ * belong to this channel. */
+export const RelayChannelOpenFrame = S.Struct({
+  type: S.Literal("channel_open"),
+  channel_id: S.String,
+  key_id: S.String,
+});
+export type TRelayChannelOpenFrame = S.Schema.Type<
+  typeof RelayChannelOpenFrame
+>;
+
+/** serving daemon → relay → consumer. The relay mints failure acknowledgements;
+ * an accepting daemon's acknowledgement is echoed verbatim. */
+export const RelayChannelOpenAckFrame = S.Struct({
+  type: S.Literal("channel_open_ack"),
+  channel_id: S.String,
+  ok: S.Boolean,
+  error: S.optional(ChannelOpenError),
+});
+export type TRelayChannelOpenAckFrame = S.Schema.Type<
+  typeof RelayChannelOpenAckFrame
+>;
+
+/** Either side / relay-minted. `relay_restart` is a drain signal: consumers
+ * reset in-flight streams and fall back to the JSON splice. */
+export const RelayChannelCloseFrame = S.Struct({
+  type: S.Literal("channel_close"),
+  channel_id: S.String,
+  reason: S.optional(ChannelCloseReason),
+});
+export type TRelayChannelCloseFrame = S.Schema.Type<
+  typeof RelayChannelCloseFrame
+>;
+
 /** Keepalive (both directions). The relay pings below Cloudflare's
  *  proxied-WS idle bound; a missed pong is the relay's dead-peer signal. */
 export const RelayPingFrame = S.Struct({ type: S.Literal("ping") });
@@ -573,6 +592,9 @@ export const RelayFrame = S.Union(
   RelaySessionIoFrame,
   RelaySessionResizeFrame,
   RelaySessionCloseFrame,
+  RelayChannelOpenFrame,
+  RelayChannelOpenAckFrame,
+  RelayChannelCloseFrame,
   RelayPingFrame,
   RelayPongFrame,
 );

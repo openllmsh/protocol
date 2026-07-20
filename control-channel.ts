@@ -20,9 +20,8 @@ export type { TDaemonCommand, TDaemonCommandKind } from "./daemon";
 // control-channel contract from one module.
 export { DaemonCommand, DaemonCommandKind } from "./daemon";
 
-/** Additive relay protocol version. Peers without it use legacy best-effort
- * ordering until their daemon binary is upgraded. */
-export const RELAY_PROTOCOL_VERSION = 2;
+/** Informational relay protocol version; feature gating is caps-based. */
+export const RELAY_PROTOCOL_VERSION = 3;
 
 /**
  * The command lifecycle — daemon-asserted, pushed live over the socket.

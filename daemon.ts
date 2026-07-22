@@ -557,35 +557,6 @@ export const DaemonStatus = S.Struct({
   integrations: S.optional(S.Array(DaemonInstalledIntegration)),
   /** Advertised transport capabilities, retained in fleet status telemetry. */
   caps: S.optional(S.Array(S.String)),
-  /** Whether this daemon can host device chat sessions (PTY — POSIX only;
-   *  false on win32). Absent on daemons too old to report it — the
-   *  dashboard then hides the device variant for this box. */
-  pty_supported: S.optional(S.Boolean),
-  /** Live/dormant device sessions hosted on this box (feature §2.2) —
-   *  lets the dashboard mark which sessions can `attach` vs `continue`. */
-  sessions: S.optional(
-    S.Array(
-      S.Struct({
-        id: S.String,
-        // Same closed vocabulary as `RelaySessionOpenFrame.cli` — a session
-        // can only ever host one of the known subscription CLIs.
-        cli: SubscriptionProviderSlug,
-        started_at_ms: S.Number,
-        /** A consumer channel is currently bound. */
-        attached: S.Boolean,
-        /** The PTY is still running (attach re-binds; false → continue). */
-        live: S.Boolean,
-        /** Best-effort process-tree activity signal for dormant sessions. */
-        busy: S.optional(S.Boolean),
-        /** User-visible session label, bounded for presence snapshots. */
-        title: S.optional(S.String.pipe(S.maxLength(80))),
-        /** Terminal reason retained for a dead resumable session. */
-        last_exit_reason: S.optional(
-          S.Literal("evicted", "reaped", "done", "killed"),
-        ),
-      }),
-    ),
-  ),
 });
 export type TDaemonStatus = S.Schema.Type<typeof DaemonStatus>;
 

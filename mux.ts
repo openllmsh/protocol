@@ -7,7 +7,6 @@
  * WebSocket, so socket identity selects the channel.
  */
 import { Either, Schema as S } from "effect";
-import { SubscriptionProviderSlug } from "./daemon";
 
 /** Capability advertising support for the binary mux wire format. */
 export const MUX_CAP = "mux1";
@@ -67,16 +66,6 @@ export type TTunnelResponseHeaders = S.Schema.Type<
   typeof TunnelResponseHeaders
 >;
 
-/** Session ids are client-minted url-safe tokens (they double as the workspace
- * dir name under `~/.openllm/sessions/`).
- *
- * Validated by the SERVING DAEMON at stream open (mux) and referenced by the
- * legacy frames (splice); the relay never decodes either.
- */
-export const SESSION_ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
-export const SessionId = S.String.pipe(S.pattern(SESSION_ID_PATTERN));
-export type TSessionId = S.Schema.Type<typeof SessionId>;
-
 /** A channel-level admission failure. */
 export const ChannelOpenError = S.Literal(
   "daemon_offline",
@@ -110,25 +99,8 @@ export type TTunnelStreamOpenPayload = S.Schema.Type<
   typeof TunnelStreamOpenPayload
 >;
 
-/** Consumer-initiated PTY stream OPEN payload. */
-export const SessionStreamOpenPayload = S.Struct({
-  kind: S.Literal("session"),
-  session_id: SessionId,
-  cli: SubscriptionProviderSlug,
-  cols: S.Number.pipe(S.between(1, 1024)),
-  rows: S.Number.pipe(S.between(1, 1024)),
-  mode: S.Literal("spawn", "attach", "continue"),
-  title: S.optional(S.String.pipe(S.maxLength(80))),
-});
-export type TSessionStreamOpenPayload = S.Schema.Type<
-  typeof SessionStreamOpenPayload
->;
-
 /** JSON payload of a mux OPEN frame. */
-export const StreamOpenPayload = S.Union(
-  TunnelStreamOpenPayload,
-  SessionStreamOpenPayload,
-);
+export const StreamOpenPayload = TunnelStreamOpenPayload;
 export type TStreamOpenPayload = S.Schema.Type<typeof StreamOpenPayload>;
 
 /** JSON payload of a mux CTRL frame. Unknown control tags are intentionally
@@ -137,9 +109,6 @@ export const StreamCtrlPayload = S.Union(
   S.Struct({
     t: S.Literal("open_ack"),
     ok: S.Boolean,
-    live: S.optional(S.Boolean),
-    /** Daemon-minted, monotonically increasing session-open generation. */
-    generation: S.optional(S.Number),
     initial_credit: S.optional(S.Number),
   }),
   S.Struct({
@@ -147,13 +116,6 @@ export const StreamCtrlPayload = S.Union(
     status: S.Number,
     res_headers: S.optional(TunnelResponseHeaders),
   }),
-  S.Struct({
-    t: S.Literal("resize"),
-    cols: S.Number.pipe(S.between(1, 1024)),
-    rows: S.Number.pipe(S.between(1, 1024)),
-  }),
-  S.Struct({ t: S.Literal("replay_done") }),
-  S.Struct({ t: S.Literal("close"), intent: S.Literal("detach", "kill") }),
 );
 export type TStreamCtrlPayload = S.Schema.Type<typeof StreamCtrlPayload>;
 
@@ -164,11 +126,6 @@ export const StreamResetCode = S.Literal(
   "tunnel_busy",
   "invalid_tunnel",
   "overloaded",
-  "pty_unsupported",
-  "cli_not_installed",
-  "session_not_found",
-  "session_busy",
-  "spawn_failed",
   "dispatch_failed",
   "timeout",
   "protocol_error",

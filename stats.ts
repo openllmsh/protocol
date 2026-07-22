@@ -265,6 +265,12 @@ export const RequestItem = S.Struct({
   completion_tokens: S.Number,
   total_tokens: S.Number,
   ts: S.String,
+  /**
+   * Present when the items query is in failed mode (`failed=1`). Success
+   * expansions leave these null so the recent-requests sub-rows stay lean.
+   */
+  status: S.optional(S.NullOr(RequestStatus)),
+  error: S.optional(S.NullOr(S.String)),
 });
 export type TRequestItem = S.Schema.Type<typeof RequestItem>;
 
@@ -273,33 +279,28 @@ export const RequestItemsResponse = S.Struct({
 });
 export type TRequestItemsResponse = S.Schema.Type<typeof RequestItemsResponse>;
 
-/** One failed hop/request row for the overview debug errors table. */
-export const FailedRequestItem = S.Struct({
+/**
+ * A (provider, model) bucket of failed hops for the overview debug table —
+ * same grouping shape as Recent requests, but only
+ * `status ∈ {error, timeout, rate_limited}`. Expanding loads individual
+ * rows via `requestItems?failed=1`.
+ */
+export const FailedRequestGroup = S.Struct({
   id: S.String,
   provider: S.String,
   model: S.NullOr(S.String),
-  endpoint: S.NullOr(S.String),
-  status: S.Literal("error", "timeout", "rate_limited"),
-  error: S.NullOr(S.String),
-  latency_ms: S.Number,
-  ts: S.String,
+  endpoints: S.Array(S.String),
+  count: S.Number,
+  /** Most recent non-null error message in the bucket (preview in the row). */
+  last_error: S.NullOr(S.String),
+  first_timestamp: S.String,
+  last_timestamp: S.String,
 });
-export type TFailedRequestItem = S.Schema.Type<typeof FailedRequestItem>;
-
-export const FailedRequestsPagination = S.Struct({
-  page: S.Number,
-  page_size: S.Number,
-  total: S.Number,
-  has_more: S.Boolean,
-  has_exact_total: S.Boolean,
-});
-export type TFailedRequestsPagination = S.Schema.Type<
-  typeof FailedRequestsPagination
->;
+export type TFailedRequestGroup = S.Schema.Type<typeof FailedRequestGroup>;
 
 export const FailedRequestsResponse = S.Struct({
-  items: S.Array(FailedRequestItem),
-  pagination: FailedRequestsPagination,
+  groups: S.Array(FailedRequestGroup),
+  pagination: GroupedRequestsPagination,
 });
 export type TFailedRequestsResponse = S.Schema.Type<
   typeof FailedRequestsResponse

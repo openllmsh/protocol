@@ -273,6 +273,38 @@ export const RequestItemsResponse = S.Struct({
 });
 export type TRequestItemsResponse = S.Schema.Type<typeof RequestItemsResponse>;
 
+/** One failed hop/request row for the overview debug errors table. */
+export const FailedRequestItem = S.Struct({
+  id: S.String,
+  provider: S.String,
+  model: S.NullOr(S.String),
+  endpoint: S.NullOr(S.String),
+  status: S.Literal("error", "timeout", "rate_limited"),
+  error: S.NullOr(S.String),
+  latency_ms: S.Number,
+  ts: S.String,
+});
+export type TFailedRequestItem = S.Schema.Type<typeof FailedRequestItem>;
+
+export const FailedRequestsPagination = S.Struct({
+  page: S.Number,
+  page_size: S.Number,
+  total: S.Number,
+  has_more: S.Boolean,
+  has_exact_total: S.Boolean,
+});
+export type TFailedRequestsPagination = S.Schema.Type<
+  typeof FailedRequestsPagination
+>;
+
+export const FailedRequestsResponse = S.Struct({
+  items: S.Array(FailedRequestItem),
+  pagination: FailedRequestsPagination,
+});
+export type TFailedRequestsResponse = S.Schema.Type<
+  typeof FailedRequestsResponse
+>;
+
 /**
  * Acknowledgement for `DELETE /api/stats/requests` — drops every row
  * inside one (model, endpoint, time window) group for the authed user.

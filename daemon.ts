@@ -1,7 +1,7 @@
 import { Schema as S } from "effect";
 import { FallbackGroup, ModelFallbackBinding } from "./config";
 import { CooldownReason } from "./cooldown-reason";
-import { ProviderModelList } from "./models";
+import { ProviderModelList, SubscriptionMeter } from "./models";
 import { ProviderUsageSnapshot } from "./provider-usage";
 import { RequestStatus } from "./stats";
 
@@ -19,6 +19,7 @@ export const DaemonCatalogEntry = S.Struct({
   provider_model_id: S.String,
   input_token_limit: S.NullOr(S.Number),
   output_token_limit: S.NullOr(S.Number),
+  subscription_meter: S.optional(SubscriptionMeter),
 });
 export type TDaemonCatalogEntry = S.Schema.Type<typeof DaemonCatalogEntry>;
 

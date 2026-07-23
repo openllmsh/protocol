@@ -92,6 +92,21 @@ export const PricingEntry = S.extend(
 );
 export type TPricingEntry = S.Schema.Type<typeof PricingEntry>;
 
+export const SubscriptionMeter = S.Struct({
+  /**
+   * Stable provider-namespaced machine id — "claude_code:fable",
+   * "chatgpt:codex-spark". Never a display label.
+   */
+  meter_id: S.String,
+  /**
+   * Exact vendor-payload identities that resolve to this meter (Claude
+   * scope display_name + legacy key; Codex limit_name + metered_feature).
+   * Matched exactly, never fuzzy.
+   */
+  aliases: S.optional(S.Array(S.String)),
+});
+export type TSubscriptionMeter = S.Schema.Type<typeof SubscriptionMeter>;
+
 export const ExtendedModel = S.Struct({
   id: S.String,
   provider: S.String,
@@ -118,21 +133,7 @@ export const ExtendedModel = S.Struct({
    * pool is exhausted while the shared window is open (Fable, Codex Spark).
    * Omitted for models metered only by the shared window.
    */
-  subscription_meter: S.optional(
-    S.Struct({
-      /**
-       * Stable provider-namespaced machine id — "claude_code:fable",
-       * "chatgpt:codex-spark". Never a display label.
-       */
-      meter_id: S.String,
-      /**
-       * Exact vendor-payload identities that resolve to this meter (Claude
-       * scope display_name + legacy key; Codex limit_name + metered_feature).
-       * Matched exactly, never fuzzy.
-       */
-      aliases: S.optional(S.Array(S.String)),
-    }),
-  ),
+  subscription_meter: S.optional(SubscriptionMeter),
   deprecated: S.optional(S.Boolean),
   // Embedding-only metadata — see ExtendedModelCard for semantics.
   dimension_presets: S.optional(S.Array(S.Number)),

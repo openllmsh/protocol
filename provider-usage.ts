@@ -33,6 +33,11 @@ export const ProviderUsageWindow = S.Struct({
    * reshape with a different meaning; a duration label re-keys instead.
    */
   label: S.String,
+  /**
+   * Stable machine identity for pool → catalog-meter matching, distinct from
+   * the display `label`. Windows that are not metered pools omit it.
+   */
+  meter_id: S.optional(S.String),
   /** 0–100 used percentage in this window. */
   percent_used: S.Number,
   /** Unix epoch milliseconds when this window resets, when known. */
@@ -45,6 +50,24 @@ export const ProviderUsageWindow = S.Struct({
   window_ms: S.optional(S.Number),
 });
 export type TProviderUsageWindow = S.Schema.Type<typeof ProviderUsageWindow>;
+
+/**
+ * Match a subscription catalog meter to the vendor identity emitted on a
+ * display-only usage pool. Aliases are exact vendor identities only.
+ */
+export const matchesSubscriptionMeter = (
+  meter:
+    | {
+        readonly meter_id: string;
+        readonly aliases?: ReadonlyArray<string>;
+      }
+    | undefined,
+  poolMeterId: string | undefined,
+): boolean => {
+  if (meter === undefined || poolMeterId === undefined) return false;
+  if (poolMeterId === meter.meter_id) return true;
+  return meter.aliases?.includes(poolMeterId) ?? false;
+};
 
 export const ProviderUsageSnapshot = S.Union(
   /**

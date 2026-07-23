@@ -112,6 +112,27 @@ export const ExtendedModel = S.Struct({
    * (see `subscriptionTwin` in the api catalog).
    */
   api_equivalent_pricing: S.optional(ModelPricing),
+  /**
+   * Subscription models only: the vendor usage meter this model draws on
+   * beyond the shared plan windows, so routing can skip a model whose own
+   * pool is exhausted while the shared window is open (Fable, Codex Spark).
+   * Omitted for models metered only by the shared window.
+   */
+  subscription_meter: S.optional(
+    S.Struct({
+      /**
+       * Stable provider-namespaced machine id — "claude_code:fable",
+       * "chatgpt:codex-spark". Never a display label.
+       */
+      meter_id: S.String,
+      /**
+       * Exact vendor-payload identities that resolve to this meter (Claude
+       * scope display_name + legacy key; Codex limit_name + metered_feature).
+       * Matched exactly, never fuzzy.
+       */
+      aliases: S.optional(S.Array(S.String)),
+    }),
+  ),
   deprecated: S.optional(S.Boolean),
   // Embedding-only metadata — see ExtendedModelCard for semantics.
   dimension_presets: S.optional(S.Array(S.Number)),

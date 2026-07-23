@@ -295,6 +295,20 @@ export const AnthropicRequest = S.Struct({
 });
 export type TAnthropicRequest = S.Schema.Type<typeof AnthropicRequest>;
 
+/**
+ * `POST /v1/messages/count_tokens` — the Messages request with `max_tokens`
+ * OPTIONAL. The count endpoint has no output budget, so a real Claude Code
+ * preflight omits it; validating those bodies against `AnthropicRequest` would
+ * 400 every one of them.
+ */
+export const AnthropicCountTokensRequest = S.Struct({
+  ...AnthropicRequest.fields,
+  max_tokens: S.optional(S.Number),
+});
+export type TAnthropicCountTokensRequest = S.Schema.Type<
+  typeof AnthropicCountTokensRequest
+>;
+
 // ─── Anthropic wire types — response ─────────────────────────────────────────
 
 export const AnthropicStopReason = S.Literal(

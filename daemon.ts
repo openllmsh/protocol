@@ -1,5 +1,6 @@
 import { Schema as S } from "effect";
 import { FallbackGroup, ModelFallbackBinding } from "./config";
+import { CooldownReason } from "./cooldown-reason";
 import { ProviderModelList } from "./models";
 import { ProviderUsageSnapshot } from "./provider-usage";
 import { RequestStatus } from "./stats";
@@ -151,6 +152,9 @@ export const DaemonRecordRequest = S.Struct({
    *  Optional so daemons predating the field still record (the cloud
    *  stores null → the estimator's conservative null pool). */
   account_hash: S.optional(S.String),
+  cooldown_reason: S.optional(CooldownReason),
+  /** Reset instant for reset-aware TTL cap; optional so old daemons omit. */
+  reset_at_ms: S.optional(S.Number),
 });
 export type TDaemonRecordRequest = S.Schema.Type<typeof DaemonRecordRequest>;
 

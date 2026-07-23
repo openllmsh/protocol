@@ -1,6 +1,7 @@
 export * from "./chat";
 export * from "./config";
 export * from "./control-channel";
+export * from "./cooldown-reason";
 export * from "./cost";
 export * from "./daemon";
 export * from "./device-state";

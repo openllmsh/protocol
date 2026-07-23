@@ -156,7 +156,16 @@ export const DaemonRecordRequest = S.Struct({
   cooldown_reason: S.optional(CooldownReason),
   /** Reset instant for reset-aware TTL cap; optional so old daemons omit. */
   reset_at_ms: S.optional(S.Number),
-});
+}).pipe(
+  // A successful hop never cools — a `cooldown_reason` on a `success` record
+  // is malformed, so reject it at the schema boundary rather than let the
+  // handler mark a cooldown for a model that just served cleanly.
+  S.filter(
+    (record) =>
+      record.status !== "success" || record.cooldown_reason === undefined,
+    { message: () => "cooldown_reason is only valid on a non-success record" },
+  ),
+);
 export type TDaemonRecordRequest = S.Schema.Type<typeof DaemonRecordRequest>;
 
 // ─── POST /api/daemon/models (daemon → cloud) ────────────────────────

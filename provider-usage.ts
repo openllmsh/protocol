@@ -52,16 +52,22 @@ export const ProviderUsageWindow = S.Struct({
 export type TProviderUsageWindow = S.Schema.Type<typeof ProviderUsageWindow>;
 
 /**
+ * The structural meter shape the quota gate + pool matcher accept — the
+ * `meter_id` identity plus its exact vendor aliases. Structurally satisfied by
+ * the schema-derived `TSubscriptionMeter`, kept as a hand-written alias so
+ * `wire`/`core` can type a meter arg without importing the catalog schema.
+ */
+export type TSubscriptionMeterMatch = {
+  readonly meter_id: string;
+  readonly aliases?: ReadonlyArray<string>;
+};
+
+/**
  * Match a subscription catalog meter to the vendor identity emitted on a
  * display-only usage pool. Aliases are exact vendor identities only.
  */
 export const matchesSubscriptionMeter = (
-  meter:
-    | {
-        readonly meter_id: string;
-        readonly aliases?: ReadonlyArray<string>;
-      }
-    | undefined,
+  meter: TSubscriptionMeterMatch | undefined,
   poolMeterId: string | undefined,
 ): boolean => {
   if (meter === undefined || poolMeterId === undefined) return false;

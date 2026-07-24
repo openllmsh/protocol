@@ -359,6 +359,20 @@ const commandVariants = <F extends S.Struct.Fields>(addressing: F) =>
       kind: S.Literal("bust_plan_cache"),
       payload: S.optional(EmptyPayload),
     }),
+    // Force a live model-list re-report NOW. The daemon's model-report
+    // throttle mirrors the cloud's 30m `MODEL_CACHE_TTL_MS` — without this
+    // command the only way to re-discover models mid-TTL is `openllmd
+    // restart`. The dashboard's "Available models" refresh button enqueues
+    // this; the executor clears the throttle, re-fetches every connected
+    // delegate's list, and POSTs to `/api/daemon/models` BEFORE acking so
+    // the subsequent `/v1/models` refetch the dashboard does after the
+    // lifecycle frame lands sees the fresh rows. Payload-less and
+    // idempotent.
+    S.Struct({
+      ...addressing,
+      kind: S.Literal("refresh_models"),
+      payload: S.optional(EmptyPayload),
+    }),
   ] as const;
 
 /** The bare `{ kind, payload }` vocabulary — what an enqueue boundary (the
@@ -388,6 +402,7 @@ export const DaemonCommandKind = S.Literal(
   "status",
   "update",
   "bust_plan_cache",
+  "refresh_models",
 );
 type TDaemonCommandKindLiteral = S.Schema.Type<typeof DaemonCommandKind>;
 // Bidirectional assignability assertion: the literal and the union's

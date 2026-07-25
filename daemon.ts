@@ -226,18 +226,6 @@ export type TSubscriptionProviderSlug = S.Schema.Type<
   typeof SubscriptionProviderSlug
 >;
 
-/** Integration areas served by the gateway install pipeline. */
-export const DaemonIntegrationKind = S.Literal("extension", "setup");
-export type TDaemonIntegrationKind = S.Schema.Type<
-  typeof DaemonIntegrationKind
->;
-
-// Catalogued-artifact selector (an integration slug / target). Interpolated
-// into a gateway URL whose script is SHA-256-gated before execution — never
-// executed directly. The conservative charset keeps URL/shell metacharacters
-// out of even that indirect path.
-const ArtifactSlug = S.String.pipe(S.pattern(/^[a-z0-9][a-z0-9-]{0,63}$/));
-
 // Opaque base64 blob (an X25519 sealed box / SPKI public key) — decrypted or
 // parsed by the recipient, never executed. Padding restricted to at most two
 // '=' characters only at the end (valid base64 format).
@@ -250,14 +238,6 @@ export const GatewayMode = S.Literal("local", "cloud");
 export type TGatewayMode = S.Schema.Type<typeof GatewayMode>;
 
 const ProviderPayload = S.Struct({ slug: SubscriptionProviderSlug });
-const IntegrationPayload = S.Struct({
-  kind: DaemonIntegrationKind,
-  slug: ArtifactSlug,
-  target: S.optional(ArtifactSlug),
-  /** Which base URL the install bakes (`--gateway`). Only meaningful on
-   *  `install_integration` for setups declaring `gateway_modes`. */
-  gateway: S.optional(GatewayMode),
-});
 /** A remote-Claude headless-login code submission: the X25519-sealed OAuth
  *  authorization code the user pasted from the hosted callback page. Opened on
  *  the target daemon and written to the waiting `claude auth login` stdin. The
@@ -313,16 +293,6 @@ const commandVariants = <F extends S.Struct.Fields>(addressing: F) =>
       ...addressing,
       kind: S.Literal("logout"),
       payload: ProviderPayload,
-    }),
-    S.Struct({
-      ...addressing,
-      kind: S.Literal("install_integration"),
-      payload: IntegrationPayload,
-    }),
-    S.Struct({
-      ...addressing,
-      kind: S.Literal("uninstall_integration"),
-      payload: IntegrationPayload,
     }),
     S.Struct({
       ...addressing,
@@ -394,8 +364,6 @@ export const DaemonCommandKind = S.Literal(
   "connect_device_code",
   "cancel_connect",
   "logout",
-  "install_integration",
-  "uninstall_integration",
   "submit_login_code",
   "set_auto_update",
   "refresh",
@@ -502,36 +470,19 @@ export const DaemonCloudState = S.Literal(
 );
 export type TDaemonCloudState = S.Schema.Type<typeof DaemonCloudState>;
 
-/** One integration the daemon detected on its box (best-effort, per the
- *  claude-code target footprint). Lets the dashboard render a stateful
- *  Install vs ✓ installed / Uninstall button. See
- *  `docs/proposals/daemon-integration-triggers.md` §7. */
-export const DaemonInstalledIntegration = S.Struct({
-  kind: S.Literal("extension", "setup"),
-  slug: S.String,
-  /** Client target for an extension; plain setups omit it. */
-  target: S.optional(S.String),
+/**
+ * The openllm CLI's presence on this box, as the daemon already knows it from
+ * its auto-update loop (`cli-self-update.ts`) — no probe scripts, no per-client
+ * walk. This is the ONLY install state the dashboard needs now: clients are
+ * configured at RUN time by `openllm <client>`, so there is nothing per-client
+ * to install, stamp, or diverge.
+ */
+export const DaemonCliState = S.Struct({
   installed: S.Boolean,
-  /** Installed catalog version reported by the `-s` probe (absent when the
-   *  script can't determine one). Display-only. */
-  version: S.optional(S.String),
-  /** The gateway mode this item was installed with (`--gateway` stamp):
-   *  which base URL the setup baked. Absent on stamps predating the field
-   *  and on setups that bake no base URL. Drives the dashboard's
-   *  "reinstall required" prompt when the desired mode differs. */
-  gateway: S.optional(GatewayMode),
-  /** The registry artifact commit the installed script came from (absent on
-   *  pre-stamp installs). Display-only — links the device's version. */
-  installed_commit: S.optional(S.String),
-  /** Installed but the managed config no longer matches what the CURRENT
-   *  bundle would write (version drift or manual edits). Only meaningful when
-   *  `installed` is true; absent = unknown/converged (old daemons and scripts
-   *  never report it). Drives the dashboard's "Reinstall" CTA. */
-  diverged: S.optional(S.Boolean),
+  /** Version the installed binary reports; absent when it can't be read. */
+  version: S.optional(S.NullOr(S.String)),
 });
-export type TDaemonInstalledIntegration = S.Schema.Type<
-  typeof DaemonInstalledIntegration
->;
+export type TDaemonCliState = S.Schema.Type<typeof DaemonCliState>;
 
 // GET /status
 export const DaemonStatus = S.Struct({
@@ -566,10 +517,8 @@ export const DaemonStatus = S.Struct({
    *  Absent on daemons too old to report it. */
   sandbox: S.optional(S.Literal("enforced", "off", "unsupported", "error")),
   connections: S.Array(DaemonProviderConnection),
-  /** Integrations detected installed on this box (claude-code target,
-   *  best-effort). Absent on daemons too old to report it; the dashboard then
-   *  offers both Install + Uninstall (idempotent). */
-  integrations: S.optional(S.Array(DaemonInstalledIntegration)),
+  /** The openllm CLI on this box. Absent on daemons too old to report it. */
+  cli: S.optional(DaemonCliState),
 });
 export type TDaemonStatus = S.Schema.Type<typeof DaemonStatus>;
 

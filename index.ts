@@ -7,6 +7,7 @@ export * from "./daemon";
 export * from "./device-state";
 export * from "./errors";
 export * from "./models";
+export * from "./mux";
 export * from "./prompt-prefix";
 export * from "./provider-usage";
 export * from "./providers";

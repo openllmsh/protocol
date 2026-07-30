@@ -1,9 +1,6 @@
 import { Schema as S } from "effect";
 import { RelayCommandLifecycleFrame } from "./control-channel";
-import {
-  DaemonCommand,
-  DaemonCommandAck,
-} from "./daemon";
+import { DaemonCommand, DaemonCommandAck } from "./daemon";
 import {
   ChannelCloseReason,
   ChannelOpenError,
@@ -437,6 +434,52 @@ export type TRelayChannelCloseFrame = S.Schema.Type<
   typeof RelayChannelCloseFrame
 >;
 
+// ─── WebRTC signaling (consumer ⇄ relay ⇄ serving daemon) ──────────────
+//
+// SDP + trickle ICE for a direct browser⇄daemon RTCDataChannel. The relay is
+// signaling-only: same-user registry-membership auth on `rtc_offer`, then
+// verbatim forward of offer/answer/ice between the paired endpoints. Payload
+// bytes never touch the relay once the data channel is up. `fingerprint_proof`
+// is sealed-box ciphertext from `@openllmsh/tunnel` rtc-auth (DTLS fingerprint
+// bound to the daemon-minted grant) — the relay never inspects it.
+//
+// `candidate` is a JSON string of an `RTCIceCandidateInit` (or the werift
+// equivalent) so browser and daemon peers share one serialization without
+// inventing a side-car candidate schema.
+
+/** consumer → relay → serving daemon. Open an RTC signaling session aimed at
+ *  the daemon serving `key_id`. The consumer mints `channel_id` (uuid); the
+ *  relay authorizes by registry membership and registers the pair so later
+ *  `rtc_answer` / `rtc_ice` frames route by `channel_id`. */
+export const RelayRtcOfferFrame = S.Struct({
+  type: S.Literal("rtc_offer"),
+  channel_id: S.String,
+  key_id: S.String,
+  sdp: S.String,
+  fingerprint_proof: S.String,
+});
+export type TRelayRtcOfferFrame = S.Schema.Type<typeof RelayRtcOfferFrame>;
+
+/** serving daemon → relay → consumer. Answer the offer for `channel_id`. */
+export const RelayRtcAnswerFrame = S.Struct({
+  type: S.Literal("rtc_answer"),
+  channel_id: S.String,
+  sdp: S.String,
+  fingerprint_proof: S.String,
+});
+export type TRelayRtcAnswerFrame = S.Schema.Type<typeof RelayRtcAnswerFrame>;
+
+/** Both directions. One trickle ICE candidate for `channel_id`. `candidate` is
+ *  a JSON-serialized `RTCIceCandidateInit` object (stringified by the sender,
+ *  `JSON.parse`'d by the receiver) — preferred over a raw SDP candidate line
+ *  for browser/werift field parity (`candidate`/`sdpMid`/`sdpMLineIndex`/…). */
+export const RelayRtcIceFrame = S.Struct({
+  type: S.Literal("rtc_ice"),
+  channel_id: S.String,
+  candidate: S.String,
+});
+export type TRelayRtcIceFrame = S.Schema.Type<typeof RelayRtcIceFrame>;
+
 /** Keepalive (both directions). The relay pings below Cloudflare's
  *  proxied-WS idle bound; a missed pong is the relay's dead-peer signal. */
 export const RelayPingFrame = S.Struct({ type: S.Literal("ping") });
@@ -450,7 +493,8 @@ export type TRelayPongFrame = S.Schema.Type<typeof RelayPongFrame>;
 // retired — there is no durable mailbox to redeliver from anymore — so neither
 // has a consumer. They are deliberately NOT in the union; an old daemon's frames
 // fail decode and are silently dropped (`parseFrame` → null), the designed
-// legacy tolerance.
+// legacy tolerance. The same silent-drop applies to any unknown `type` (e.g. a
+// future `rtc_*` peer talking to an older relay, or vice versa).
 
 /** The full frame union, discriminated on `type`. `command_lifecycle` (relay →
  *  watcher) is the stateless-relay command receipt: the relay forwards the
@@ -477,6 +521,9 @@ export const RelayFrame = S.Union(
   RelayChannelOpenFrame,
   RelayChannelOpenAckFrame,
   RelayChannelCloseFrame,
+  RelayRtcOfferFrame,
+  RelayRtcAnswerFrame,
+  RelayRtcIceFrame,
   RelayPingFrame,
   RelayPongFrame,
 );

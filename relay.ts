@@ -329,6 +329,13 @@ export const RelayTunnelOpenFrame = S.Struct({
   headers: S.optional(TunnelForwardHeaders),
   /** Consuming-device tag, threaded into serving-side usage recording. */
   consumer: S.optional(S.Literal("browser", "daemon")),
+  /**
+   * Seed-gated device grant (base64 envelope from `@openllmsh/tunnel`
+   * device-grant). Present when the serving daemon advertises `seedgate1`.
+   * The relay re-encodes frames via Schema, so this field MUST stay on the
+   * schema to survive forward; the relay never verifies it.
+   */
+  grant: S.optional(S.String),
 });
 export type TRelayTunnelOpenFrame = S.Schema.Type<typeof RelayTunnelOpenFrame>;
 
@@ -338,6 +345,7 @@ export const TunnelOpenError = S.Literal(
   "tunnel_busy",
   "invalid_tunnel",
   "overloaded",
+  "unauthorized",
 );
 export type TTunnelOpenError = S.Schema.Type<typeof TunnelOpenError>;
 
@@ -406,6 +414,12 @@ export const RelayChannelOpenFrame = S.Struct({
   type: S.Literal("channel_open"),
   channel_id: S.String,
   key_id: S.String,
+  /**
+   * Seed-gated device grant (base64 envelope). Present when the serving
+   * daemon advertises `seedgate1`. Relay re-encodes via Schema — must be
+   * on the schema so it survives forward; never verified by the relay.
+   */
+  grant: S.optional(S.String),
 });
 export type TRelayChannelOpenFrame = S.Schema.Type<
   typeof RelayChannelOpenFrame

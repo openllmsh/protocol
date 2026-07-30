@@ -120,6 +120,14 @@ export const DaemonBootstrap = S.Struct({
   fleet_subscriptions: S.optional(
     S.Array(S.Struct({ provider: S.String, key_id: S.String })),
   ),
+  /**
+   * SPKI DER (base64) of the seed-derived device-access public key for
+   * the authenticating api key. The daemon verifies browser-signed
+   * device grants against it. Null when the key is un-provisioned or
+   * the caller is session-only / watcher (no owning key). Optional so
+   * older clouds keep bootstrapping newer daemons.
+   */
+  device_access_pubkey: S.optional(S.NullOr(S.String)),
 });
 export type TDaemonBootstrap = S.Schema.Type<typeof DaemonBootstrap>;
 

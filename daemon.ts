@@ -235,6 +235,8 @@ export const SubscriptionProviderSlug = S.Literal(
   // xAI Grok ("Grok Build", x.ai/cli) — SuperGrok / X Premium+ subscription
   // OAuth, delegated to the official `grok` CLI by the daemon.
   "grok",
+  // Cursor subscription, delegated to the official `cursor-agent` CLI.
+  "cursor",
 );
 export type TSubscriptionProviderSlug = S.Schema.Type<
   typeof SubscriptionProviderSlug

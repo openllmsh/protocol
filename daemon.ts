@@ -257,6 +257,19 @@ export type TSubscriptionProviderSlug = S.Schema.Type<
   typeof SubscriptionProviderSlug
 >;
 
+/** Optional user-visible device-session label (open frames + presence). */
+export const SessionTitleField = S.String.pipe(S.maxLength(80));
+export type TSessionTitleField = S.Schema.Type<typeof SessionTitleField>;
+
+/** Terminal exit reason retained for a dead but resumable device session. */
+export const SessionExitReason = S.Literal(
+  "evicted",
+  "reaped",
+  "done",
+  "killed",
+);
+export type TSessionExitReason = S.Schema.Type<typeof SessionExitReason>;
+
 // Opaque base64 blob (an X25519 sealed box / SPKI public key) — decrypted or
 // parsed by the recipient, never executed. Padding restricted to at most two
 // '=' characters only at the end (valid base64 format).
@@ -573,11 +586,9 @@ export const DaemonStatus = S.Struct({
         /** Best-effort process-tree activity signal for dormant sessions. */
         busy: S.optional(S.Boolean),
         /** User-visible session label, bounded for presence snapshots. */
-        title: S.optional(S.String.pipe(S.maxLength(80))),
+        title: S.optional(SessionTitleField),
         /** Terminal reason retained for a dead resumable session. */
-        last_exit_reason: S.optional(
-          S.Literal("evicted", "reaped", "done", "killed"),
-        ),
+        last_exit_reason: S.optional(SessionExitReason),
       }),
     ),
   ),

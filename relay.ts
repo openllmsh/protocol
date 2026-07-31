@@ -3,12 +3,15 @@ import { RelayCommandLifecycleFrame } from "./control-channel";
 import {
   DaemonCommand,
   DaemonCommandAck,
+  SessionExitReason,
+  SessionTitleField,
   SubscriptionProviderSlug,
 } from "./daemon";
 import {
   ChannelCloseReason,
   ChannelOpenError,
   SessionId,
+  TerminalDimension,
   TunnelForwardHeaders,
   TunnelResponseHeaders,
   TunnelSurface,
@@ -475,10 +478,10 @@ export const RelaySessionOpenFrame = S.Struct({
   session_id: SessionId,
   key_id: S.String,
   cli: SubscriptionProviderSlug,
-  cols: S.Number.pipe(S.between(1, 1024)),
-  rows: S.Number.pipe(S.between(1, 1024)),
+  cols: TerminalDimension,
+  rows: TerminalDimension,
   mode: S.Literal("spawn", "attach", "continue"),
-  title: S.optional(S.String.pipe(S.maxLength(80))),
+  title: S.optional(SessionTitleField),
 });
 export type TRelaySessionOpenFrame = S.Schema.Type<
   typeof RelaySessionOpenFrame
@@ -504,9 +507,7 @@ export const RelaySessionOpenAckFrame = S.Struct({
   ok: S.Boolean,
   error: S.optional(SessionOpenError),
   /** Additive detail for a dead resumable session, if its terminal reason is known. */
-  last_exit_reason: S.optional(
-    S.Literal("evicted", "reaped", "done", "killed"),
-  ),
+  last_exit_reason: S.optional(SessionExitReason),
   live: S.optional(S.Boolean),
   /** Daemon-minted, monotonically increasing session-open generation. */
   generation: S.optional(S.Number),
@@ -533,8 +534,8 @@ export type TRelaySessionIoFrame = S.Schema.Type<typeof RelaySessionIoFrame>;
 export const RelaySessionResizeFrame = S.Struct({
   type: S.Literal("session_resize"),
   session_id: SessionId,
-  cols: S.Number.pipe(S.between(1, 1024)),
-  rows: S.Number.pipe(S.between(1, 1024)),
+  cols: TerminalDimension,
+  rows: TerminalDimension,
 });
 export type TRelaySessionResizeFrame = S.Schema.Type<
   typeof RelaySessionResizeFrame

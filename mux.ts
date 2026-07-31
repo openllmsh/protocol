@@ -7,7 +7,7 @@
  * WebSocket, so socket identity selects the channel.
  */
 import { Either, Schema as S } from "effect";
-import { SubscriptionProviderSlug } from "./daemon";
+import { SessionTitleField, SubscriptionProviderSlug } from "./daemon";
 
 /** Capability advertising support for the binary mux wire format. */
 export const MUX_CAP = "mux1";
@@ -98,6 +98,10 @@ export const SESSION_ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
 export const SessionId = S.String.pipe(S.pattern(SESSION_ID_PATTERN));
 export type TSessionId = S.Schema.Type<typeof SessionId>;
 
+/** Terminal cols/rows on session open + resize (mux + JSON splice). */
+export const TerminalDimension = S.Number.pipe(S.between(1, 1024));
+export type TTerminalDimension = S.Schema.Type<typeof TerminalDimension>;
+
 /** A channel-level admission failure. */
 export const ChannelOpenError = S.Literal(
   "daemon_offline",
@@ -136,10 +140,10 @@ export const SessionStreamOpenPayload = S.Struct({
   kind: S.Literal("session"),
   session_id: SessionId,
   cli: SubscriptionProviderSlug,
-  cols: S.Number.pipe(S.between(1, 1024)),
-  rows: S.Number.pipe(S.between(1, 1024)),
+  cols: TerminalDimension,
+  rows: TerminalDimension,
   mode: S.Literal("spawn", "attach", "continue"),
-  title: S.optional(S.String.pipe(S.maxLength(80))),
+  title: S.optional(SessionTitleField),
 });
 export type TSessionStreamOpenPayload = S.Schema.Type<
   typeof SessionStreamOpenPayload
@@ -174,8 +178,8 @@ export const StreamCtrlPayload = S.Union(
   }),
   S.Struct({
     t: S.Literal("resize"),
-    cols: S.Number.pipe(S.between(1, 1024)),
-    rows: S.Number.pipe(S.between(1, 1024)),
+    cols: TerminalDimension,
+    rows: TerminalDimension,
   }),
   S.Struct({ t: S.Literal("replay_done") }),
   S.Struct({ t: S.Literal("close"), intent: S.Literal("detach", "kill") }),

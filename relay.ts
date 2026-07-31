@@ -139,18 +139,31 @@ export const resolveRelayOrigin = (inputs: TRelayOriginInputs): string => {
 /**
  * The decoded claims of a connect ticket. The cloud (`/api/daemon/channel`)
  * mints these after validating the caller (`sk-llm` key → `daemon`, Neon
- * Auth session → `watcher`) and HMAC-signs them; the relay verifies the
- * signature and trusts these claims (it does NO DB-side auth in the
- * Sandbox). `key_id` is present iff `role === "daemon"`. `exp` is a unix-ms
- * deadline kept short (~60s) so a leaked ticket is near-useless.
+ * Auth session → `watcher`) and Ed25519-signs them; the relay verifies with
+ * the corresponding public key only (it does NO DB-side auth in the
+ * Sandbox and cannot mint tickets). `key_id` is present iff
+ * `role === "daemon"`. `exp` is a unix-ms deadline kept short (~60s) so a
+ * leaked ticket is near-useless. `aud` binds the ticket to a specific relay
+ * sandbox name; `jti` is a one-shot nonce consumed by the relay.
  */
 export const RelayTicketClaims = S.Struct({
   role: RelayRole,
   user_id: S.String,
   key_id: S.optional(S.String),
   exp: S.Number,
+  /** Relay sandbox audience, e.g. `daemon-relay-production`. */
+  aud: S.String,
+  /** Unique ticket id (base64url) — single-use within the TTL window. */
+  jti: S.String,
 });
 export type TRelayTicketClaims = S.Schema.Type<typeof RelayTicketClaims>;
+
+/**
+ * Domain-separation label for the Ed25519 seed derivation. Shared by the
+ * cloud signer and the verifier so both derive the same keypair from
+ * `NEON_AUTH_COOKIE_SECRET`. The sandbox receives only the public half.
+ */
+export const RELAY_TICKET_SEED_LABEL = "openllm-relay-ticket-ed25519-seed-v1";
 
 /** GET /api/daemon/channel → the live relay WSS URL + a connect ticket. Both
  *  daemon and browser dial `wss_url`, presenting `ticket` in their first

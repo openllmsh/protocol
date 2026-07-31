@@ -16,6 +16,18 @@ export const hasMuxCap = (caps: readonly string[] | undefined): boolean =>
   caps?.includes(MUX_CAP) ?? false;
 
 /**
+ * Capability advertising seed-gated device-grant enforcement on channel /
+ * tunnel / RTC open. Layered on by the daemon when a device-access pubkey is
+ * pinned from bootstrap.
+ */
+export const SEEDGATE_CAP = "seedgate1";
+
+/** Returns whether an open-vocabulary capability list advertises seedgate. */
+export const hasSeedgateCap = (
+  caps: readonly string[] | undefined,
+): boolean => caps?.includes(SEEDGATE_CAP) ?? false;
+
+/**
  * Normalizes an optional relay version for observability only. Feature gating is
  * capability-based, never version-based.
  */

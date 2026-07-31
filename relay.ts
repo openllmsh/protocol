@@ -317,8 +317,19 @@ export const TUNNEL_CHUNK_B64_MAX = (TUNNEL_CHUNK_MAX / 3) * 4;
  * Real envelopes are a few hundred bytes (JSON of nonce/ts/key_id/cid/aud +
  * Ed25519 sig, then base64); 4 KiB is generous headroom so a peer cannot
  * push an unbounded string through Schema re-encode into the daemon.
+ *
+ * Canonical owner for the wire cap. `@openllmsh/tunnel/device-grant` re-exports
+ * the same value so decode stays aligned with Schema maxLength.
  */
 export const DEVICE_GRANT_B64_MAX = 4 * 1024;
+
+/**
+ * Internal hop marker: the serving daemon stamps this on every request it
+ * dispatches from a tunnel open so a fleet-peer walker can refuse to
+ * re-tunnel (loop guard). Not a client-facing API.
+ */
+export const TUNNELED_REQUEST_HEADER = "x-openllm-tunneled";
+export const TUNNELED_REQUEST_VALUE = "1";
 
 /** Idle deadline for a tunnel with no frame activity in either direction —
  *  the relay closes both ends `reason:"timeout"` on its keepalive tick. */

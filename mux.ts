@@ -16,6 +16,16 @@ export const hasMuxCap = (caps: readonly string[] | undefined): boolean =>
   caps?.includes(MUX_CAP) ?? false;
 
 /**
+ * Capability advertising WebRTC data-channel mux hosting (browser ↔ daemon).
+ * Layered on by the daemon when RTC responder support is compiled in.
+ */
+export const RTC_CAP = "rtc1";
+
+/** Returns whether an open-vocabulary capability list advertises RTC support. */
+export const hasRtcCap = (caps: readonly string[] | undefined): boolean =>
+  caps?.includes(RTC_CAP) ?? false;
+
+/**
  * Capability advertising seed-gated device-grant enforcement on channel /
  * tunnel / RTC open. Layered on by the daemon when a device-access pubkey is
  * pinned from bootstrap.

@@ -476,6 +476,26 @@ export type TRelayChannelCloseFrame = S.Schema.Type<
 // equivalent) so browser and daemon peers share one serialization without
 // inventing a side-car candidate schema.
 
+/**
+ * Soft upper bound for an SDP blob on the signaling plane. Real offers/
+ * answers are a few KB; 64 KiB leaves headroom while staying well under a
+ * typical WebSocket frame budget (~1 MiB on Cloudflare / PartySocket).
+ */
+export const RTC_SDP_MAX = 64 * 1024;
+
+/**
+ * Soft upper bound for a base64 sealed fingerprint proof. Sealed-box
+ * ciphertext for the offer/answer inner is well under 2 KiB even with a
+ * nested device grant; 8 KiB is a conservative ceiling.
+ */
+export const RTC_FINGERPRINT_PROOF_B64_MAX = 8 * 1024;
+
+/**
+ * Soft upper bound for a JSON-serialized `RTCIceCandidateInit`. A single
+ * candidate line + mid/mline fields is typically < 512 B; 4 KiB is generous.
+ */
+export const RTC_ICE_CANDIDATE_MAX = 4 * 1024;
+
 /** consumer → relay → serving daemon. Open an RTC signaling session aimed at
  *  the daemon serving `key_id`. The consumer mints `channel_id` (uuid); the
  *  relay authorizes by registry membership and registers the pair so later
@@ -484,8 +504,8 @@ export const RelayRtcOfferFrame = S.Struct({
   type: S.Literal("rtc_offer"),
   channel_id: S.String,
   key_id: S.String,
-  sdp: S.String,
-  fingerprint_proof: S.String,
+  sdp: S.String.pipe(S.maxLength(RTC_SDP_MAX)),
+  fingerprint_proof: S.String.pipe(S.maxLength(RTC_FINGERPRINT_PROOF_B64_MAX)),
 });
 export type TRelayRtcOfferFrame = S.Schema.Type<typeof RelayRtcOfferFrame>;
 
@@ -493,8 +513,8 @@ export type TRelayRtcOfferFrame = S.Schema.Type<typeof RelayRtcOfferFrame>;
 export const RelayRtcAnswerFrame = S.Struct({
   type: S.Literal("rtc_answer"),
   channel_id: S.String,
-  sdp: S.String,
-  fingerprint_proof: S.String,
+  sdp: S.String.pipe(S.maxLength(RTC_SDP_MAX)),
+  fingerprint_proof: S.String.pipe(S.maxLength(RTC_FINGERPRINT_PROOF_B64_MAX)),
 });
 export type TRelayRtcAnswerFrame = S.Schema.Type<typeof RelayRtcAnswerFrame>;
 
@@ -505,7 +525,7 @@ export type TRelayRtcAnswerFrame = S.Schema.Type<typeof RelayRtcAnswerFrame>;
 export const RelayRtcIceFrame = S.Struct({
   type: S.Literal("rtc_ice"),
   channel_id: S.String,
-  candidate: S.String,
+  candidate: S.String.pipe(S.maxLength(RTC_ICE_CANDIDATE_MAX)),
 });
 export type TRelayRtcIceFrame = S.Schema.Type<typeof RelayRtcIceFrame>;
 

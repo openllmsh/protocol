@@ -327,7 +327,8 @@ export const TUNNEL_IDLE_TIMEOUT_MS = 120_000;
 /** consumer → relay → serving daemon. Open a tunnel to the daemon serving
  *  `key_id`. The CONSUMER mints `tunnel_id` (uuid); the relay authorizes by
  *  registry membership (same `user_id`, live daemon socket, not the sender
- *  itself) and forwards the frame verbatim. */
+ *  itself) and stamps `consumer` from the authenticated socket role before
+ *  forward (never trusts the client-supplied claim). */
 export const RelayTunnelOpenFrame = S.Struct({
   type: S.Literal("tunnel_open"),
   tunnel_id: S.String,
@@ -335,7 +336,11 @@ export const RelayTunnelOpenFrame = S.Struct({
   method: S.Literal("POST"),
   surface: TunnelSurface,
   headers: S.optional(TunnelForwardHeaders),
-  /** Consuming-device tag, threaded into serving-side usage recording. */
+  /**
+   * Consuming-device tag. The relay overwrites this from the authenticated
+   * socket role (`watcher` → `browser`, `daemon` → `daemon`) before forward
+   * so a watcher cannot skip seedgate by claiming `daemon`.
+   */
   consumer: S.optional(S.Literal("browser", "daemon")),
   /**
    * Seed-gated device grant (base64 envelope from `@openllmsh/tunnel`
@@ -429,8 +434,10 @@ export const RelayChannelOpenFrame = S.Struct({
   channel_id: S.String,
   key_id: S.String,
   /**
-   * Who is opening the channel. `daemon` marks a fleet peer hop — the
-   * serving daemon skips seedgate for these (no vault DEK on the consumer).
+   * Who is opening the channel. The relay stamps this from the authenticated
+   * socket role before forward (`watcher` → `browser`, `daemon` → `daemon`) —
+   * clients may set it but the relay overwrites. `daemon` marks a fleet peer
+   * hop so the serving daemon skips seedgate (no vault DEK on the consumer).
    * Omitted / `browser` is the default seed-gated path.
    */
   consumer: S.optional(S.Literal("browser", "daemon")),

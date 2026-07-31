@@ -312,6 +312,14 @@ export const TUNNEL_CHUNK_MAX = 48 * 1024;
  *  a peer can't ship an arbitrarily large frame past the splitters. */
 export const TUNNEL_CHUNK_B64_MAX = (TUNNEL_CHUNK_MAX / 3) * 4;
 
+/**
+ * Max base64 length of a seed-gated device-grant envelope on open frames.
+ * Real envelopes are a few hundred bytes (JSON of nonce/ts/key_id/cid/aud +
+ * Ed25519 sig, then base64); 4 KiB is generous headroom so a peer cannot
+ * push an unbounded string through Schema re-encode into the daemon.
+ */
+export const DEVICE_GRANT_B64_MAX = 4 * 1024;
+
 /** Idle deadline for a tunnel with no frame activity in either direction —
  *  the relay closes both ends `reason:"timeout"` on its keepalive tick. */
 export const TUNNEL_IDLE_TIMEOUT_MS = 120_000;
@@ -333,9 +341,10 @@ export const RelayTunnelOpenFrame = S.Struct({
    * Seed-gated device grant (base64 envelope from `@openllmsh/tunnel`
    * device-grant). Present when the serving daemon advertises `seedgate1`.
    * The relay re-encodes frames via Schema, so this field MUST stay on the
-   * schema to survive forward; the relay never verifies it.
+   * schema to survive forward; the relay never verifies it. Bounded so a
+   * peer cannot ship an arbitrarily large grant past re-encode.
    */
-  grant: S.optional(S.String),
+  grant: S.optional(S.String.pipe(S.maxLength(DEVICE_GRANT_B64_MAX))),
 });
 export type TRelayTunnelOpenFrame = S.Schema.Type<typeof RelayTunnelOpenFrame>;
 
@@ -423,8 +432,9 @@ export const RelayChannelOpenFrame = S.Struct({
    * Seed-gated device grant (base64 envelope). Present when the serving
    * daemon advertises `seedgate1`. Relay re-encodes via Schema — must be
    * on the schema so it survives forward; never verified by the relay.
+   * Bounded so a peer cannot ship an arbitrarily large grant past re-encode.
    */
-  grant: S.optional(S.String),
+  grant: S.optional(S.String.pipe(S.maxLength(DEVICE_GRANT_B64_MAX))),
 });
 export type TRelayChannelOpenFrame = S.Schema.Type<
   typeof RelayChannelOpenFrame

@@ -482,6 +482,8 @@ export const RelaySessionOpenFrame = S.Struct({
   rows: TerminalDimension,
   mode: S.Literal("spawn", "attach", "continue"),
   title: S.optional(SessionTitleField),
+  /** When true, launch via `openllm -d <client>` for CLIs that support it. */
+  dangerous: S.optional(S.Boolean),
 });
 export type TRelaySessionOpenFrame = S.Schema.Type<
   typeof RelaySessionOpenFrame

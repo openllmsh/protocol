@@ -144,6 +144,8 @@ export const SessionStreamOpenPayload = S.Struct({
   rows: TerminalDimension,
   mode: S.Literal("spawn", "attach", "continue"),
   title: S.optional(SessionTitleField),
+  /** When true, launch via `openllm -d <client>` for CLIs that support it. */
+  dangerous: S.optional(S.Boolean),
 });
 export type TSessionStreamOpenPayload = S.Schema.Type<
   typeof SessionStreamOpenPayload
@@ -245,6 +247,7 @@ export const parseStreamOpenPayload = (
       "rows",
       "mode",
       "title",
+      "dangerous",
     ])
   ) {
     return null;

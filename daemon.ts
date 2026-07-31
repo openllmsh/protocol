@@ -118,7 +118,14 @@ export const DaemonBootstrap = S.Struct({
    * so older clouds keep bootstrapping newer daemons.
    */
   fleet_subscriptions: S.optional(
-    S.Array(S.Struct({ provider: S.String, key_id: S.String })),
+    S.Array(
+      S.Struct({
+        provider: S.String,
+        key_id: S.String,
+        /** Serving daemon X25519 SPKI, absent for pre-pubkey peers. */
+        pubkey: S.optional(S.String),
+      }),
+    ),
   ),
   /**
    * SPKI DER (base64) of the seed-derived device-access public key for

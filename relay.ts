@@ -27,11 +27,6 @@ import {
 export const RelayRole = S.Literal("daemon", "watcher");
 export type TRelayRole = S.Schema.Type<typeof RelayRole>;
 
-/** Domain-separation label for the connect-ticket HMAC. Shared by the cloud
- *  signer (`packages/api/lib/relay-ticket.ts`) and the relay verifier
- *  (`packages/daemon-relay/src/ticket.ts`) so the two can never drift. */
-export const RELAY_TICKET_LABEL = "openllm-relay-ticket-v1";
-
 /** The port the in-sandbox WS server listens on — declared in `ports` at
  *  `Sandbox.getOrCreate` (cloud) and bound by the relay. A fixed internal
  *  constant (the public surface is the sandbox's own domain), shared so the

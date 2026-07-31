@@ -429,6 +429,12 @@ export const RelayChannelOpenFrame = S.Struct({
   channel_id: S.String,
   key_id: S.String,
   /**
+   * Who is opening the channel. `daemon` marks a fleet peer hop — the
+   * serving daemon skips seedgate for these (no vault DEK on the consumer).
+   * Omitted / `browser` is the default seed-gated path.
+   */
+  consumer: S.optional(S.Literal("browser", "daemon")),
+  /**
    * Seed-gated device grant (base64 envelope). Present when the serving
    * daemon advertises `seedgate1`. Relay re-encodes via Schema — must be
    * on the schema so it survives forward; never verified by the relay.

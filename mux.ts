@@ -23,9 +23,8 @@ export const hasMuxCap = (caps: readonly string[] | undefined): boolean =>
 export const SEEDGATE_CAP = "seedgate1";
 
 /** Returns whether an open-vocabulary capability list advertises seedgate. */
-export const hasSeedgateCap = (
-  caps: readonly string[] | undefined,
-): boolean => caps?.includes(SEEDGATE_CAP) ?? false;
+export const hasSeedgateCap = (caps: readonly string[] | undefined): boolean =>
+  caps?.includes(SEEDGATE_CAP) ?? false;
 
 /**
  * Normalizes an optional relay version for observability only. Feature gating is
@@ -170,20 +169,11 @@ const hasOnlyKeys = (
 export const parseStreamOpenPayload = (
   value: unknown,
 ): TStreamOpenPayload | null => {
+  // Allowlist matches StreamOpenPayload / TunnelStreamOpenPayload exactly —
+  // dead session/CLI keys (session_id, cols, …) were removed so the filter
+  // and Schema cannot disagree.
   if (
-    !hasOnlyKeys(value, [
-      "kind",
-      "method",
-      "surface",
-      "headers",
-      "consumer",
-      "session_id",
-      "cli",
-      "cols",
-      "rows",
-      "mode",
-      "title",
-    ])
+    !hasOnlyKeys(value, ["kind", "method", "surface", "headers", "consumer"])
   ) {
     return null;
   }

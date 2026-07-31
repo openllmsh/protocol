@@ -397,7 +397,7 @@ export type TRelayTunnelOpenAckFrame = S.Schema.Type<
 export const RelayTunnelDataFrame = S.Struct({
   type: S.Literal("tunnel_data"),
   tunnel_id: S.String,
-  seq: S.Number,
+  seq: S.Number.pipe(S.int(), S.nonNegative()),
   dir: S.Literal("req", "res"),
   data_b64: S.String.pipe(S.maxLength(TUNNEL_CHUNK_B64_MAX)),
   status: S.optional(S.Number),

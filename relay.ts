@@ -354,7 +354,12 @@ export const RelayTunnelOpenAckFrame = S.Struct({
   type: S.Literal("tunnel_open_ack"),
   tunnel_id: S.String,
   ok: S.Boolean,
-  error: S.optional(TunnelOpenError),
+  /**
+   * Free-string on the wire so peers that predate `unauthorized` (seedgate1)
+   * still decode the frame. Known values live in {@link TunnelOpenError};
+   * unknown values surface as-is to callers (e.g. finishTunnel message).
+   */
+  error: S.optional(S.String),
 });
 export type TRelayTunnelOpenAckFrame = S.Schema.Type<
   typeof RelayTunnelOpenAckFrame

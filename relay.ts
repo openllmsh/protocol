@@ -155,9 +155,9 @@ export const RelayTicketClaims = S.Struct({
   key_id: S.optional(S.String),
   exp: S.Number,
   /** Relay sandbox audience, e.g. `daemon-relay-production`. */
-  aud: S.String,
+  aud: S.String.pipe(S.minLength(1), S.maxLength(128)),
   /** Unique ticket id (base64url) — single-use within the TTL window. */
-  jti: S.String,
+  jti: S.String.pipe(S.minLength(16), S.maxLength(64)),
 });
 export type TRelayTicketClaims = S.Schema.Type<typeof RelayTicketClaims>;
 
@@ -358,7 +358,7 @@ export const TUNNEL_IDLE_TIMEOUT_MS = 120_000;
  *  forward (never trusts the client-supplied claim). */
 export const RelayTunnelOpenFrame = S.Struct({
   type: S.Literal("tunnel_open"),
-  tunnel_id: S.String,
+  tunnel_id: S.UUID,
   key_id: S.String,
   method: S.Literal("POST"),
   surface: TunnelSurface,
@@ -416,7 +416,7 @@ export const RelayTunnelDataFrame = S.Struct({
   seq: S.Number.pipe(S.int(), S.nonNegative()),
   dir: S.Literal("req", "res"),
   data_b64: S.String.pipe(S.maxLength(TUNNEL_CHUNK_B64_MAX)),
-  status: S.optional(S.Number),
+  status: S.optional(S.Number.pipe(S.int(), S.between(200, 599))),
   res_headers: S.optional(TunnelResponseHeaders),
 });
 export type TRelayTunnelDataFrame = S.Schema.Type<typeof RelayTunnelDataFrame>;
@@ -532,7 +532,7 @@ export const RelaySessionIoFrame = S.Struct({
   type: S.Literal("session_io"),
   session_id: SessionId,
   dir: S.Literal("in", "out"),
-  seq: S.Number,
+  seq: S.Number.pipe(S.int(), S.nonNegative()),
   // Bounded to one maximal chunk after b64 inflation — matches the
   // sender-side `sendOut` splitter (TUNNEL_CHUNK_MAX raw bytes/frame).
   data_b64: S.String.pipe(S.maxLength(TUNNEL_CHUNK_B64_MAX)),

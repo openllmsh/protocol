@@ -181,8 +181,8 @@ export const StreamCtrlPayload = S.Union(
     ok: S.Boolean,
     live: S.optional(S.Boolean),
     /** Daemon-minted, monotonically increasing session-open generation. */
-    generation: S.optional(S.Number),
-    initial_credit: S.optional(S.Number),
+    generation: S.optional(S.Number.pipe(S.int(), S.nonNegative())),
+    initial_credit: S.optional(S.Number.pipe(S.int(), S.nonNegative())),
     /** Present on nacks (`ok:false`) — same vocabulary as `StreamResetCode`
      * session-open failures (`cli_not_installed`, `session_busy`, …). */
     error: S.optional(S.String.pipe(S.maxLength(64))),
@@ -190,7 +190,7 @@ export const StreamCtrlPayload = S.Union(
   }),
   S.Struct({
     t: S.Literal("res_head"),
-    status: S.Number,
+    status: S.Number.pipe(S.int(), S.between(200, 599)),
     res_headers: S.optional(TunnelResponseHeaders),
   }),
   S.Struct({

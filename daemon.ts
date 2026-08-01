@@ -134,7 +134,7 @@ export const DaemonBootstrap = S.Struct({
    * the caller is session-only / watcher (no owning key). Optional so
    * older clouds keep bootstrapping newer daemons.
    */
-  device_access_pubkey: S.optional(S.NullOr(S.String)),
+  device_access_pubkey: S.optional(S.NullOr(S.String.pipe(S.maxLength(64)))),
 });
 export type TDaemonBootstrap = S.Schema.Type<typeof DaemonBootstrap>;
 

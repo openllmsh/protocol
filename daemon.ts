@@ -277,6 +277,31 @@ export const DeviceSessionCli = S.Literal(
 export type TDeviceSessionCli = S.Schema.Type<typeof DeviceSessionCli>;
 
 /**
+ * CLIs for which `openllm -d <client>` (skip approvals) is meaningful.
+ * Canonical set — the picker, session-host, and any consumer import THIS
+ * rather than re-declaring their own membership list.
+ */
+export const DANGEROUS_SESSION_CLIS: ReadonlySet<TDeviceSessionCli> = new Set([
+  "claude_code",
+  "chatgpt",
+  "grok",
+]);
+
+/** CLIs with a local history reader on the daemon (v1). Canonical set. */
+export const LISTABLE_SESSION_CLIS: ReadonlySet<TDeviceSessionCli> = new Set([
+  "claude_code",
+  "chatgpt",
+  "grok",
+  "opencode",
+]);
+
+export const supportsDangerousSession = (cli: string): boolean =>
+  (DANGEROUS_SESSION_CLIS as ReadonlySet<string>).has(cli);
+
+export const isListableSessionCli = (cli: string): boolean =>
+  (LISTABLE_SESSION_CLIS as ReadonlySet<string>).has(cli);
+
+/**
  * One row from the daemon's local session index (vendor history +
  * `~/.openllm/run/<client>/<pid>/live.json` + in-memory device PTYs).
  * Used by `list_local_sessions` so the picker can attach / cold-resume
@@ -303,7 +328,9 @@ export type TLocalCliSession = S.Schema.Type<typeof LocalCliSession>;
 export const ListLocalSessionsPayload = S.Struct({
   cli: DeviceSessionCli,
   /** Max rows (default 30 server-side; hard cap 100). */
-  limit: S.optional(S.Number.pipe(S.int(), S.greaterThanOrEqualTo(1), S.lessThanOrEqualTo(100))),
+  limit: S.optional(
+    S.Number.pipe(S.int(), S.greaterThanOrEqualTo(1), S.lessThanOrEqualTo(100)),
+  ),
 });
 export type TListLocalSessionsPayload = S.Schema.Type<
   typeof ListLocalSessionsPayload
@@ -654,7 +681,9 @@ export const DaemonStatus = S.Struct({
         /** Terminal reason retained for a dead resumable session. */
         last_exit_reason: S.optional(SessionExitReason),
         /** Vendor resume id when known (local history / resume spawn). */
-        vendor_session_id: S.optional(S.NullOr(S.String.pipe(S.maxLength(128)))),
+        vendor_session_id: S.optional(
+          S.NullOr(S.String.pipe(S.maxLength(128))),
+        ),
       }),
     ),
   ),

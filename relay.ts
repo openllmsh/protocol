@@ -454,8 +454,9 @@ export type TRelayTunnelCloseFrame = S.Schema.Type<
 // ─── Device chat sessions (browser ⇄ relay ⇄ daemon PTY) ─────────────
 //
 // A watcher opens a LONG-LIVED full-duplex channel to a daemon, which
-// spawns (or re-attaches) a vendor CLI under a PTY in
-// `~/.openllm/sessions/<id>/` and streams the TUI both ways.
+// spawns (or re-attaches) a vendor CLI under a PTY and streams the TUI both
+// ways. The CLI runs with the user's real `$HOME`; its cwd is `$HOME` by
+// default or a validated absolute cwd from the open frame (resolveSessionCwd).
 // Mirrors the tunnel splice (consumer-minted id, same-user registry auth,
 // per-frame in-memory forward, chunk cap) but is its OWN family: a PTY has
 // no request/response shape, no per-direction EOF, and must survive quiet
@@ -485,7 +486,9 @@ export const RelaySessionOpenFrame = S.Struct({
   /** When true, launch via `openllm -d <client>` for CLIs that support it. */
   dangerous: S.optional(S.Boolean),
   /** Vendor session id for cold resume (`spawn` only). */
-  resume_session_id: S.optional(S.String.pipe(S.minLength(1), S.maxLength(128))),
+  resume_session_id: S.optional(
+    S.String.pipe(S.minLength(1), S.maxLength(128)),
+  ),
   /** Absolute cwd for spawn/continue; daemon-validated. Omitted → `$HOME`. */
   cwd: S.optional(S.String.pipe(S.minLength(1), S.maxLength(1024))),
 });

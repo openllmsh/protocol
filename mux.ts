@@ -88,8 +88,9 @@ export type TTunnelResponseHeaders = S.Schema.Type<
   typeof TunnelResponseHeaders
 >;
 
-/** Session ids are client-minted url-safe tokens (they double as the workspace
- * dir name under `~/.openllm/sessions/`).
+/** Session ids are client-minted url-safe tokens. The url-safe pattern is
+ * still required because the id is embedded in the session-host pidfile name
+ * (`<id>.pid`); there is no longer a `~/.openllm/sessions/<id>/` workspace.
  *
  * Validated by the SERVING DAEMON at stream open (mux) and referenced by the
  * legacy frames (splice); the relay never decodes either.
@@ -151,7 +152,9 @@ export const SessionStreamOpenPayload = S.Struct({
    * the CLI with its native resume flag in the session's recorded cwd.
    * Live OpenLLM PTYs rebind via `mode:"attach"` instead.
    */
-  resume_session_id: S.optional(S.String.pipe(S.minLength(1), S.maxLength(128))),
+  resume_session_id: S.optional(
+    S.String.pipe(S.minLength(1), S.maxLength(128)),
+  ),
   /**
    * Absolute cwd for spawn/continue. Validated on the daemon (must exist
    * as a directory). Omitted → `$HOME` for new sessions.

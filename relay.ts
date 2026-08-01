@@ -514,7 +514,11 @@ export const RelaySessionOpenAckFrame = S.Struct({
   type: S.Literal("session_open_ack"),
   session_id: SessionId,
   ok: S.Boolean,
-  error: S.optional(SessionOpenError),
+  /**
+   * Free-string on the wire so newer daemon failures remain decodable by
+   * older relay peers. Known values live in {@link SessionOpenError}.
+   */
+  error: S.optional(S.String),
   /** Additive detail for a dead resumable session, if its terminal reason is known. */
   last_exit_reason: S.optional(SessionExitReason),
   live: S.optional(S.Boolean),
@@ -614,7 +618,11 @@ export const RelayChannelOpenAckFrame = S.Struct({
   type: S.Literal("channel_open_ack"),
   channel_id: S.String,
   ok: S.Boolean,
-  error: S.optional(ChannelOpenError),
+  /**
+   * Free-string on the wire so newer daemon failures remain decodable by
+   * older relay peers. Known values live in {@link ChannelOpenError}.
+   */
+  error: S.optional(S.String),
 });
 export type TRelayChannelOpenAckFrame = S.Schema.Type<
   typeof RelayChannelOpenAckFrame

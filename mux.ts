@@ -100,7 +100,7 @@ export const SessionId = S.String.pipe(S.pattern(SESSION_ID_PATTERN));
 export type TSessionId = S.Schema.Type<typeof SessionId>;
 
 /** Terminal cols/rows on session open + resize (mux + JSON splice). */
-export const TerminalDimension = S.Number.pipe(S.between(1, 1024));
+export const TerminalDimension = S.Number.pipe(S.int(), S.between(1, 1024));
 export type TTerminalDimension = S.Schema.Type<typeof TerminalDimension>;
 
 /** A channel-level admission failure. */
@@ -116,6 +116,7 @@ export type TChannelOpenError = S.Schema.Type<typeof ChannelOpenError>;
 /** A channel-level teardown reason. */
 export const ChannelCloseReason = S.Literal(
   "done",
+  "channel_exists",
   "consumer_gone",
   "daemon_gone",
   "relay_restart",

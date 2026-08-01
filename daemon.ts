@@ -261,6 +261,62 @@ export type TSubscriptionProviderSlug = S.Schema.Type<
 export const SessionTitleField = S.String.pipe(S.maxLength(80));
 export type TSessionTitleField = S.Schema.Type<typeof SessionTitleField>;
 
+/**
+ * CLIs the device PTY surface can host. The openllm session clients that
+ * have local history + resume wiring (Claude / Codex / Grok / OpenCode).
+ * Keep `SubscriptionProviderSlug` for credentials/usage; session frames +
+ * local-session list use this set. Kimi and Cursor stay subscription-only
+ * for now (no device PTY / local list).
+ */
+export const DeviceSessionCli = S.Literal(
+  "claude_code",
+  "chatgpt",
+  "grok",
+  "opencode",
+);
+export type TDeviceSessionCli = S.Schema.Type<typeof DeviceSessionCli>;
+
+/**
+ * One row from the daemon's local session index (vendor history +
+ * `~/.openllm/run/<client>/<pid>/live.json` + in-memory device PTYs).
+ * Used by `list_local_sessions` so the picker can attach / cold-resume
+ * without scanning disk in the browser.
+ */
+export const LocalCliSession = S.Struct({
+  /** Vendor session id when known; otherwise a synthetic live-run key. */
+  id: S.String.pipe(S.minLength(1), S.maxLength(128)),
+  title: SessionTitleField,
+  cwd: S.NullOr(S.String.pipe(S.maxLength(1024))),
+  updated_at_ms: S.Number,
+  cli: DeviceSessionCli,
+  live: S.Boolean,
+  /** Where the live process is hosted, when `live`. */
+  host: S.optional(S.NullOr(S.Literal("local", "device"))),
+  /** OpenLLM device session id when the PTY is already hosted by the daemon. */
+  openllm_session_id: S.optional(S.NullOr(S.String.pipe(S.maxLength(64)))),
+  /** True when the browser can `mode:"attach"` without spawning a second CLI. */
+  attachable: S.Boolean,
+});
+export type TLocalCliSession = S.Schema.Type<typeof LocalCliSession>;
+
+/** Payload for `list_local_sessions`. */
+export const ListLocalSessionsPayload = S.Struct({
+  cli: DeviceSessionCli,
+  /** Max rows (default 30 server-side; hard cap 100). */
+  limit: S.optional(S.Number.pipe(S.int(), S.greaterThanOrEqualTo(1), S.lessThanOrEqualTo(100))),
+});
+export type TListLocalSessionsPayload = S.Schema.Type<
+  typeof ListLocalSessionsPayload
+>;
+
+/** Result blob for `list_local_sessions` (command ack / lifecycle.result). */
+export const ListLocalSessionsResult = S.Struct({
+  sessions: S.Array(LocalCliSession),
+});
+export type TListLocalSessionsResult = S.Schema.Type<
+  typeof ListLocalSessionsResult
+>;
+
 /** Terminal exit reason retained for a dead but resumable device session. */
 export const SessionExitReason = S.Literal(
   "evicted",
@@ -387,6 +443,14 @@ const commandVariants = <F extends S.Struct.Fields>(addressing: F) =>
       kind: S.Literal("refresh_models"),
       payload: S.optional(EmptyPayload),
     }),
+    // List vendor-local sessions on this machine for one device CLI
+    // (history stores + ~/.openllm/run live.json + in-memory PTYs). Result
+    // rides on the command ack / lifecycle.result for the picker.
+    S.Struct({
+      ...addressing,
+      kind: S.Literal("list_local_sessions"),
+      payload: ListLocalSessionsPayload,
+    }),
   ] as const;
 
 /** The bare `{ kind, payload }` vocabulary — what an enqueue boundary (the
@@ -415,6 +479,7 @@ export const DaemonCommandKind = S.Literal(
   "update",
   "bust_plan_cache",
   "refresh_models",
+  "list_local_sessions",
 );
 type TDaemonCommandKindLiteral = S.Schema.Type<typeof DaemonCommandKind>;
 // Bidirectional assignability assertion: the literal and the union's
@@ -575,9 +640,8 @@ export const DaemonStatus = S.Struct({
     S.Array(
       S.Struct({
         id: S.String,
-        // Same closed vocabulary as `RelaySessionOpenFrame.cli` — a session
-        // can only ever host one of the known subscription CLIs.
-        cli: SubscriptionProviderSlug,
+        // Same closed vocabulary as `RelaySessionOpenFrame.cli`.
+        cli: DeviceSessionCli,
         started_at_ms: S.Number,
         /** A consumer channel is currently bound. */
         attached: S.Boolean,
@@ -589,6 +653,8 @@ export const DaemonStatus = S.Struct({
         title: S.optional(SessionTitleField),
         /** Terminal reason retained for a dead resumable session. */
         last_exit_reason: S.optional(SessionExitReason),
+        /** Vendor resume id when known (local history / resume spawn). */
+        vendor_session_id: S.optional(S.NullOr(S.String.pipe(S.maxLength(128)))),
       }),
     ),
   ),

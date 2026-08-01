@@ -75,6 +75,12 @@ export const CommandLifecycle = S.Struct({
   kind: DaemonCommandKind,
   state: CommandState,
   message: S.optional(S.String),
+  /**
+   * Optional command-specific payload (e.g. `list_local_sessions` →
+   * `{ sessions: LocalCliSession[] }`). Absent on most commands; the
+   * browser must ignore unknown shapes. Never carries secrets.
+   */
+  result: S.optional(S.Unknown),
 });
 export type TCommandLifecycle = S.Schema.Type<typeof CommandLifecycle>;
 

@@ -7,7 +7,7 @@
  * WebSocket, so socket identity selects the channel.
  */
 import { Either, Schema as S } from "effect";
-import { SessionTitleField, SubscriptionProviderSlug } from "./daemon";
+import { DeviceSessionCli, SessionTitleField } from "./daemon";
 
 /** Capability advertising support for the binary mux wire format. */
 export const MUX_CAP = "mux1";
@@ -139,13 +139,24 @@ export type TTunnelStreamOpenPayload = S.Schema.Type<
 export const SessionStreamOpenPayload = S.Struct({
   kind: S.Literal("session"),
   session_id: SessionId,
-  cli: SubscriptionProviderSlug,
+  cli: DeviceSessionCli,
   cols: TerminalDimension,
   rows: TerminalDimension,
   mode: S.Literal("spawn", "attach", "continue"),
   title: S.optional(SessionTitleField),
   /** When true, launch via `openllm -d <client>` for CLIs that support it. */
   dangerous: S.optional(S.Boolean),
+  /**
+   * Cold-resume a vendor session by id (`spawn` only). The daemon launches
+   * the CLI with its native resume flag in the session's recorded cwd.
+   * Live OpenLLM PTYs rebind via `mode:"attach"` instead.
+   */
+  resume_session_id: S.optional(S.String.pipe(S.minLength(1), S.maxLength(128))),
+  /**
+   * Absolute cwd for spawn/continue. Validated on the daemon (must exist
+   * as a directory). Omitted → `$HOME` for new sessions.
+   */
+  cwd: S.optional(S.String.pipe(S.minLength(1), S.maxLength(1024))),
 });
 export type TSessionStreamOpenPayload = S.Schema.Type<
   typeof SessionStreamOpenPayload
@@ -248,6 +259,8 @@ export const parseStreamOpenPayload = (
       "mode",
       "title",
       "dangerous",
+      "resume_session_id",
+      "cwd",
     ])
   ) {
     return null;

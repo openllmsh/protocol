@@ -3,9 +3,9 @@ import { RelayCommandLifecycleFrame } from "./control-channel";
 import {
   DaemonCommand,
   DaemonCommandAck,
+  DeviceSessionCli,
   SessionExitReason,
   SessionTitleField,
-  SubscriptionProviderSlug,
 } from "./daemon";
 import {
   ChannelCloseReason,
@@ -469,21 +469,25 @@ export const SESSION_DETACHED_TTL_MS = 30 * 60_000;
 export const SESSION_QUIET_REAP_MS = 30 * 60_000;
 
 /** watcher → relay → daemon. Open a device session on the daemon serving
- *  `key_id`. `mode`: `spawn` = fresh CLI in a new workspace; `attach` =
- *  re-bind a LIVE PTY (scrollback replays); `continue` = respawn a DEAD
- *  session in its existing workspace with the CLI's native continue flag
- *  where the daemon knows one. */
+ *  `key_id`. `mode`: `spawn` = fresh CLI (cwd `$HOME` or provided `cwd`);
+ *  `attach` = re-bind a LIVE PTY (scrollback replays); `continue` = respawn
+ *  a DEAD session with the CLI's native resume/continue flags where known.
+ *  Cold vendor resume uses `spawn` + `resume_session_id` (not `continue`). */
 export const RelaySessionOpenFrame = S.Struct({
   type: S.Literal("session_open"),
   session_id: SessionId,
   key_id: S.String,
-  cli: SubscriptionProviderSlug,
+  cli: DeviceSessionCli,
   cols: TerminalDimension,
   rows: TerminalDimension,
   mode: S.Literal("spawn", "attach", "continue"),
   title: S.optional(SessionTitleField),
   /** When true, launch via `openllm -d <client>` for CLIs that support it. */
   dangerous: S.optional(S.Boolean),
+  /** Vendor session id for cold resume (`spawn` only). */
+  resume_session_id: S.optional(S.String.pipe(S.minLength(1), S.maxLength(128))),
+  /** Absolute cwd for spawn/continue; daemon-validated. Omitted → `$HOME`. */
+  cwd: S.optional(S.String.pipe(S.minLength(1), S.maxLength(1024))),
 });
 export type TRelaySessionOpenFrame = S.Schema.Type<
   typeof RelaySessionOpenFrame

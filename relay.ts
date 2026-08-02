@@ -504,6 +504,8 @@ export const SessionOpenError = S.Literal(
   "session_busy",
   "overloaded",
   "spawn_failed",
+  /** Remote PTY sessions are opt-in (default off) and disabled on this daemon. */
+  "sessions_disabled",
 );
 export type TSessionOpenError = S.Schema.Type<typeof SessionOpenError>;
 

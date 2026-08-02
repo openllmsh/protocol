@@ -630,6 +630,11 @@ export const DaemonStatus = S.Struct({
    *  Absent on daemons too old to report it — those always self-updated, so the
    *  switch then reads as on. See `packages/daemon/src/auto-update-pref.ts`. */
   auto_update: S.optional(S.Boolean),
+  /** Whether remote PTY sessions are enabled (OPT-IN, default off). Local-only
+   *  toggle — `openllmd sessions on|off` or the install flag; deliberately NO
+   *  relay command can flip it. Absent on daemons too old to gate (those serve
+   *  sessions unconditionally). See `packages/daemon/src/pty-sessions-pref.ts`. */
+  pty_sessions: S.optional(S.Boolean),
   /** Result of the last bootstrap — see `DaemonCloudState`. */
   cloud_state: DaemonCloudState,
   /** This daemon's X25519 public key (SPKI DER, base64). Lets ANOTHER of the

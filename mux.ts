@@ -224,6 +224,10 @@ export const StreamResetCode = S.Literal(
    * consumer re-attaching would steal the PTY straight back, and two live tabs
    * would trade it forever. */
   "superseded",
+  /** Remote PTY sessions are opt-in (default off) and this daemon has them
+   * disabled. Terminal — not retryable until the user enables them on the
+   * device (`openllmd sessions on`, or reinstall with the toggle on). */
+  "sessions_disabled",
 );
 export type TStreamResetCode = S.Schema.Type<typeof StreamResetCode>;
 

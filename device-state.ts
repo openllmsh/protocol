@@ -41,6 +41,10 @@ export const DeviceState = S.Struct({
   key_configured: S.Boolean,
   /** Auto-update opt-in (default on). Absent on daemons too old to report it. */
   auto_update: S.optional(S.Boolean),
+  /** Remote PTY sessions opt-in (default OFF — browser terminals refuse until
+   *  enabled). Absent on daemons too old to report it (which serve sessions
+   *  unconditionally). */
+  pty_sessions: S.optional(S.Boolean),
   /** Result of the last cloud bootstrap — drives the 3-state Providers UI. */
   cloud_state: DaemonCloudState,
   /** The OS-sandbox posture this daemon booted with. */

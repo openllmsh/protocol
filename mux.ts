@@ -219,6 +219,11 @@ export const StreamResetCode = S.Literal(
   "timeout",
   "protocol_error",
   "peer_gone",
+  /** A newer consumer took this session's PTY over. Distinct from `peer_gone`
+   * (transport loss) precisely because it must NOT be retried: the superseded
+   * consumer re-attaching would steal the PTY straight back, and two live tabs
+   * would trade it forever. */
+  "superseded",
 );
 export type TStreamResetCode = S.Schema.Type<typeof StreamResetCode>;
 

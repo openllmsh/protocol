@@ -219,10 +219,10 @@ export const StreamResetCode = S.Literal(
   "timeout",
   "protocol_error",
   "peer_gone",
-  /** A newer consumer took this session's PTY over. Distinct from `peer_gone`
-   * (transport loss) precisely because it must NOT be retried: the superseded
-   * consumer re-attaching would steal the PTY straight back, and two live tabs
-   * would trade it forever. */
+  /** The consumer fell behind the daemon's bounded session-output queue. */
+  "lagging",
+  /** Compatibility only: daemons no longer emit this session reset. Keep parsing
+   * it for one release so new clients can close cleanly against an old daemon. */
   "superseded",
   /** Remote PTY sessions are opt-in (default off) and this daemon has them
    * disabled. Terminal — not retryable until the user enables them on the

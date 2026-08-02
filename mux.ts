@@ -221,9 +221,6 @@ export const StreamResetCode = S.Literal(
   "peer_gone",
   /** The consumer fell behind the daemon's bounded session-output queue. */
   "lagging",
-  /** Compatibility only: daemons no longer emit this session reset. Keep parsing
-   * it for one release so new clients can close cleanly against an old daemon. */
-  "superseded",
   /** Remote PTY sessions are opt-in (default off) and this daemon has them
    * disabled. Terminal — not retryable until the user enables them on the
    * device (`openllmd sessions on`, or reinstall with the toggle on). */

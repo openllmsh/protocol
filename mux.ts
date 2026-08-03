@@ -198,6 +198,10 @@ export const StreamCtrlPayload = S.Union(
     cols: TerminalDimension,
     rows: TerminalDimension,
   }),
+  /** Viewer became the active (focused) consumer — bumps primary election
+   * without requiring typed input. Additive + skew-safe: unknown tags are
+   * dropped by the parser on older peers. */
+  S.Struct({ t: S.Literal("focus") }),
   S.Struct({ t: S.Literal("replay_done") }),
   S.Struct({ t: S.Literal("close"), intent: S.Literal("detach", "kill") }),
 );

@@ -7,7 +7,11 @@
  * WebSocket, so socket identity selects the channel.
  */
 import { Either, Schema as S } from "effect";
-import { DeviceSessionCli, SessionTitleField } from "./daemon";
+import {
+  DeviceSessionCli,
+  SessionTitleField,
+  supportsDangerousSession,
+} from "./daemon";
 
 /** Capability advertising support for the binary mux wire format. */
 export const MUX_CAP = "mux1";
@@ -290,7 +294,14 @@ export const parseStreamOpenPayload = (
   ) {
     return null;
   }
-  return parse(StreamOpenPayload, value);
+  const open = parse(StreamOpenPayload, value);
+  if (open === null || open.kind !== "session") return open;
+  if (open.dangerous === true && !supportsDangerousSession(open.cli))
+    return null;
+  if (open.resume_session_id !== undefined && open.mode !== "spawn")
+    return null;
+  if (open.cwd !== undefined && open.mode === "attach") return null;
+  return open;
 };
 
 /** Decodes an already-parsed mux CTRL JSON value, returning null on failure. */

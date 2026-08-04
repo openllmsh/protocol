@@ -168,15 +168,29 @@ export type TRelayTicketClaims = S.Schema.Type<typeof RelayTicketClaims>;
  */
 export const RELAY_TICKET_SEED_LABEL = "openllm-relay-ticket-ed25519-seed-v1";
 
+/** One ICE server entry (STUN or TURN) on the channel handshake — mirrors
+ *  `RTCIceServer` so browser and daemon feed it to their peer connections
+ *  verbatim. */
+export const IceServer = S.Struct({
+  urls: S.Union(S.String, S.Array(S.String)),
+  username: S.optional(S.String),
+  credential: S.optional(S.String),
+});
+export type TIceServer = S.Schema.Type<typeof IceServer>;
+
 /** GET /api/daemon/channel → the live relay WSS URL + a connect ticket. Both
  *  daemon and browser dial `wss_url`, presenting `ticket` in their first
  *  `hello` frame. The URL is the sandbox's own domain (`wss://<sandbox-host>`);
  *  it can rotate when the relay cycles, so clients re-fetch this on every
- *  (re)connect rather than caching the host. */
+ *  (re)connect rather than caching the host. `ice_servers` is the optional
+ *  cloud-served ICE config (from `OPENLLM_RTC_ICE_SERVERS`) — absent, both
+ *  ends fall back to their default STUN. */
 export const RelayChannelResponse = S.Struct({
   wss_url: S.String,
   /** Short-lived HMAC connect ticket (opaque `<b64url(claims)>.<hmac>`). */
   ticket: S.String,
+  /** Optional cloud-served ICE servers (STUN/TURN) for RTC peers. */
+  ice_servers: S.optional(S.Array(IceServer)),
 });
 export type TRelayChannelResponse = S.Schema.Type<typeof RelayChannelResponse>;
 
@@ -707,6 +721,28 @@ export const RelayRtcIceFrame = S.Struct({
 });
 export type TRelayRtcIceFrame = S.Schema.Type<typeof RelayRtcIceFrame>;
 
+/** Why a serving daemon refused an `rtc_offer`. `seedgate` = the vault DEK is
+ *  locked (retry after unlock); `overloaded` = transient session cap (retry
+ *  soon); `disabled` / `not_capable` = daemon posture (cache the failure —
+ *  it won't change soon). */
+export const RtcNackReason = S.Literal(
+  "seedgate",
+  "overloaded",
+  "disabled",
+  "not_capable",
+);
+export type TRtcNackReason = S.Schema.Type<typeof RtcNackReason>;
+
+/** serving daemon → relay → consumer. Refuse the offer for `channel_id` —
+ *  the explicit non-silent reject so the offerer fails fast instead of
+ *  waiting out the signaling/ICE timeout. */
+export const RelayRtcNackFrame = S.Struct({
+  type: S.Literal("rtc_nack"),
+  channel_id: S.String,
+  reason: RtcNackReason,
+});
+export type TRelayRtcNackFrame = S.Schema.Type<typeof RelayRtcNackFrame>;
+
 /** Keepalive (both directions). The relay pings below Cloudflare's
  *  proxied-WS idle bound; a missed pong is the relay's dead-peer signal. */
 export const RelayPingFrame = S.Struct({ type: S.Literal("ping") });
@@ -756,6 +792,7 @@ export const RelayFrame = S.Union(
   RelayRtcOfferFrame,
   RelayRtcAnswerFrame,
   RelayRtcIceFrame,
+  RelayRtcNackFrame,
   RelayPingFrame,
   RelayPongFrame,
 );

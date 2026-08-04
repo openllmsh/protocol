@@ -16,9 +16,22 @@ import {
 /** Capability advertising support for the binary mux wire format. */
 export const MUX_CAP = "mux1";
 
+/**
+ * Capability advertising support for channel-tagged relay-mux messages: the
+ * 16-byte channel-UUID envelope (`@openllmsh/tunnel` `channel-envelope.ts`)
+ * wrapping each binary WebSocket message, which lifts the one-channel-per-
+ * socket cap (D2) to one channel per (consumer, serving) pair. Layered on top
+ * of `mux1` — a peer advertising `mux2` always advertises `mux1` too.
+ */
+export const MUX2_CAP = "mux2";
+
 /** Returns whether an open-vocabulary capability list advertises mux support. */
 export const hasMuxCap = (caps: readonly string[] | undefined): boolean =>
   caps?.includes(MUX_CAP) ?? false;
+
+/** Returns whether an open-vocabulary capability list advertises mux2. */
+export const hasMux2Cap = (caps: readonly string[] | undefined): boolean =>
+  caps?.includes(MUX2_CAP) ?? false;
 
 /**
  * Capability advertising WebRTC data-channel mux hosting (browser ↔ daemon).

@@ -3,8 +3,8 @@
  *
  * Binary mux frames are deliberately outside `RelayFrame`: the relay routes on
  * the 9-byte header (defined by `@openllmsh/tunnel/codec`) and never imports
- * these payload schemas. D2 permits one active mux channel per underlying
- * WebSocket, so socket identity selects the channel.
+ * these payload schemas. The 16-byte channel-id envelope (`mux2`) tags each
+ * binary message, so one WebSocket can carry several channels concurrently.
  */
 import { Either, Schema as S } from "effect";
 import {
@@ -13,25 +13,18 @@ import {
   supportsDangerousSession,
 } from "./daemon";
 
-/** Capability advertising support for the binary mux wire format. */
-export const MUX_CAP = "mux1";
-
 /**
- * Capability advertising support for channel-tagged relay-mux messages: the
- * 16-byte channel-UUID envelope (`@openllmsh/tunnel` `channel-envelope.ts`)
- * wrapping each binary WebSocket message, which lifts the one-channel-per-
- * socket cap (D2) to one channel per (consumer, serving) pair. Layered on top
- * of `mux1` — a peer advertising `mux2` always advertises `mux1` too.
+ * Capability advertising support for the binary mux wire format: the 16-byte
+ * channel-UUID envelope (`@openllmsh/tunnel` `channel-envelope.ts`) wrapping
+ * each binary WebSocket message, so one relay socket can carry several channels
+ * (one per (consumer, serving) pair). The wire string stays `"mux2"` — the
+ * legacy `"mux1"` single-channel framing has been removed entirely.
  */
-export const MUX2_CAP = "mux2";
+export const MUX_CAP = "mux2";
 
 /** Returns whether an open-vocabulary capability list advertises mux support. */
 export const hasMuxCap = (caps: readonly string[] | undefined): boolean =>
   caps?.includes(MUX_CAP) ?? false;
-
-/** Returns whether an open-vocabulary capability list advertises mux2. */
-export const hasMux2Cap = (caps: readonly string[] | undefined): boolean =>
-  caps?.includes(MUX2_CAP) ?? false;
 
 /**
  * Capability advertising WebRTC data-channel mux hosting (browser ↔ daemon).
@@ -66,8 +59,8 @@ export const relayProtocolVersionOf = (frame: {
  * serving daemon maps it to its OWN local endpoint path, so no free URL path
  * ever crosses the relay (mirrors the listener's surface discriminator).
  *
- * Validated by the SERVING DAEMON at stream open (mux) and referenced by the
- * legacy frames (splice); the relay never decodes either.
+ * Validated by the SERVING DAEMON at stream open (mux); the relay never
+ * decodes it.
  */
 export const TunnelSurface = S.Literal(
   "chat_completions",
@@ -81,8 +74,8 @@ export type TTunnelSurface = S.Schema.Type<typeof TunnelSurface>;
  * free map, per the relay's reviewable-vocabulary posture. Everything else
  * (auth, plan params) is the serving daemon's own business.
  *
- * Validated by the SERVING DAEMON at stream open (mux) and referenced by the
- * legacy frames (splice); the relay never decodes either.
+ * Validated by the SERVING DAEMON at stream open (mux); the relay never
+ * decodes it.
  */
 export const TunnelForwardHeaders = S.Struct({
   content_type: S.optional(S.Literal("application/json")),
@@ -94,8 +87,8 @@ export type TTunnelForwardHeaders = S.Schema.Type<typeof TunnelForwardHeaders>;
 
 /** Response metadata carried by the mux `res_head` CTRL payload.
  *
- * Validated by the SERVING DAEMON at stream open (mux) and referenced by the
- * legacy frames (splice); the relay never decodes either.
+ * Validated by the SERVING DAEMON at stream open (mux); the relay never
+ * decodes it.
  */
 export const TunnelResponseHeaders = S.Struct({
   content_type: S.optional(S.String.pipe(S.maxLength(128))),
@@ -109,14 +102,14 @@ export type TTunnelResponseHeaders = S.Schema.Type<
  * still required because the id is embedded in the session-host pidfile name
  * (`<id>.pid`); there is no longer a `~/.openllm/sessions/<id>/` workspace.
  *
- * Validated by the SERVING DAEMON at stream open (mux) and referenced by the
- * legacy frames (splice); the relay never decodes either.
+ * Validated by the SERVING DAEMON at stream open (mux); the relay never
+ * decodes it.
  */
 export const SESSION_ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
 export const SessionId = S.String.pipe(S.pattern(SESSION_ID_PATTERN));
 export type TSessionId = S.Schema.Type<typeof SessionId>;
 
-/** Terminal cols/rows on session open + resize (mux + JSON splice). */
+/** Terminal cols/rows on session open + resize (mux). */
 export const TerminalDimension = S.Number.pipe(S.int(), S.between(1, 1024));
 export type TTerminalDimension = S.Schema.Type<typeof TerminalDimension>;
 

@@ -1,21 +1,7 @@
 import { Schema as S } from "effect";
 import { RelayCommandLifecycleFrame } from "./control-channel";
-import {
-  DaemonCommand,
-  DaemonCommandAck,
-  DeviceSessionCli,
-  SessionExitReason,
-  SessionTitleField,
-} from "./daemon";
-import {
-  ChannelCloseReason,
-  ChannelOpenError,
-  SessionId,
-  TerminalDimension,
-  TunnelForwardHeaders,
-  TunnelResponseHeaders,
-  TunnelSurface,
-} from "./mux";
+import { DaemonCommand, DaemonCommandAck } from "./daemon";
+import { ChannelCloseReason } from "./mux";
 
 // ─── Daemon relay (push over a Sandbox WebSocket, in-memory routing) ──
 //
@@ -321,26 +307,17 @@ export const RelayPresenceFrame = S.Struct({
 });
 export type TRelayPresenceFrame = S.Schema.Type<typeof RelayPresenceFrame>;
 
-// ─── Subscription tunnel (consumer ⇄ relay ⇄ serving daemon) ─────────
+// ─── Subscription tunnel + device sessions (mux-only) ────────────────
 //
 // A consumer (browser watcher socket, or another daemon's socket) opens a
-// virtual byte channel through the relay to a SERVING daemon, which
-// dispatches the request against its own local `/v1/*` data plane and
-// streams the response back. Same-user only (registry-membership auth,
+// mux stream through the relay to a SERVING daemon (over the relay binary
+// mux or a direct RTC data channel), which dispatches the request against
+// its own local `/v1/*` data plane and streams the response back. Device
+// PTY sessions ride the same mux. Same-user only (registry-membership auth,
 // exactly like `enqueue`); the vendor subscription token never crosses —
-// only OpenLLM-wire request/response bytes do. The relay never buffers:
-// frames are forwarded synchronously between the two endpoint sockets.
-// See `docs/features/sub-tunnel-and-chat-sessions.md` §1.
-
-/** Max raw bytes per `tunnel_data` chunk (pre-base64). Shared by the
- *  serving daemon's response splitter and any consumer request splitter so
- *  frames stay well under WS payload bounds after b64 inflation. */
-export const TUNNEL_CHUNK_MAX = 48 * 1024;
-
-/** Base64 length of a maximal chunk (4 chars per 3 raw bytes — 48 KiB is
- *  a multiple of 3, so no padding slack). Bounds every `data_b64` field so
- *  a peer can't ship an arbitrarily large frame past the splitters. */
-export const TUNNEL_CHUNK_B64_MAX = (TUNNEL_CHUNK_MAX / 3) * 4;
+// only OpenLLM-wire bytes do. The relay never decodes mux payloads. The
+// legacy JSON `tunnel_*` / `session_*` splice frames have been removed.
+// See `docs/features/sub-tunnel-and-chat-sessions.md`.
 
 /**
  * Max base64 length of a seed-gated device-grant envelope on open frames.
@@ -360,244 +337,6 @@ export const DEVICE_GRANT_B64_MAX = 4 * 1024;
  */
 export const TUNNELED_REQUEST_HEADER = "x-openllm-tunneled";
 export const TUNNELED_REQUEST_VALUE = "1";
-
-/** Idle deadline for a tunnel with no frame activity in either direction —
- *  the relay closes both ends `reason:"timeout"` on its keepalive tick. */
-export const TUNNEL_IDLE_TIMEOUT_MS = 120_000;
-
-/** consumer → relay → serving daemon. Open a tunnel to the daemon serving
- *  `key_id`. The CONSUMER mints `tunnel_id` (uuid); the relay authorizes by
- *  registry membership (same `user_id`, live daemon socket, not the sender
- *  itself) and stamps `consumer` from the authenticated socket role before
- *  forward (never trusts the client-supplied claim). */
-export const RelayTunnelOpenFrame = S.Struct({
-  type: S.Literal("tunnel_open"),
-  tunnel_id: S.UUID,
-  key_id: S.String,
-  method: S.Literal("POST"),
-  surface: TunnelSurface,
-  headers: S.optional(TunnelForwardHeaders),
-  /**
-   * Consuming-device tag. The relay overwrites this from the authenticated
-   * socket role (`watcher` → `browser`, `daemon` → `daemon`) before forward
-   * so a watcher cannot skip seedgate by claiming `daemon`.
-   */
-  consumer: S.optional(S.Literal("browser", "daemon")),
-  /**
-   * Seed-gated device grant (base64 envelope from `@openllmsh/tunnel`
-   * device-grant). Present when the serving daemon advertises `seedgate1`.
-   * The relay re-encodes frames via Schema, so this field MUST stay on the
-   * schema to survive forward; the relay never verifies it. Bounded so a
-   * peer cannot ship an arbitrarily large grant past re-encode.
-   */
-  grant: S.optional(S.String.pipe(S.maxLength(DEVICE_GRANT_B64_MAX))),
-});
-export type TRelayTunnelOpenFrame = S.Schema.Type<typeof RelayTunnelOpenFrame>;
-
-export const TunnelOpenError = S.Literal(
-  "daemon_offline",
-  "tunnel_refused",
-  "tunnel_busy",
-  "invalid_tunnel",
-  "overloaded",
-  "unauthorized",
-);
-export type TTunnelOpenError = S.Schema.Type<typeof TunnelOpenError>;
-
-/** serving daemon → relay → consumer (or relay-minted on auth failure). */
-export const RelayTunnelOpenAckFrame = S.Struct({
-  type: S.Literal("tunnel_open_ack"),
-  tunnel_id: S.String,
-  ok: S.Boolean,
-  /**
-   * Free-string on the wire so peers that predate `unauthorized` (seedgate1)
-   * still decode the frame. Known values live in {@link TunnelOpenError};
-   * unknown values surface as-is to callers (e.g. finishTunnel message).
-   */
-  error: S.optional(S.String),
-});
-export type TRelayTunnelOpenAckFrame = S.Schema.Type<
-  typeof RelayTunnelOpenAckFrame
->;
-
-/** Both directions. One body chunk, base64 (frames are JSON text — binary WS
- *  frames are dropped). `seq` starts at 0 per direction (WS is ordered; seq
- *  is a cheap integrity assert + room for credit-based flow control later).
- *  The first `dir:"res"` frame carries `status` + `res_headers`. */
-export const RelayTunnelDataFrame = S.Struct({
-  type: S.Literal("tunnel_data"),
-  tunnel_id: S.String,
-  seq: S.Number.pipe(S.int(), S.nonNegative()),
-  dir: S.Literal("req", "res"),
-  data_b64: S.String.pipe(S.maxLength(TUNNEL_CHUNK_B64_MAX)),
-  status: S.optional(S.Number.pipe(S.int(), S.between(200, 599))),
-  res_headers: S.optional(TunnelResponseHeaders),
-});
-export type TRelayTunnelDataFrame = S.Schema.Type<typeof RelayTunnelDataFrame>;
-
-/** Sender-side EOF for one direction (request fully sent / response fully
- *  streamed). A tunnel completes normally after both directions end. */
-export const RelayTunnelEndFrame = S.Struct({
-  type: S.Literal("tunnel_end"),
-  tunnel_id: S.String,
-  dir: S.Literal("req", "res"),
-});
-export type TRelayTunnelEndFrame = S.Schema.Type<typeof RelayTunnelEndFrame>;
-
-export const TunnelCloseReason = S.Literal(
-  "done",
-  "consumer_gone",
-  "daemon_gone",
-  "timeout",
-  "protocol_error",
-  "overloaded",
-);
-export type TTunnelCloseReason = S.Schema.Type<typeof TunnelCloseReason>;
-
-/** Either side / relay-minted — hard teardown. The serving daemon aborts its
- *  in-flight dispatch; the consumer errors its pending Response stream. */
-export const RelayTunnelCloseFrame = S.Struct({
-  type: S.Literal("tunnel_close"),
-  tunnel_id: S.String,
-  reason: S.optional(TunnelCloseReason),
-});
-export type TRelayTunnelCloseFrame = S.Schema.Type<
-  typeof RelayTunnelCloseFrame
->;
-
-// ─── Device chat sessions (browser ⇄ relay ⇄ daemon PTY) ─────────────
-//
-// A watcher opens a LONG-LIVED full-duplex channel to a daemon, which
-// spawns (or re-attaches) a vendor CLI under a PTY and streams the TUI both
-// ways. The CLI runs with the user's real `$HOME`; its cwd is `$HOME` by
-// default or a validated absolute cwd from the open frame (resolveSessionCwd).
-// Mirrors the tunnel splice (consumer-minted id, same-user registry auth,
-// per-frame in-memory forward, chunk cap) but is its OWN family: a PTY has
-// no request/response shape, no per-direction EOF, and must survive quiet
-// periods (sessions are excluded from the tunnel idle sweep — the daemon
-// owns the process until explicit kill/end). See
-// `docs/features/sub-tunnel-and-chat-sessions.md` §2.2.
-
-/** @deprecated Detached PTYs are no longer auto-reaped for quietness. */
-export const SESSION_DETACHED_TTL_MS = 30 * 60_000;
-/** @deprecated Detached PTYs are no longer auto-reaped for quietness. */
-export const SESSION_QUIET_REAP_MS = 30 * 60_000;
-
-/** watcher → relay → daemon. Open a device session on the daemon serving
- *  `key_id`. `mode`: `spawn` = fresh CLI (cwd `$HOME` or provided `cwd`);
- *  `attach` = re-bind a LIVE PTY (scrollback replays); `continue` = respawn
- *  a DEAD session with the CLI's native resume/continue flags where known.
- *  Cold vendor resume uses `spawn` + `resume_session_id` (not `continue`). */
-export const RelaySessionOpenFrame = S.Struct({
-  type: S.Literal("session_open"),
-  session_id: SessionId,
-  key_id: S.String,
-  cli: DeviceSessionCli,
-  cols: TerminalDimension,
-  rows: TerminalDimension,
-  mode: S.Literal("spawn", "attach", "continue"),
-  title: S.optional(SessionTitleField),
-  /** When true, launch via `openllm -d <client>` for CLIs that support it. */
-  dangerous: S.optional(S.Boolean),
-  /** Vendor session id for cold resume (`spawn` only). */
-  resume_session_id: S.optional(
-    S.String.pipe(S.minLength(1), S.maxLength(128)),
-  ),
-  /** Absolute cwd for spawn/continue; daemon-validated. Omitted → `$HOME`. */
-  cwd: S.optional(S.String.pipe(S.minLength(1), S.maxLength(1024))),
-});
-export type TRelaySessionOpenFrame = S.Schema.Type<
-  typeof RelaySessionOpenFrame
->;
-
-export const SessionOpenError = S.Literal(
-  "daemon_offline",
-  "pty_unsupported",
-  "cli_not_installed",
-  "session_not_found",
-  "session_busy",
-  "overloaded",
-  "spawn_failed",
-  /** Remote PTY sessions are opt-in (default off) and disabled on this daemon. */
-  "sessions_disabled",
-);
-export type TSessionOpenError = S.Schema.Type<typeof SessionOpenError>;
-
-/** daemon → relay → watcher (or relay-minted on auth failure). `live` on
- *  a successful attach tells the consumer whether the PTY was still
- *  running (scrollback replay follows) or was respawned. */
-export const RelaySessionOpenAckFrame = S.Struct({
-  type: S.Literal("session_open_ack"),
-  session_id: SessionId,
-  ok: S.Boolean,
-  /**
-   * Free-string on the wire so newer daemon failures remain decodable by
-   * older relay peers. Known values live in {@link SessionOpenError}.
-   */
-  error: S.optional(S.String),
-  /** Additive detail for a dead resumable session, if its terminal reason is known. */
-  last_exit_reason: S.optional(SessionExitReason),
-  live: S.optional(S.Boolean),
-  /** Daemon-minted, monotonically increasing session-open generation. */
-  generation: S.optional(S.Number),
-});
-export type TRelaySessionOpenAckFrame = S.Schema.Type<
-  typeof RelaySessionOpenAckFrame
->;
-
-/** Both directions. `dir:"out"` = PTY output → browser (xterm.write);
- *  `dir:"in"` = keystrokes → PTY. Base64 over the JSON text frame, capped
- *  at TUNNEL_CHUNK_MAX raw bytes per frame. */
-export const RelaySessionIoFrame = S.Struct({
-  type: S.Literal("session_io"),
-  session_id: SessionId,
-  dir: S.Literal("in", "out"),
-  seq: S.Number.pipe(S.int(), S.nonNegative()),
-  // Bounded to one maximal chunk after b64 inflation — matches the
-  // sender-side `sendOut` splitter (TUNNEL_CHUNK_MAX raw bytes/frame).
-  data_b64: S.String.pipe(S.maxLength(TUNNEL_CHUNK_B64_MAX)),
-});
-export type TRelaySessionIoFrame = S.Schema.Type<typeof RelaySessionIoFrame>;
-
-/** watcher → relay → daemon. The terminal pane resized. */
-export const RelaySessionResizeFrame = S.Struct({
-  type: S.Literal("session_resize"),
-  session_id: SessionId,
-  cols: TerminalDimension,
-  rows: TerminalDimension,
-});
-export type TRelaySessionResizeFrame = S.Schema.Type<
-  typeof RelaySessionResizeFrame
->;
-
-export const SessionCloseReason = S.Literal(
-  /** Consumer detached (tab closed / navigated away) — the PTY LIVES ON
-   *  indefinitely until an explicit kill/end. */
-  "detach",
-  /** The CLI process exited. */
-  "done",
-  /** Explicit user kill. */
-  "killed",
-  "consumer_gone",
-  "daemon_gone",
-  "timeout",
-  "protocol_error",
-);
-export type TSessionCloseReason = S.Schema.Type<typeof SessionCloseReason>;
-
-/** Either side / relay-minted — ends the CHANNEL. `detach` keeps the PTY
- *  alive daemon-side; every other reason implies the session is over or
- *  unreachable. */
-export const RelaySessionCloseFrame = S.Struct({
-  type: S.Literal("session_close"),
-  session_id: SessionId,
-  reason: S.optional(SessionCloseReason),
-  /** Generation returned by the matching successful session open, when known. */
-  generation: S.optional(S.Number),
-});
-export type TRelaySessionCloseFrame = S.Schema.Type<
-  typeof RelaySessionCloseFrame
->;
 
 // ─── Mux channels (consumer ⇄ relay ⇄ serving daemon) ─────────────────
 
@@ -645,7 +384,7 @@ export type TRelayChannelOpenAckFrame = S.Schema.Type<
 >;
 
 /** Either side / relay-minted. `relay_restart` is a drain signal: consumers
- * reset in-flight streams and fall back to the JSON splice. */
+ * reset in-flight streams and re-open the channel on the successor relay. */
 export const RelayChannelCloseFrame = S.Struct({
   type: S.Literal("channel_close"),
   channel_id: S.String,
@@ -776,16 +515,6 @@ export const RelayFrame = S.Union(
   RelayStatusPushFrame,
   RelayPresenceFrame,
   RelayCommandLifecycleFrame,
-  RelayTunnelOpenFrame,
-  RelayTunnelOpenAckFrame,
-  RelayTunnelDataFrame,
-  RelayTunnelEndFrame,
-  RelayTunnelCloseFrame,
-  RelaySessionOpenFrame,
-  RelaySessionOpenAckFrame,
-  RelaySessionIoFrame,
-  RelaySessionResizeFrame,
-  RelaySessionCloseFrame,
   RelayChannelOpenFrame,
   RelayChannelOpenAckFrame,
   RelayChannelCloseFrame,

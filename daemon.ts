@@ -671,7 +671,8 @@ export const DaemonStatus = S.Struct({
   sessions: S.optional(
     S.Array(
       S.Struct({
-        id: S.String,
+        /** Local daemon session id; independent of the mux SessionId validator. */
+        id: S.String.pipe(S.minLength(1), S.maxLength(128)),
         // Same closed vocabulary as the mux `SessionStreamOpenPayload.cli`.
         cli: DeviceSessionCli,
         started_at_ms: S.Number,
@@ -690,7 +691,7 @@ export const DaemonStatus = S.Struct({
           S.NullOr(S.String.pipe(S.maxLength(128))),
         ),
       }),
-    ),
+    ).pipe(S.maxItems(32)),
   ),
 });
 export type TDaemonStatus = S.Schema.Type<typeof DaemonStatus>;

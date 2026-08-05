@@ -1,7 +1,6 @@
 import { Schema as S } from "effect";
 import { RelayCommandLifecycleFrame } from "./control-channel";
 import { DaemonCommand, DaemonCommandAck } from "./daemon";
-import { ChannelCloseReason } from "./mux";
 
 // ─── Daemon relay (push over a Sandbox WebSocket, in-memory routing) ──
 //
@@ -20,6 +19,24 @@ import { ChannelCloseReason } from "./mux";
  *  receives status/presence pushes. */
 export const RelayRole = S.Literal("daemon", "watcher");
 export type TRelayRole = S.Schema.Type<typeof RelayRole>;
+
+/** Bounded, open-vocabulary capability advertisement limits. */
+export const RELAY_CAP_MAX_ITEMS = 32;
+export const RELAY_CAP_MAX_LENGTH = 64;
+const RelayCapability = S.String.pipe(
+  S.minLength(1),
+  S.maxLength(RELAY_CAP_MAX_LENGTH),
+);
+const RelayCapabilities = S.Array(RelayCapability).pipe(
+  S.maxItems(RELAY_CAP_MAX_ITEMS),
+);
+
+/** Channel ids are the mux envelope's canonical UUID in text form. */
+export const ChannelId = S.String.pipe(S.minLength(1), S.maxLength(64));
+export type TChannelId = S.Schema.Type<typeof ChannelId>;
+
+/** Bounded open-vocabulary peer errors and refusal reasons. */
+const RelayFreeString = S.String.pipe(S.minLength(1), S.maxLength(200));
 
 /** The port the in-sandbox WS server listens on — declared in `ports` at
  *  `Sandbox.getOrCreate` (cloud) and bound by the relay. A fixed internal
@@ -173,7 +190,8 @@ export type TIceServer = S.Schema.Type<typeof IceServer>;
  *  ends fall back to their default STUN. */
 export const RelayChannelResponse = S.Struct({
   wss_url: S.String,
-  /** Short-lived HMAC connect ticket (opaque `<b64url(claims)>.<hmac>`). */
+  /** Short-lived Ed25519-signed connect ticket
+   *  (opaque `<b64url(claims)>.<b64url(sig)>`). */
   ticket: S.String,
   /** Optional cloud-served ICE servers (STUN/TURN) for RTC peers. */
   ice_servers: S.optional(S.Array(IceServer)),
@@ -195,7 +213,7 @@ export const RelayHelloFrame = S.Struct({
   protocol_version: S.optional(S.Number),
   /** Open-vocabulary peer capability list.
    * Unknown capabilities preserve forward compatibility. */
-  caps: S.optional(S.Array(S.String)),
+  caps: S.optional(RelayCapabilities),
   /** Daemon only: initial per-provider `TDaemonStatus` snapshot, folded
    *  into `api_key_activity.daemon_status_json` on connect. */
   status: S.optional(S.Unknown),
@@ -218,10 +236,10 @@ export const RelayWelcomeFrame = S.Struct({
   daemon_session_started_at_ms: S.optional(S.Number),
   protocol_version: S.optional(S.Number),
   /** Relay capabilities. */
-  caps: S.optional(S.Array(S.String)),
+  caps: S.optional(RelayCapabilities),
   /** Per-serving-daemon capability snapshots, parallel to `snapshot`. */
   snapshot_caps: S.optional(
-    S.Record({ key: S.String, value: S.Array(S.String) }),
+    S.Record({ key: S.String, value: RelayCapabilities }),
   ),
 });
 export type TRelayWelcomeFrame = S.Schema.Type<typeof RelayWelcomeFrame>;
@@ -303,7 +321,7 @@ export const RelayPresenceFrame = S.Struct({
   key_id: S.String,
   active: S.Boolean,
   /** Present when an active daemon advertises capabilities. */
-  caps: S.optional(S.Array(S.String)),
+  caps: S.optional(RelayCapabilities),
 });
 export type TRelayPresenceFrame = S.Schema.Type<typeof RelayPresenceFrame>;
 
@@ -345,7 +363,7 @@ export const TUNNELED_REQUEST_VALUE = "1";
  * belong to this channel. */
 export const RelayChannelOpenFrame = S.Struct({
   type: S.Literal("channel_open"),
-  channel_id: S.String,
+  channel_id: ChannelId,
   key_id: S.String,
   /**
    * Who is opening the channel. The relay stamps this from the authenticated
@@ -371,13 +389,13 @@ export type TRelayChannelOpenFrame = S.Schema.Type<
  * an accepting daemon's acknowledgement is echoed verbatim. */
 export const RelayChannelOpenAckFrame = S.Struct({
   type: S.Literal("channel_open_ack"),
-  channel_id: S.String,
+  channel_id: ChannelId,
   ok: S.Boolean,
   /**
    * Free-string on the wire so newer daemon failures remain decodable by
    * older relay peers. Known values live in {@link ChannelOpenError}.
    */
-  error: S.optional(S.String),
+  error: S.optional(RelayFreeString),
 });
 export type TRelayChannelOpenAckFrame = S.Schema.Type<
   typeof RelayChannelOpenAckFrame
@@ -387,8 +405,9 @@ export type TRelayChannelOpenAckFrame = S.Schema.Type<
  * reset in-flight streams and re-open the channel on the successor relay. */
 export const RelayChannelCloseFrame = S.Struct({
   type: S.Literal("channel_close"),
-  channel_id: S.String,
-  reason: S.optional(ChannelCloseReason),
+  channel_id: ChannelId,
+  /** Free-string on the wire; known values live in ChannelCloseReason. */
+  reason: S.optional(RelayFreeString),
 });
 export type TRelayChannelCloseFrame = S.Schema.Type<
   typeof RelayChannelCloseFrame
@@ -433,7 +452,7 @@ export const RTC_ICE_CANDIDATE_MAX = 4 * 1024;
  *  `rtc_answer` / `rtc_ice` frames route by `channel_id`. */
 export const RelayRtcOfferFrame = S.Struct({
   type: S.Literal("rtc_offer"),
-  channel_id: S.String,
+  channel_id: ChannelId,
   key_id: S.String,
   sdp: S.String.pipe(S.maxLength(RTC_SDP_MAX)),
   fingerprint_proof: S.String.pipe(S.maxLength(RTC_FINGERPRINT_PROOF_B64_MAX)),
@@ -443,7 +462,7 @@ export type TRelayRtcOfferFrame = S.Schema.Type<typeof RelayRtcOfferFrame>;
 /** serving daemon → relay → consumer. Answer the offer for `channel_id`. */
 export const RelayRtcAnswerFrame = S.Struct({
   type: S.Literal("rtc_answer"),
-  channel_id: S.String,
+  channel_id: ChannelId,
   sdp: S.String.pipe(S.maxLength(RTC_SDP_MAX)),
   fingerprint_proof: S.String.pipe(S.maxLength(RTC_FINGERPRINT_PROOF_B64_MAX)),
 });
@@ -455,7 +474,7 @@ export type TRelayRtcAnswerFrame = S.Schema.Type<typeof RelayRtcAnswerFrame>;
  *  for browser/werift field parity (`candidate`/`sdpMid`/`sdpMLineIndex`/…). */
 export const RelayRtcIceFrame = S.Struct({
   type: S.Literal("rtc_ice"),
-  channel_id: S.String,
+  channel_id: ChannelId,
   candidate: S.String.pipe(S.maxLength(RTC_ICE_CANDIDATE_MAX)),
 });
 export type TRelayRtcIceFrame = S.Schema.Type<typeof RelayRtcIceFrame>;
@@ -472,13 +491,31 @@ export const RtcNackReason = S.Literal(
 );
 export type TRtcNackReason = S.Schema.Type<typeof RtcNackReason>;
 
+/** Normalize a forward-compatible peer refusal to a generic retryable refusal. */
+export const normalizeRtcNackReason = (reason: string): TRtcNackReason => {
+  switch (reason) {
+    case "seedgate":
+    case "overloaded":
+    case "disabled":
+    case "not_capable":
+      return reason;
+    default:
+      return "overloaded";
+  }
+};
+
 /** serving daemon → relay → consumer. Refuse the offer for `channel_id` —
  *  the explicit non-silent reject so the offerer fails fast instead of
  *  waiting out the signaling/ICE timeout. */
 export const RelayRtcNackFrame = S.Struct({
   type: S.Literal("rtc_nack"),
-  channel_id: S.String,
-  reason: RtcNackReason,
+  channel_id: ChannelId,
+  /**
+   * Free-string on the wire so a newer daemon refusal stays decodable. Known
+   * values live in {@link RtcNackReason}; unrecognized values are generic,
+   * non-cacheable refusals to consumers.
+   */
+  reason: RelayFreeString,
 });
 export type TRelayRtcNackFrame = S.Schema.Type<typeof RelayRtcNackFrame>;
 

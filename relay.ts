@@ -31,8 +31,14 @@ const RelayCapabilities = S.Array(RelayCapability).pipe(
   S.maxItems(RELAY_CAP_MAX_ITEMS),
 );
 
-/** Channel ids are the mux envelope's canonical UUID in text form. */
-export const ChannelId = S.String.pipe(S.minLength(1), S.maxLength(64));
+/**
+ * Channel ids are the mux envelope's canonical UUID in text form —
+ * RFC 4122 lowercase hex with variant nibble `8|9|a|b` (matches
+ * `@openllmsh/tunnel` `isChannelId` / `CHANNEL_ID_PATTERN`).
+ */
+const CHANNEL_ID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+export const ChannelId = S.String.pipe(S.pattern(CHANNEL_ID_PATTERN));
 export type TChannelId = S.Schema.Type<typeof ChannelId>;
 
 /** Bounded open-vocabulary peer errors and refusal reasons. */

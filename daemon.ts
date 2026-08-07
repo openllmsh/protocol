@@ -562,12 +562,23 @@ export const DaemonProviderConnection = S.Struct({
    *  the verification URL + one-time code to surface so the dashboard can
    *  render a synced "open this link, enter this code" panel. Present only
    *  while a flow is pending; cleared the moment the credential lands. The
-   *  card flips to Connected automatically on the next status push. */
+   *  card flips to Connected automatically on the next status push.
+   *
+   *  The actionable `url`/`code` are OPTIONAL because the relay REDACTS them
+   *  from the broadcast + persisted status for every dashboard EXCEPT the one
+   *  that started the login (issue #3 — otherwise the OAuth secret fans out to
+   *  every same-user browser). A redacted snapshot carries `{ pending: true,
+   *  mode? }` with no url/code; the initiating dashboard receives the full
+   *  `{ url, code, mode? }` directly. UIs must treat a missing/empty `url` as
+   *  "awaiting authorization" (non-actionable), never auto-opening a flow. */
   pending_auth: S.optional(
     S.NullOr(
       S.Struct({
-        url: S.String,
-        code: S.String,
+        url: S.optional(S.String),
+        code: S.optional(S.String),
+        /** True on a REDACTED snapshot (non-origin watcher / persisted row):
+         *  a login is in progress but the actionable url/code were stripped. */
+        pending: S.optional(S.Boolean),
         /** `device_code` (codex/kimi: surface URL + one-time code to enter in
          *  the browser, then poll) or `paste_code` (claude headless login:
          *  surface URL, then a paste-back input for the code the hosted

@@ -252,6 +252,11 @@ export const SubscriptionProviderSlug = S.Literal(
   "grok",
   // Cursor subscription, delegated to the official `cursor-agent` CLI.
   "cursor",
+  // OpenCode Go subscription — a static workspace key held in OpenCode's
+  // CLI-bound local `auth.json`, isolated by the daemon under
+  // `~/.openllm/cli/opencode_go/` and obtained via paste-back. Distinct
+  // from the `opencode` DeviceSessionCli PTY slug below.
+  "opencode_go",
 );
 export type TSubscriptionProviderSlug = S.Schema.Type<
   typeof SubscriptionProviderSlug

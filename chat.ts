@@ -48,8 +48,10 @@ const InputAudioPart = S.Struct({
 /**
  * OpenAI-native file attachment (PDFs etc.). `file_data` is a data URL
  * (`data:<mime>;base64,<b64>`); `file_id` references a provider-side
- * uploaded file. The canonical carrier for Anthropic `document` blocks
- * on cross-provider hops.
+ * uploaded file. `url` is a public file URL and is treated as a clean-context
+ * document carrier (no bytes are placed on the request body).
+ * The canonical carrier for Anthropic `document` blocks on
+ * cross-provider hops.
  */
 const FilePart = S.Struct({
   type: S.Literal("file"),
@@ -57,6 +59,7 @@ const FilePart = S.Struct({
     file_data: S.optional(S.String),
     file_id: S.optional(S.String),
     filename: S.optional(S.String),
+    url: S.optional(S.String),
   }),
   cache_control: S.optional(S.NullOr(CacheControl)),
 });

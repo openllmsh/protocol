@@ -169,6 +169,15 @@ export const ProviderModelEntry = S.Struct({
   display_name: S.optional(S.String.pipe(S.maxLength(256))),
   created: S.optional(S.Number),
   context_window: S.optional(S.Number),
+  /**
+   * Vendor-reported completion (output) ceiling for this model, when the
+   * provider's own list endpoint exposes one. Mirrors `context_window`'s
+   * role for the input side — optional because most list endpoints only
+   * report the input/context budget. A writer that never populates this
+   * field leaves output-limit resolution to the static catalog, same as
+   * today.
+   */
+  max_output_tokens: S.optional(S.Number),
 });
 export type TProviderModelEntry = S.Schema.Type<typeof ProviderModelEntry>;
 

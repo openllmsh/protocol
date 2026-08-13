@@ -7,6 +7,7 @@ export * from "./daemon";
 export * from "./device-state";
 export * from "./errors";
 export * from "./images";
+export * from "./media-bytes";
 export * from "./models";
 export * from "./mux";
 export * from "./provider-usage";

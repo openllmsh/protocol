@@ -6,6 +6,7 @@ export * from "./cost";
 export * from "./daemon";
 export * from "./device-state";
 export * from "./errors";
+export * from "./images";
 export * from "./models";
 export * from "./mux";
 export * from "./provider-usage";

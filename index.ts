@@ -18,3 +18,4 @@ export * from "./semver";
 export * from "./stats";
 export * from "./streaming";
 export * from "./usage-snapshots";
+export * from "./videos";

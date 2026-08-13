@@ -6,7 +6,7 @@ export type TImageSize = S.Schema.Type<typeof ImageSize>;
 export const ImageGenerationRequest = S.Struct({
   model: S.String,
   prompt: S.String,
-  n: S.optional(S.Number),
+  n: S.optional(S.Number.pipe(S.int(), S.positive())),
   size: S.optional(ImageSize),
   quality: S.optional(S.String),
   style: S.optional(S.Literal("vivid", "natural")),

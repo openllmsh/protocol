@@ -1,7 +1,11 @@
 import { Schema as S } from "effect";
 import { FallbackGroup, ModelFallbackBinding } from "./config";
 import { CooldownReason } from "./cooldown-reason";
-import { ProviderModelList, SubscriptionMeter } from "./models";
+import {
+  ModelCapability,
+  ProviderModelList,
+  SubscriptionMeter,
+} from "./models";
 import { ProviderUsageSnapshot } from "./provider-usage";
 import { RequestStatus } from "./stats";
 
@@ -20,6 +24,12 @@ export const DaemonCatalogEntry = S.Struct({
   input_token_limit: S.NullOr(S.Number),
   output_token_limit: S.NullOr(S.Number),
   subscription_meter: S.optional(SubscriptionMeter),
+  /**
+   * Catalog capabilities for this model. Optional so older clouds keep
+   * bootstrapping newer daemons. Absent / empty = unknown (never treated
+   * as known-non-vision). The walker vision gate reads this on each hop.
+   */
+  capabilities: S.optional(S.Array(ModelCapability)),
 });
 export type TDaemonCatalogEntry = S.Schema.Type<typeof DaemonCatalogEntry>;
 

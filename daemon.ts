@@ -594,6 +594,16 @@ export const DaemonProviderConnection = S.Struct({
          *  surface URL, then a paste-back input for the code the hosted
          *  callback page displays). Absent ⇒ `device_code`. */
         mode: S.optional(S.Literal("device_code", "paste_code")),
+        /** Epoch ms when this pending flow was created. Carried on both the
+         *  actionable and the REDACTED snapshot so every consumer can expire a
+         *  STALE entry (older than {@link PENDING_AUTH_TTL_MS}) without needing
+         *  the daemon to re-push. The daemon persists its whole status snapshot
+         *  to `api_key_activity.daemon_status_json`; an abandoned/never-completed
+         *  login (or a daemon restart that drops the live child) would otherwise
+         *  leave a dead `pending_auth` in that row forever, and the dashboard
+         *  would re-surface + auto-open a sign-in flow that no longer exists on
+         *  every cold load. Absent on daemons predating this field. */
+        started_at_ms: S.optional(S.Number),
       }),
     ),
   ),
@@ -615,6 +625,18 @@ export const DaemonProviderConnection = S.Struct({
 export type TDaemonProviderConnection = S.Schema.Type<
   typeof DaemonProviderConnection
 >;
+
+/**
+ * A `pending_auth` self-expires after this. The login ceiling
+ * (`DEFAULT_LOGIN_TIMEOUT_MS`, 5 min) reaps the live child and the
+ * background-exit cleanup clears the entry on a clean run; this TTL is the
+ * BACKSTOP for when that cleanup never runs (daemon restart, a browser-OAuth
+ * child with no hard ceiling that the user never completes). Comfortably above
+ * any real human login so a still-live flow is never expired early, yet short
+ * enough that a stale entry surfaced on a later cold load is dropped rather than
+ * re-opening a dead sign-in dialog. Shared by the daemon (in-memory expiry) and
+ * the browser (mirror expiry against the persisted `started_at_ms`). */
+export const PENDING_AUTH_TTL_MS = 10 * 60_000;
 
 // Outcome of the daemon's last cloud bootstrap — drives the dashboard's
 // 3-state Providers UI: needs a key (`no_key`/`invalid_key`) → show the

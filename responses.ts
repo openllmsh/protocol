@@ -143,6 +143,13 @@ export const ResponsesRequest = S.Struct({
   top_p: S.optional(S.NullishOr(S.Number)),
   stream: S.optional(S.NullishOr(S.Boolean)),
   parallel_tool_calls: S.optional(S.NullishOr(S.Boolean)),
+  /**
+   * Codex Desktop mirrors its Responses-Lite websocket header here as
+   * `ws_request_header_x_openai_internal_codex_responses_lite`. Preserve this
+   * opaque object through the canonical round-trip so ChatGPT can apply its
+   * Lite-specific request requirements without guessing from a model id.
+   */
+  client_metadata: S.optional(S.Unknown),
   // Tolerated + ignored (Codex sets these); kept off the canonical mapping.
   store: S.optional(S.NullishOr(S.Boolean)),
   previous_response_id: S.optional(S.NullishOr(S.String)),

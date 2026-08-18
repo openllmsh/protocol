@@ -207,6 +207,21 @@ export const ChatCompletionRequest = S.Struct({
    * carrier). See `@openllmsh/wire/adapters/responses`.
    */
   responses_tools: S.optional(S.Array(S.Unknown)),
+  /**
+   * Opaque carrier for leading Responses-API `input` items with
+   * `type:"additional_tools"`. Codex v0.147 puts harness-owned namespace and
+   * custom tools here, not in top-level `tools`; their position and payload are
+   * part of the upstream contract. `fromResponsesRequest` preserves the whole
+   * item and `toChatGptRequest` prepends it back to `input`, while every
+   * non-ChatGPT upstream strips this carrier.
+   */
+  responses_additional_tools: S.optional(S.Array(S.Unknown)),
+  /**
+   * Opaque Responses `client_metadata`, currently used to carry Codex's
+   * authoritative Responses-Lite marker. It is restored only for the ChatGPT
+   * wire and stripped before every other upstream.
+   */
+  responses_client_metadata: S.optional(S.Unknown),
   stream_options: S.optional(
     S.Struct({
       include_usage: S.optional(S.Boolean),

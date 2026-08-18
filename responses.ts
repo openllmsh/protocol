@@ -68,14 +68,6 @@ const ResponsesReasoningItem = S.Struct({
   encrypted_content: S.optional(S.NullishOr(S.String)),
 });
 
-export const ResponsesInputItem = S.Union(
-  ResponsesMessageItem,
-  ResponsesFunctionCallItem,
-  ResponsesFunctionCallOutputItem,
-  ResponsesReasoningItem,
-);
-export type TResponsesInputItem = S.Schema.Type<typeof ResponsesInputItem>;
-
 /**
  * A tool definition in the Responses API. Codex ships a MIX on every request:
  * classic `function` tools (`exec_command`, `update_plan`, `view_image`, …)
@@ -98,6 +90,29 @@ const ResponsesToolDef = S.Struct(
   },
   S.Record({ key: S.String, value: S.Unknown }),
 );
+
+/**
+ * Codex v0.147 carries its harness-owned tools as the first Responses input
+ * item rather than in the top-level `tools` array. The tool definitions remain
+ * opaque so nested namespaces and freeform custom tools round-trip intact.
+ */
+const ResponsesAdditionalToolsItem = S.Struct({
+  type: S.Literal("additional_tools"),
+  role: S.Literal("developer"),
+  tools: S.Array(ResponsesToolDef),
+});
+
+export const ResponsesInputItem = S.Union(
+  ResponsesMessageItem,
+  ResponsesFunctionCallItem,
+  ResponsesFunctionCallOutputItem,
+  ResponsesReasoningItem,
+  ResponsesAdditionalToolsItem,
+);
+export type TResponsesAdditionalToolsItem = S.Schema.Type<
+  typeof ResponsesAdditionalToolsItem
+>;
+export type TResponsesInputItem = S.Schema.Type<typeof ResponsesInputItem>;
 
 const ResponsesToolChoice = S.Union(
   S.Literal("auto", "none", "required"),

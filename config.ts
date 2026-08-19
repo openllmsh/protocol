@@ -104,8 +104,17 @@ export type TSubscriptionPlanSelection = S.Schema.Type<
   typeof SubscriptionPlanSelection
 >;
 
+export const ContextOverflowStrategy = S.Literal(
+  "hop_to_larger_context",
+  "compact_in_place",
+);
+export type TContextOverflowStrategy = S.Schema.Type<
+  typeof ContextOverflowStrategy
+>;
+
 export const ExtraConfig = S.Struct({
   search_provider: S.optional(S.String),
+  context_overflow_strategy: S.optional(ContextOverflowStrategy),
   custom_apis: S.optional(S.Array(CustomApiCatalogEntry)),
   /**
    * Subscription-OAuth providers (`claude_code` / `chatgpt` / `kimi_code`)

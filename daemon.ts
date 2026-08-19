@@ -1,5 +1,10 @@
 import { Schema as S } from "effect";
-import { FallbackGroup, ModelFallbackBinding } from "./config";
+import type { TContextOverflowStrategy } from "./config";
+import {
+  ContextOverflowStrategy,
+  FallbackGroup,
+  ModelFallbackBinding,
+} from "./config";
 import { CooldownReason } from "./cooldown-reason";
 import {
   ModelCapability,
@@ -49,6 +54,9 @@ export const DaemonBootstrap = S.Struct({
   provider_prefixes: S.Array(S.String),
   user_fallback_groups: S.Array(FallbackGroup),
   user_model_fallback_bindings: S.Array(ModelFallbackBinding),
+  /** Per-user context-window overflow routing preference. Absent means the
+   * historical hop-to-larger-context behaviour. */
+  context_overflow_strategy: S.optional(ContextOverflowStrategy),
   /**
    * Per-user HMAC key the daemon uses to VERIFY the `?__plan=` the cloud
    * 307s to it (the cloud signs with the same key). Lets the daemon reject
@@ -754,7 +762,11 @@ export const daemonPlanSigningPayload = (
   plan: string,
   providerModelIds: string,
   origin: string,
-): string => `${plan}\n${providerModelIds}\n${origin}`;
+  contextOverflowStrategy?: TContextOverflowStrategy | null,
+): string =>
+  contextOverflowStrategy === undefined || contextOverflowStrategy === null
+    ? `${plan}\n${providerModelIds}\n${origin}`
+    : `${plan}\n${providerModelIds}\n${origin}\n${contextOverflowStrategy}`;
 
 // ─── GET /api/daemon/plan (daemon → cloud) ───────────────────────────
 //
@@ -772,6 +784,8 @@ export const DaemonPlanResponse = S.Struct({
   pmids: S.String,
   /** The issuing deployment's origin (the 307's `__origin`). */
   origin: S.String,
+  /** Context-overflow strategy for this plan. Absent means hop-to-larger-context. */
+  context_overflow_strategy: S.optional(ContextOverflowStrategy),
   /** HMAC over the canonical payload; null when the cloud has no signing
    *  secret configured (dev) — the daemon then treats it as unsigned. */
   sig: S.NullOr(S.String),

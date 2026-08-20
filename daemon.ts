@@ -570,8 +570,10 @@ export const DaemonProviderConnection = S.Struct({
    *  never installs it — installs are user-run (the daemon install script or by
    *  hand); the daemon lazily auto-links its isolated run-view
    *  (~/.openllm/cli/<provider>/) to the host binary. When false the dashboard
-   *  prompts the user to (re-)run the daemon installer. */
-  cli_installed: S.Boolean,
+   *  prompts the user to (re-)run the daemon installer. Absent means a status
+   *  probe failed before it could determine installation state; consumers must
+   *  not treat absence as not installed. */
+  cli_installed: S.optional(S.Boolean),
   /** Version of the isolated CLI, when installed + readable. */
   cli_version: S.optional(S.String),
   detail: S.optional(S.String),

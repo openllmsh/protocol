@@ -280,12 +280,11 @@ export const SessionTitleField = S.String.pipe(S.maxLength(80));
 export type TSessionTitleField = S.Schema.Type<typeof SessionTitleField>;
 
 /**
- * CLIs the device PTY surface can host. The openllm session clients that
- * have local history + resume wiring (Claude / Codex / Grok / OpenCode /
- * Hermes).
- * Keep `SubscriptionProviderSlug` for credentials/usage; session frames +
- * local-session list use this set. Kimi and Cursor stay subscription-only
- * for now (no device PTY / local list).
+ * CLIs the device PTY surface can host: OpenLLM session clients with local
+ * history + resume wiring (Claude / Codex / Grok / OpenCode / Hermes), plus a
+ * direct login shell. Keep `SubscriptionProviderSlug` for credentials/usage;
+ * session frames use this set, while the local-session list uses its narrower
+ * canonical set. Kimi and Cursor stay subscription-only for now.
  */
 export const DeviceSessionCli = S.Literal(
   "claude_code",
@@ -293,6 +292,7 @@ export const DeviceSessionCli = S.Literal(
   "grok",
   "opencode",
   "hermes",
+  "shell",
 );
 export type TDeviceSessionCli = S.Schema.Type<typeof DeviceSessionCli>;
 

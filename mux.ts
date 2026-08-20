@@ -304,6 +304,7 @@ export const parseStreamOpenPayload = (
   if (open === null || open.kind !== "session") return open;
   if (open.dangerous === true && !supportsDangerousSession(open.cli))
     return null;
+  if (open.cli === "shell" && open.resume_session_id !== undefined) return null;
   if (open.resume_session_id !== undefined && open.mode !== "spawn")
     return null;
   if (open.cwd !== undefined && open.mode === "attach") return null;

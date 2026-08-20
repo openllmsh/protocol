@@ -40,7 +40,7 @@ const req = Schema.decodeUnknownSync(ChatCompletionRequest)(body);
 
 ## License
 
-[MIT](./LICENSE) © Quantide LLC.
+[MIT](./LICENSE) © OpenLLM, INC.
 
 ---
 

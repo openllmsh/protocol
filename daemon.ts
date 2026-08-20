@@ -281,7 +281,8 @@ export type TSessionTitleField = S.Schema.Type<typeof SessionTitleField>;
 
 /**
  * CLIs the device PTY surface can host. The openllm session clients that
- * have local history + resume wiring (Claude / Codex / Grok / OpenCode).
+ * have local history + resume wiring (Claude / Codex / Grok / OpenCode /
+ * Hermes).
  * Keep `SubscriptionProviderSlug` for credentials/usage; session frames +
  * local-session list use this set. Kimi and Cursor stay subscription-only
  * for now (no device PTY / local list).
@@ -291,6 +292,7 @@ export const DeviceSessionCli = S.Literal(
   "chatgpt",
   "grok",
   "opencode",
+  "hermes",
 );
 export type TDeviceSessionCli = S.Schema.Type<typeof DeviceSessionCli>;
 
@@ -303,6 +305,7 @@ export const DANGEROUS_SESSION_CLIS: ReadonlySet<TDeviceSessionCli> = new Set([
   "claude_code",
   "chatgpt",
   "grok",
+  "hermes",
 ]);
 
 /** CLIs with a local history reader on the daemon (v1). Canonical set. */
@@ -311,6 +314,7 @@ export const LISTABLE_SESSION_CLIS: ReadonlySet<TDeviceSessionCli> = new Set([
   "chatgpt",
   "grok",
   "opencode",
+  "hermes",
 ]);
 
 export const supportsDangerousSession = (cli: string): boolean =>

@@ -117,6 +117,14 @@ export const ExtendedModel = S.Struct({
   context_window: S.optional(S.Number),
   max_input_tokens: S.optional(S.Number),
   max_output_tokens: S.optional(S.Number),
+  /**
+   * Catalog-internal: when true, a smaller live `context_window` must not
+   * cap this entry's declared input budget. Codex `/models` under-reports
+   * `gpt-5.6-sol` (~272k) after the backend enabled the metered sibling's
+   * 1.05M window. Omitted (the default) keeps live-wins-both-directions.
+   * Not part of the public `/v1/models` card.
+   */
+  prefer_catalog_window: S.optional(S.Boolean),
   pricing: S.optional(ModelPricing),
   /**
    * Subscription models only: what the same tokens would cost at

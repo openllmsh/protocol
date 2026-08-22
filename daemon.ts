@@ -288,6 +288,16 @@ export const DaemonSessionLost = S.Struct({
 });
 export type TDaemonSessionLost = S.Schema.Type<typeof DaemonSessionLost>;
 
+export const DaemonQuotaStatusReached = S.Struct({
+  slug: SubscriptionProviderSlug,
+  status: S.Literal("allowed_warning", "rejected"),
+  account_hash: S.optional(S.String),
+  plan: S.optional(S.String),
+});
+export type TDaemonQuotaStatusReached = S.Schema.Type<
+  typeof DaemonQuotaStatusReached
+>;
+
 /** Optional user-visible device-session label (open frames + presence). */
 export const SessionTitleField = S.String.pipe(S.maxLength(80));
 export type TSessionTitleField = S.Schema.Type<typeof SessionTitleField>;

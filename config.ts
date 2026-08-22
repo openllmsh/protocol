@@ -117,7 +117,10 @@ export const ExtraConfig = S.Struct({
   context_overflow_strategy: S.optional(ContextOverflowStrategy),
   custom_apis: S.optional(S.Array(CustomApiCatalogEntry)),
   notification_prefs: S.optional(
-    S.Struct({ auth_loss_email: S.optional(S.Boolean) }),
+    S.Struct({
+      auth_loss_email: S.optional(S.Boolean),
+      quota_email: S.optional(S.Boolean),
+    }),
   ),
   /**
    * Subscription-OAuth providers (`claude_code` / `chatgpt` / `kimi_code`)

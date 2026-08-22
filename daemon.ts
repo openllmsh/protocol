@@ -1,4 +1,5 @@
 import { Schema as S } from "effect";
+import { AuthSessionLostReason } from "./auth";
 import type { TContextOverflowStrategy } from "./config";
 import {
   ContextOverflowStrategy,
@@ -274,6 +275,18 @@ export const SubscriptionProviderSlug = S.Literal(
 export type TSubscriptionProviderSlug = S.Schema.Type<
   typeof SubscriptionProviderSlug
 >;
+
+// ─── POST /api/daemon/session-lost (daemon → cloud) ──────────────────
+//
+// An authenticated daemon reports a confirmed subscription session loss. The
+// cloud derives the user and source key from the bearer token; neither belongs
+// in this body.
+export const DaemonSessionLost = S.Struct({
+  slug: SubscriptionProviderSlug,
+  reason: AuthSessionLostReason,
+  account_hash: S.optional(S.String),
+});
+export type TDaemonSessionLost = S.Schema.Type<typeof DaemonSessionLost>;
 
 /** Optional user-visible device-session label (open frames + presence). */
 export const SessionTitleField = S.String.pipe(S.maxLength(80));

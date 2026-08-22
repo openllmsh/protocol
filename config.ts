@@ -116,6 +116,9 @@ export const ExtraConfig = S.Struct({
   search_provider: S.optional(S.String),
   context_overflow_strategy: S.optional(ContextOverflowStrategy),
   custom_apis: S.optional(S.Array(CustomApiCatalogEntry)),
+  notification_prefs: S.optional(
+    S.Struct({ auth_loss_email: S.optional(S.Boolean) }),
+  ),
   /**
    * Subscription-OAuth providers (`claude_code` / `chatgpt` / `kimi_code`)
    * the user has connected via SOME local daemon. These have no cloud

@@ -40,6 +40,9 @@ export const RELAY_PROTOCOL_VERSION = 3;
  * `done`/`not_done` for the install/uninstall family come from the pre/post
  * `install.sh -s` probe (a measured fact, not a handler claim); commands with no
  * `-s` probe (connect/logout/refresh/…) return them from the handler.
+ *
+ * Subscription login is NOT a CommandState. See `auth.ts` (`auth.login.*` /
+ * `auth.session.lost`) — do not overload this union with auth phases.
  */
 export const CommandState = S.Literal(
   "pending",

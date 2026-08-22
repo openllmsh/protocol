@@ -1,4 +1,5 @@
 import { Schema as S } from "effect";
+import { AuthEvent } from "./auth";
 import { RelayCommandLifecycleFrame } from "./control-channel";
 import { DaemonCommand, DaemonCommandAck } from "./daemon";
 
@@ -536,6 +537,25 @@ export type TRelayPingFrame = S.Schema.Type<typeof RelayPingFrame>;
 export const RelayPongFrame = S.Struct({ type: S.Literal("pong") });
 export type TRelayPongFrame = S.Schema.Type<typeof RelayPongFrame>;
 
+/**
+ * daemon → relay → watcher. Explicit subscription-auth FSM (`auth.ts`).
+ *
+ * Same `type: "auth"` from both roles so `parseFrame` accepts it the way
+ * `status` is accepted from the daemon (there is no separate DaemonToRelay
+ * union). Frame-level `key_id` is the routing key; the inner event also
+ * carries `key_id` (and `flow_id` except on `auth.session.lost`).
+ *
+ * Old relays that predate this member fail-decode the frame and drop it
+ * (`parseFrame` → null) — the designed unknown-type tolerance. New relays
+ * parse it even before they route it.
+ */
+export const RelayAuthFrame = S.Struct({
+  type: S.Literal("auth"),
+  key_id: S.String,
+  auth: AuthEvent,
+});
+export type TRelayAuthFrame = S.Schema.Type<typeof RelayAuthFrame>;
+
 // NOTE: older daemon binaries also sent `received` (a per-command delivery
 // receipt) and `resync` (a periodic "re-push my pending rows" floor). Both are
 // retired — there is no durable mailbox to redeliver from anymore — so neither
@@ -549,7 +569,8 @@ export type TRelayPongFrame = S.Schema.Type<typeof RelayPongFrame>;
  *  daemon's terminal `ack` to the originating watcher as a live lifecycle
  *  update, so the dashboard releases an optimistic button off the socket — no
  *  DB `command_seq` cursor. See `control-channel.ts` +
- *  `docs/proposals/daemon-owned-state-stateless-relay.md`. */
+ *  `docs/proposals/daemon-owned-state-stateless-relay.md`. `auth` (daemon →
+ *  relay → watcher) is the subscription-login FSM; it is not a CommandState. */
 export const RelayFrame = S.Union(
   RelayHelloFrame,
   RelayWelcomeFrame,
@@ -561,6 +582,7 @@ export const RelayFrame = S.Union(
   RelayStatusPushFrame,
   RelayPresenceFrame,
   RelayCommandLifecycleFrame,
+  RelayAuthFrame,
   RelayChannelOpenFrame,
   RelayChannelOpenAckFrame,
   RelayChannelCloseFrame,

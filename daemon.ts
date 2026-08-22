@@ -608,6 +608,11 @@ export const DaemonProviderConnection = S.Struct({
          *  surface URL, then a paste-back input for the code the hosted
          *  callback page displays). Absent ⇒ `device_code`. */
         mode: S.optional(S.Literal("device_code", "paste_code")),
+        /** Browser `req_id` of the login that produced this snapshot. Absent
+         *  on daemons predating auth events. Lets a cold status still
+         *  correlate to an in-flight `auth.login.*` flow without being the
+         *  event itself. */
+        flow_id: S.optional(S.String),
         /** Epoch ms when this pending flow was created. Carried on both the
          *  actionable and the REDACTED snapshot so every consumer can expire a
          *  STALE entry (older than {@link PENDING_AUTH_TTL_MS}) without needing

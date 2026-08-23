@@ -584,9 +584,29 @@ export type TDaemonCommandAck = S.Schema.Type<typeof DaemonCommandAck>;
 
 // ─── Daemon control surface (browser → daemon, on localhost) ─────────
 
+/** Per-provider auth-status on the daemon wire.
+ *  `connected` = signed in; `disconnected` = unexpected loss; `signed_out` =
+ *  user-initiated logout (sticky until the next successful login). */
+export const DaemonProviderAuthStatus = S.Literal(
+  "connected",
+  "disconnected",
+  "signed_out",
+);
+export type TDaemonProviderAuthStatus = S.Schema.Type<
+  typeof DaemonProviderAuthStatus
+>;
+
 export const DaemonProviderConnection = S.Struct({
   provider: S.String,
+  /** Legacy boolean projection of auth state. `status` is the new single
+   *  source of truth (`signed_out` = user-initiated logout, `disconnected` =
+   *  unexpected loss). Full migration + removal of `connected` is a later
+   *  phase. */
   connected: S.Boolean,
+  /** Optional while older daemons/messages still omit it. When present it
+   *  is the auth-status literal; consumers may keep using `connected` until
+   *  the later removal phase. */
+  status: S.optional(DaemonProviderAuthStatus),
   /** The vendor CLI the daemon runs is installed on the machine. The daemon
    *  never installs it — installs are user-run (the daemon install script or by
    *  hand); the daemon lazily auto-links its isolated run-view

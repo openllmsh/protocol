@@ -282,6 +282,11 @@ export const DaemonQuotaStatusReached = S.Struct({
   status: S.Literal("allowed_warning", "rejected"),
   account_hash: S.optional(S.String),
   plan: S.optional(S.String),
+  /**
+   * Sustaining quota-window reset epoch (unix ms). Optional so older daemons
+   * omit it; cloud then falls back to account:status + 24h cooldown.
+   */
+  reset_at_ms: S.optional(S.Number),
 });
 export type TDaemonQuotaStatusReached = S.Schema.Type<
   typeof DaemonQuotaStatusReached

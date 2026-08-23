@@ -51,6 +51,11 @@ export const ProviderUsageWindow = S.Struct({
 });
 export type TProviderUsageWindow = S.Schema.Type<typeof ProviderUsageWindow>;
 
+/** Percent-used threshold for `allowed_warning` quota status. */
+export const QUOTA_WARN_PERCENT = 80;
+/** Percent-used threshold for `rejected` quota status. */
+export const QUOTA_REJECT_PERCENT = 100;
+
 /**
  * The structural meter shape the quota gate + pool matcher accept — the
  * `meter_id` identity plus its exact vendor aliases. Structurally satisfied by

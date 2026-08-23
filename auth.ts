@@ -30,15 +30,6 @@ export type TAuthLoginFailedCode = S.Schema.Type<typeof AuthLoginFailedCode>;
 export const AuthLoginMode = S.Literal("browser", "device_code", "paste_code");
 export type TAuthLoginMode = S.Schema.Type<typeof AuthLoginMode>;
 
-export const AuthSessionLostReason = S.Literal(
-  "logout",
-  "credential_gone",
-  "vendor_revoked",
-);
-export type TAuthSessionLostReason = S.Schema.Type<
-  typeof AuthSessionLostReason
->;
-
 /**
  * Bounded, non-secret diagnostic of why a session read as disconnected.
  * Mapped from free-form `conn.detail` at the falling edge — never forward
@@ -111,7 +102,6 @@ export const AuthSessionLost = S.Struct({
   event: S.Literal("auth.session.lost"),
   key_id: S.String,
   slug: S.String,
-  reason: AuthSessionLostReason,
   account_hash: S.optional(S.String),
   diagnostic_code: S.optional(AuthSessionLostDiagnosticCode),
 });

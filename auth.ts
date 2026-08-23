@@ -8,8 +8,10 @@ import { Schema as S } from "effect";
 // snapshot with `connected: true`. Cancel is `auth.login.failed` with
 // `code: "user_cancelled"`, never a sixth event.
 //
-// `flow_id` is the browser `req_id` minted at enqueue — do not invent a
-// second id. `auth.session.lost` has no flow: it is the falling edge of a
+// `flow_id` is the relay-minted command id (the `command.id` / inflight
+// routing key). The browser's enqueue `req_id` is a separate correlation id
+// carried on `command_lifecycle` alongside that command id — do not collapse
+// the two. `auth.session.lost` has no flow: it is the falling edge of a
 // previously-connected provider.
 //
 // See `docs/audit/2026-08-21-subscription-auth-login-trigger-finalize.md` §6.
@@ -37,7 +39,27 @@ export type TAuthSessionLostReason = S.Schema.Type<
   typeof AuthSessionLostReason
 >;
 
-/** After the vendor CLI spawn succeeded. */
+/**
+ * Bounded, non-secret diagnostic of why a session read as disconnected.
+ * Mapped from free-form `conn.detail` at the falling edge — never forward
+ * the raw detail string onto the wire or into email.
+ */
+export const AuthSessionLostDiagnosticCode = S.Literal(
+  "credential_absent",
+  "cli_unavailable",
+  "store_unreadable",
+  "keychain_unavailable",
+  "probe_timeout",
+  "vendor_revoked_unknown",
+  "unclassified",
+);
+export type TAuthSessionLostDiagnosticCode = S.Schema.Type<
+  typeof AuthSessionLostDiagnosticCode
+>;
+
+/** After the vendor CLI spawn succeeded.
+ *  `slug` stays open `S.String` for forward-compat; the closed vocab is
+ *  `SubscriptionProviderSlug` in `./subscription-provider`. */
 export const AuthLoginStarted = S.Struct({
   event: S.Literal("auth.login.started"),
   flow_id: S.String,
@@ -91,6 +113,7 @@ export const AuthSessionLost = S.Struct({
   slug: S.String,
   reason: AuthSessionLostReason,
   account_hash: S.optional(S.String),
+  diagnostic_code: S.optional(AuthSessionLostDiagnosticCode),
 });
 export type TAuthSessionLost = S.Schema.Type<typeof AuthSessionLost>;
 

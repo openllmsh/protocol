@@ -1,5 +1,5 @@
 import { Schema as S } from "effect";
-import { AuthSessionLostReason } from "./auth";
+import { AuthSessionLostDiagnosticCode, AuthSessionLostReason } from "./auth";
 import type { TContextOverflowStrategy } from "./config";
 import {
   ContextOverflowStrategy,
@@ -14,6 +14,7 @@ import {
 } from "./models";
 import { ProviderUsageSnapshot } from "./provider-usage";
 import { RequestStatus } from "./stats";
+import { SubscriptionProviderSlug } from "./subscription-provider";
 
 // ─── GET /api/daemon/bootstrap (daemon → cloud) ──────────────────────
 //
@@ -259,22 +260,8 @@ export type TDaemonModelReport = S.Schema.Type<typeof DaemonModelReport>;
 // is server-side, no `x-openllm-daemon` header. See
 // `docs/proposals/daemon-relay-websocket-push.md`.
 
-/** The closed set of subscription-provider slugs a control command may
- *  address — the ONLY values that can ever reach a daemon delegate or the
- *  isolated-CLI installer. The daemon's `TCliProvider` derives from this. */
-export const SubscriptionProviderSlug = S.Literal(
-  "claude_code",
-  "chatgpt",
-  "kimi_code",
-  // xAI Grok ("Grok Build", x.ai/cli) — SuperGrok / X Premium+ subscription
-  // OAuth, delegated to the official `grok` CLI by the daemon.
-  "grok",
-  // Cursor subscription, delegated to the official `cursor-agent` CLI.
-  "cursor",
-);
-export type TSubscriptionProviderSlug = S.Schema.Type<
-  typeof SubscriptionProviderSlug
->;
+export type { TSubscriptionProviderSlug } from "./subscription-provider";
+export { SubscriptionProviderSlug } from "./subscription-provider";
 
 // ─── POST /api/daemon/session-lost (daemon → cloud) ──────────────────
 //
@@ -285,6 +272,8 @@ export const DaemonSessionLost = S.Struct({
   slug: SubscriptionProviderSlug,
   reason: AuthSessionLostReason,
   account_hash: S.optional(S.String),
+  /** Bounded, non-secret classifier of `conn.detail` — never the raw string. */
+  diagnostic_code: S.optional(AuthSessionLostDiagnosticCode),
 });
 export type TDaemonSessionLost = S.Schema.Type<typeof DaemonSessionLost>;
 
@@ -631,10 +620,10 @@ export const DaemonProviderConnection = S.Struct({
          *  surface URL, then a paste-back input for the code the hosted
          *  callback page displays). Absent ⇒ `device_code`. */
         mode: S.optional(S.Literal("device_code", "paste_code")),
-        /** Browser `req_id` of the login that produced this snapshot. Absent
-         *  on daemons predating auth events. Lets a cold status still
-         *  correlate to an in-flight `auth.login.*` flow without being the
-         *  event itself. */
+        /** Relay command id of the login that produced this snapshot (same
+         *  value as `auth.login.*` `flow_id`). The browser `req_id` lives on
+         *  `command_lifecycle`, not here. Absent on daemons predating auth
+         *  events. */
         flow_id: S.optional(S.String),
         /** Epoch ms when this pending flow was created. Carried on both the
          *  actionable and the REDACTED snapshot so every consumer can expire a

@@ -117,6 +117,15 @@ export const ExtendedModel = S.Struct({
   context_window: S.optional(S.Number),
   max_input_tokens: S.optional(S.Number),
   max_output_tokens: S.optional(S.Number),
+  caps: S.optional(
+    S.Struct({
+      deniedParams: S.optional(S.Array(S.String)),
+      maxTokensField: S.optional(
+        S.Literal("max_tokens", "max_completion_tokens"),
+      ),
+      temperature: S.optional(S.Literal("only-1", "clamp-0-1", "drop")),
+    }),
+  ),
   /**
    * Catalog-internal: when true, a smaller live `context_window` must not
    * cap this entry's declared input budget. Codex `/models` under-reports

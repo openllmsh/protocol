@@ -9,6 +9,7 @@ import {
 import { CooldownReason } from "./cooldown-reason";
 import {
   ModelCapability,
+  ModelCaps,
   ProviderModelList,
   SubscriptionMeter,
 } from "./models";
@@ -37,6 +38,8 @@ export const DaemonCatalogEntry = S.Struct({
    * as known-non-vision). The walker vision gate reads this on each hop.
    */
   capabilities: S.optional(S.Array(ModelCapability)),
+  /** Catalog-declared final outbound-body constraints for this model. */
+  caps: S.optional(ModelCaps),
 });
 export type TDaemonCatalogEntry = S.Schema.Type<typeof DaemonCatalogEntry>;
 

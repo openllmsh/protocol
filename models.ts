@@ -107,6 +107,13 @@ export const SubscriptionMeter = S.Struct({
 });
 export type TSubscriptionMeter = S.Schema.Type<typeof SubscriptionMeter>;
 
+export const ModelCaps = S.Struct({
+  deniedParams: S.optional(S.Array(S.String)),
+  maxTokensField: S.optional(S.Literal("max_tokens", "max_completion_tokens")),
+  temperature: S.optional(S.Literal("only-1", "clamp-0-1", "drop")),
+});
+export type TModelCaps = S.Schema.Type<typeof ModelCaps>;
+
 export const ExtendedModel = S.Struct({
   id: S.String,
   provider: S.String,
@@ -117,15 +124,7 @@ export const ExtendedModel = S.Struct({
   context_window: S.optional(S.Number),
   max_input_tokens: S.optional(S.Number),
   max_output_tokens: S.optional(S.Number),
-  caps: S.optional(
-    S.Struct({
-      deniedParams: S.optional(S.Array(S.String)),
-      maxTokensField: S.optional(
-        S.Literal("max_tokens", "max_completion_tokens"),
-      ),
-      temperature: S.optional(S.Literal("only-1", "clamp-0-1", "drop")),
-    }),
-  ),
+  caps: S.optional(ModelCaps),
   /**
    * Catalog-internal: when true, a smaller live `context_window` must not
    * cap this entry's declared input budget. Codex `/models` under-reports

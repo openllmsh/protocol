@@ -180,6 +180,7 @@ export const ChatCompletionRequest = S.Struct({
   messages: S.Array(ChatMessage),
   temperature: S.optional(S.Number),
   top_p: S.optional(S.Number),
+  top_k: S.optional(S.Number),
   n: S.optional(S.Number),
   stream: S.optional(S.Boolean),
   stop: S.optional(S.Union(S.String, S.Array(S.String))),

@@ -190,8 +190,8 @@ export const ProviderModelEntry = S.Struct({
    * provider's own list endpoint exposes one. Mirrors `context_window`'s
    * role for the input side — optional because most list endpoints only
    * report the input/context budget. A writer that never populates this
-   * field leaves output-limit resolution to the static catalog, same as
-   * today.
+   * field leaves request output-cap backfill fail-open. Static catalog limits
+   * remain display/config metadata only.
    */
   max_output_tokens: S.optional(S.Number),
 });

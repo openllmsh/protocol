@@ -133,6 +133,14 @@ export const ExtendedModel = S.Struct({
    * Not part of the public `/v1/models` card.
    */
   prefer_catalog_window: S.optional(S.Boolean),
+  /**
+   * Codex v2 multi-agent models (gpt-5.6 sol/terra) emit a hierarchical
+   * subagent-spawn shape that Claude Code materializes into isolated git
+   * worktrees and loops. When true, the core `strip-subagent-isolation`
+   * feature removes the `isolation`/`cwd` args from Task/Agent tool calls in
+   * the response. Catalog-owned; not part of the public `/v1/models` card.
+   */
+  strip_subagent_isolation: S.optional(S.Boolean),
   pricing: S.optional(ModelPricing),
   /**
    * Subscription models only: what the same tokens would cost at

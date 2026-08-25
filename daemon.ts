@@ -40,6 +40,8 @@ export const DaemonCatalogEntry = S.Struct({
   capabilities: S.optional(S.Array(ModelCapability)),
   /** Catalog-declared final outbound-body constraints for this model. */
   caps: S.optional(ModelCaps),
+  /** Optional so older clouds keep bootstrapping newer daemons. */
+  strip_subagent_isolation: S.optional(S.Boolean),
 });
 export type TDaemonCatalogEntry = S.Schema.Type<typeof DaemonCatalogEntry>;
 

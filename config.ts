@@ -58,17 +58,34 @@ export const ModelFallbackBinding = S.Tuple(S.String, S.Array(S.String));
 export type TModelFallbackBinding = S.Schema.Type<typeof ModelFallbackBinding>;
 
 /**
- * One discovered model the user has opted IN to. The dashboard's
- * `/v1/models` probe returns a flat list of upstream ids; the user
- * picks which to enable with a checkbox and assigns a `kind` per
- * row. We deliberately do NOT auto-include the entire upstream
- * catalogue — large gateways can return hundreds of models, most
- * of which the user will never call.
+ * The dashboard's `/v1/models` probe returns upstream ids plus any reported
+ * token limits. The user picks which rows to enable and assigns a `kind`; we
+ * deliberately do not auto-include a gateway's entire catalogue.
  */
-export const CustomApiCatalogModel = S.Struct({
-  id: S.String,
-  kind: CustomApiModelKind,
+/** Canonical input/output limits reported by compatible model lists. */
+export const CustomApiModelLimits = S.Struct({
+  /** Prompt/context budget, normalized from any upstream alias. */
+  max_input_tokens: S.optional(S.Number),
+  /** Completion ceiling when the upstream reports one. */
+  max_output_tokens: S.optional(S.Number),
 });
+
+/** One model returned by the transient custom-endpoint discovery probe. */
+export const CustomApiDiscoveredModel = S.extend(
+  S.Struct({ id: S.String }),
+  CustomApiModelLimits,
+);
+export type TCustomApiDiscoveredModel = S.Schema.Type<
+  typeof CustomApiDiscoveredModel
+>;
+
+export const CustomApiCatalogModel = S.extend(
+  S.Struct({
+    id: S.String,
+    kind: CustomApiModelKind,
+  }),
+  CustomApiModelLimits,
+);
 export type TCustomApiCatalogModel = S.Schema.Type<
   typeof CustomApiCatalogModel
 >;
@@ -78,8 +95,8 @@ export type TCustomApiCatalogModel = S.Schema.Type<
  * endpoint the user has registered on the `/providers` page. The
  * SECRET half (base URL + api key) lives encrypted in
  * `public.credentials` under provider slug `custom:<name>` — only
- * the opt-in model list (id + kind) is stored here so the dashboard
- * can populate fallback dropdowns without unlocking the vault.
+ * the opt-in model list (id, kind, and discovered token limits) is stored here
+ * so the dashboard can populate fallback dropdowns without unlocking the vault.
  */
 export const CustomApiCatalogEntry = S.Struct({
   name: S.String,

@@ -6,6 +6,8 @@
  * local shape check; callers must still authenticate the key with the gateway.
  */
 export const OPENLLM_API_KEY_PREFIX = "sk-llm-";
+export const OPENLLM_API_KEY_ID_BYTES = 10;
+export const OPENLLM_API_KEY_SECRET_BYTES = 32;
 export const OPENLLM_API_KEY_ID_LENGTH = 14;
 export const OPENLLM_API_KEY_SECRET_LENGTH = 43;
 

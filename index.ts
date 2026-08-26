@@ -6,6 +6,7 @@ export * from "./control-channel";
 export * from "./cooldown-reason";
 export * from "./cost";
 export * from "./daemon";
+export * from "./daemon-port";
 export * from "./device-state";
 export * from "./errors";
 export * from "./images";

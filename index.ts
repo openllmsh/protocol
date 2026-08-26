@@ -1,3 +1,4 @@
+export * from "./api-key-syntax";
 export * from "./auth";
 export * from "./chat";
 export * from "./config";

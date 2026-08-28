@@ -66,6 +66,13 @@ export const ExtendedModelCard = S.extend(
     max_output_tokens: S.optional(S.Number),
     /** Prompt/context budget; equals `max_input_tokens` when present. */
     context_window: S.optional(S.Number),
+    // llama.cpp/Ollama-style context hint mirrored under `meta.n_ctx`.
+    // Some OpenAI-compatible clients read ONLY `meta.n_ctx` for a model's
+    // context window during dynamic model discovery (e.g. goose's declarative
+    // provider engine), ignoring `context_window`/`max_input_tokens`. Mirror
+    // the same value here so those clients get per-model limits with no
+    // bespoke provider. Equals `max_input_tokens` when present.
+    meta: S.optional(S.Struct({ n_ctx: S.optional(S.Number) })),
   }),
 );
 export type TExtendedModelCard = S.Schema.Type<typeof ExtendedModelCard>;

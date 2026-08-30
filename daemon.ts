@@ -17,6 +17,9 @@ import { ProviderUsageSnapshot } from "./provider-usage";
 import { RequestStatus } from "./stats";
 import { SubscriptionProviderSlug } from "./subscription-provider";
 
+/** Immutable `detail` sentinel for an indeterminate daemon status probe. */
+export const STATUS_CHECK_FAILED_DETAIL = "status check failed";
+
 // ─── GET /api/daemon/bootstrap (daemon → cloud) ──────────────────────
 //
 // One snapshot with everything the local pipeline needs to resolve a

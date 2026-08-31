@@ -849,6 +849,9 @@ export type TDaemonPlanResponse = S.Schema.Type<typeof DaemonPlanResponse>;
  *  cloud skips subscription hops and serves the API-key fallthrough (§7.1). */
 export const NO_DAEMON_HEADER = "x-openllm-no-daemon";
 
+/** Header that carries the opaque held-tool continuation between client turns. */
+export const TOOL_SESSION_HEADER = "x-openllm-tool-session";
+
 /** Headers the daemon stamps on EVERY cloud control call (poll/status/bootstrap
  *  /requests/relay/search) so the cloud can record which device a key's daemon
  *  runs on — `api_key_activity.device_id`/`device_label`. The id is the daemon's

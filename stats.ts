@@ -71,24 +71,26 @@ export const InferredWindowUsage = S.Struct({
 export type TInferredWindowUsage = S.Schema.Type<typeof InferredWindowUsage>;
 
 /**
- * THE uniform usage index — every provider reduces to this one monthly
- * (trailing 30-day) dollar reading, no matter how the vendor meters
- * (Claude's 5h/7d, Codex's weekly, Kimi's daily, Grok's monthly):
+ * THE uniform usage index — every provider reduces to this one 30-day
+ * forecast, no matter how the vendor meters (Claude's 5h/7d, Codex's
+ * weekly, Kimi's daily, Grok's monthly). It is scoped to ONE window chunk
+ * — the most recent POPULATED window of the largest live calibrated series
+ * (the closest earlier populated window stands in when the current one is
+ * still empty) — and never an integral over past windows:
  *
- *   - `used_usd`     — API-eq value of the account's metered usage over
- *                      the stats month, all devices. Lower bound.
- *   - `bracket_usd`  — the subscription's monthly capacity at API-eq
- *                      rates: max(one full window's value amortized to
- *                      30 days, Σ observed window grants — scheduled AND
- *                      promotional off-schedule resets each credit a
- *                      full window when first observed near 0). Lower
- *                      bound; guarantees used ≤ bracket.
+ *   - `used_usd`     — that window's own API-eq usage, scaled to 30 days by
+ *                      30d / its ACTUAL observed span, across all devices.
+ *   - `bracket_usd`  — that window's bracket, scaled by the same factor. The
+ *                      span is the real reset-to-reset duration, so a
+ *                      promotional early reset (a shorter cycle) lifts the
+ *                      forecast WITHOUT summing past windows. Guarantees
+ *                      used ≤ bracket (same positive scale on both).
  *   - `headroom_usd` — max(0, bracket − used).
  *
- * Being duration-normalized, the index is immune to vendor window
- * reshapes: when a window changes, only the calibration behind it resets
- * (the index disappears until the new window pairs, then catches up) —
- * its MEANING never changes.
+ * Because it is scaled by the window's own observed span, the forecast is
+ * immune to vendor window reshapes: when a window changes, only the
+ * calibration behind it resets (the index disappears until a new window
+ * pairs, then catches up) — its MEANING never changes.
  */
 export const InferredMonthlyIndex = S.Struct({
   used_usd: S.Number,
@@ -111,7 +113,7 @@ export const InferredAccountUsage = S.Struct({
   account_hash: S.NullOr(S.String),
   off_gateway_usd: S.Number,
   current_window: S.NullOr(InferredWindowUsage),
-  /** The uniform monthly reading for this account. NULL until a LIVE
+  /** The uniform 30-day forecast for this account. NULL until a LIVE
    *  window series is calibrated (cold start / just after a vendor
    *  window reshape). */
   monthly_index: S.NullOr(InferredMonthlyIndex),
@@ -131,10 +133,10 @@ export const InferredProviderUsage = S.Struct({
    *  several accounts are calibrated (each has its own in-progress window;
    *  read `accounts` instead). */
   current_window: S.NullOr(InferredWindowUsage),
-  /** The uniform monthly reading — dollar integrals sum soundly, so with
-   *  several accounts this is the SUM of their indexes (unlike
-   *  `current_window`, which goes null). NULL when no account has a live
-   *  calibrated series yet. */
+  /** The uniform 30-day forecast — forecasts sum soundly, so with several
+   *  accounts this is the SUM of their forecasts (unlike `current_window`,
+   *  which goes null). NULL when no account has a live calibrated series
+   *  yet. */
   monthly_index: S.NullOr(InferredMonthlyIndex),
   /** Valid calibration pairs behind K̂ — 0 pairs never reaches here. With
    *  several accounts: the SUM across accounts (evidence volume). */

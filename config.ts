@@ -170,6 +170,11 @@ export const ExtraConfig = S.Struct({
    * the alias via the editor) reverts it to auto-derived.
    */
   disabled_default_aliases: S.optional(S.Array(DefaultTier)),
+  /**
+   * Opts the account out of contributing to the public aggregate usage index.
+   * Omitted means opted in.
+   */
+  public_usage_index_opt_out: S.optional(S.Boolean),
 });
 export type TExtraConfig = S.Schema.Type<typeof ExtraConfig>;
 

@@ -94,6 +94,8 @@ export const ProviderUsageSnapshot = S.Union(
     status: S.Literal("allowed", "allowed_warning", "rejected"),
     /** Optional plan/tier shown alongside the bars. */
     plan: S.optional(S.String),
+    /** Tags tier provenance as `official`, `documented-experimental`, or `private-client`. */
+    plan_source: S.optional(S.String),
     windows: S.Array(ProviderUsageWindow),
     /** Short human-readable note ("Pro plan — 5h window"). */
     note: S.String,

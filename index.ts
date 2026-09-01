@@ -14,6 +14,7 @@ export * from "./media-bytes";
 export * from "./models";
 export * from "./mux";
 export * from "./provider-usage";
+export * from "./public-usage-index";
 export * from "./providers";
 export * from "./registry-pointer";
 export * from "./relay";

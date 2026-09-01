@@ -124,6 +124,10 @@ export type TInferredAccountUsage = S.Schema.Type<typeof InferredAccountUsage>;
 
 export const InferredProviderUsage = S.Struct({
   provider: S.String,
+  /** For a SINGLE-account provider, that account's obscured hash — the
+   *  top-level figures are its own. Absent (undefined) when several accounts
+   *  are calibrated; read `accounts[].account_hash` instead. */
+  account_hash: S.optional(S.NullOr(S.String)),
   /** API-eq value of 30-day usage the gateway never saw (other devices /
    *  raw CLI / vendor apps). Lower bound; with several accounts, the sum
    *  of their independent lower bounds. */

@@ -47,6 +47,9 @@ export type TPublicUsageIndexMetrics = S.Schema.Type<
   typeof PublicUsageIndexMetrics
 >;
 
+/** Metadata marker that represents an otherwise empty completed bucket. */
+export const PUBLIC_USAGE_INDEX_BUCKET_MARKER = "__bucket__";
+
 /** Internal empty payload used only by the `__bucket__` completion marker. */
 export const PublicUsageIndexMarkerMetrics = S.Struct({});
 export type TPublicUsageIndexMarkerMetrics = S.Schema.Type<
@@ -75,7 +78,7 @@ export const PublicUsageIndexStoredMetric = S.Union(
   }),
   S.Struct({
     metric: PublicUsageMetric,
-    subject: S.Literal("__bucket__"),
+    subject: S.Literal(PUBLIC_USAGE_INDEX_BUCKET_MARKER),
     metrics: PublicUsageIndexMarkerMetrics,
   }),
 );
@@ -122,7 +125,7 @@ export const PublicUsageIndexRow = S.Union(
     PublicUsageIndexRowBase,
     S.Struct({
       metric: PublicUsageMetric,
-      subject: S.Literal("__bucket__"),
+      subject: S.Literal(PUBLIC_USAGE_INDEX_BUCKET_MARKER),
       metrics: PublicUsageIndexMarkerMetrics,
     }),
   ),

@@ -34,8 +34,11 @@ const ResponsesInputContentPart = S.Union(
   }),
 );
 
+// `type` is optional on message items, as in the OpenAI Responses API: an
+// input item carrying only `role` + `content` is a message. Every other item
+// kind has a required, distinct `type`, so the union still discriminates.
 const ResponsesMessageItem = S.Struct({
-  type: S.Literal("message"),
+  type: S.optional(S.Literal("message")),
   role: S.Literal("user", "assistant", "system", "developer"),
   // Responses allows a bare string or an array of typed parts.
   content: S.Union(S.String, S.Array(ResponsesInputContentPart)),

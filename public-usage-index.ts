@@ -53,8 +53,8 @@ export const PUBLIC_USAGE_INDEX_BUCKET_MARKER = "__bucket__";
 /**
  * Internal payload used only by the `__bucket__` completion marker. The value
  * bucket's marker carries a fingerprint of the eligible (provider, account,
- * tier) set it was derived from, so a reader can tell "the inputs changed"
- * apart from "time passed" and refresh the bucket in place. Optional: markers
+ * tier) set it was derived from, so a reader can distinguish changed inputs
+ * against mere elapsed time and refresh the bucket in place. Optional: markers
  * written before the field existed (and popularity markers) omit it.
  */
 export const PublicUsageIndexMarkerMetrics = S.Struct({

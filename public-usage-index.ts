@@ -152,8 +152,10 @@ export const PublicModelPopularity = S.Struct({
    * Same role as `PublicValueByTier.provider_slug`: anything rendering a logo,
    * a tint or a public brand name keys off THIS, since `provider` above is a
    * display string. Empty only for a legacy label the registry no longer knows.
+   *
+   * Decoded with a default — see the note on cross-deployment merging below.
    */
-  provider_slug: S.String,
+  provider_slug: S.optionalWith(S.String, { default: () => "" }),
   model: S.String,
   users: S.Number,
   user_days: S.Number,
@@ -174,8 +176,10 @@ export const PublicProviderPopularity = S.Struct({
    * SUBJECT, so this is carried straight through rather than recovered from
    * the registry. Anything rendering a logo, a tint or a public brand name
    * keys off THIS, since `provider` above is a display string.
+   *
+   * Decoded with a default — see the note on cross-deployment merging below.
    */
-  provider_slug: S.String,
+  provider_slug: S.optionalWith(S.String, { default: () => "" }),
   users: S.Number,
   user_days: S.Number,
   requests: S.Number,
@@ -201,6 +205,17 @@ export const PublicValuePoint = S.Struct({
 });
 export type TPublicValuePoint = S.Schema.Type<typeof PublicValuePoint>;
 
+/**
+ * A field added to the public response AFTER deployments began reading each
+ * other's copies.
+ *
+ * `mergeConfiguredPublicUsageIndex` fetches a PEER deployment's
+ * `/api/public/usage-index` and decodes it with this schema, so a field that
+ * is merely required would make every merge fail — silently, as a skipped
+ * merge — for the whole window in which the two deployments disagree. Decoded
+ * with a default instead: the property stays non-optional for consumers, and
+ * an older peer still parses.
+ */
 export const PublicValueByTier = S.Struct({
   /**
    * The provider's registry `displayName` — a sign-in-flow label ("Claude
@@ -212,8 +227,10 @@ export const PublicValueByTier = S.Struct({
    * row's `provider:tier` subject. `provider` above is a display string and so
    * cannot key a brand map; anything rendering a logo, a tint or a public
    * brand name keys off THIS.
+   *
+   * Decoded with a default — see the note on cross-deployment merging below.
    */
-  provider_slug: S.String,
+  provider_slug: S.optionalWith(S.String, { default: () => "" }),
   tier: S.String,
   /** Projected API-equivalent value of the best-calibrated subscription per 30 days. */
   value_usd_30d: S.Number,
@@ -234,7 +251,7 @@ export const PublicValueByTier = S.Struct({
    * dropped them. A tier measured for the first time has a single point, which
    * is a fact a chart has to render rather than an error.
    */
-  history: S.Array(PublicValuePoint),
+  history: S.optionalWith(S.Array(PublicValuePoint), { default: () => [] }),
 });
 export type TPublicValueByTier = S.Schema.Type<typeof PublicValueByTier>;
 

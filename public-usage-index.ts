@@ -50,8 +50,16 @@ export type TPublicUsageIndexMetrics = S.Schema.Type<
 /** Metadata marker that represents an otherwise empty completed bucket. */
 export const PUBLIC_USAGE_INDEX_BUCKET_MARKER = "__bucket__";
 
-/** Internal empty payload used only by the `__bucket__` completion marker. */
-export const PublicUsageIndexMarkerMetrics = S.Struct({});
+/**
+ * Internal payload used only by the `__bucket__` completion marker. The value
+ * bucket's marker carries a fingerprint of the eligible (provider, account,
+ * tier) set it was derived from, so a reader can distinguish changed inputs
+ * against mere elapsed time and refresh the bucket in place. Optional: markers
+ * written before the field existed (and popularity markers) omit it.
+ */
+export const PublicUsageIndexMarkerMetrics = S.Struct({
+  tier_set_fingerprint: S.optional(S.String),
+});
 export type TPublicUsageIndexMarkerMetrics = S.Schema.Type<
   typeof PublicUsageIndexMarkerMetrics
 >;

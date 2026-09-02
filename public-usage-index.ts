@@ -161,7 +161,18 @@ export type TPublicProviderPopularity = S.Schema.Type<
 >;
 
 export const PublicValueByTier = S.Struct({
+  /**
+   * The provider's registry `displayName` — a sign-in-flow label ("Claude
+   * (Pro/Max sign-in)"), kept for callers that already read it.
+   */
   provider: S.String,
+  /**
+   * The stable provider slug (`claude_code`, `chatgpt`, …), split off the
+   * row's `provider:tier` subject. `provider` above is a display string and so
+   * cannot key a brand map; anything rendering a logo, a tint or a public
+   * brand name keys off THIS.
+   */
+  provider_slug: S.String,
   tier: S.String,
   /** Projected API-equivalent value of the best-calibrated subscription per 30 days. */
   value_usd_30d: S.Number,

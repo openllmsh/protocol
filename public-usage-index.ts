@@ -137,7 +137,15 @@ export const PUBLIC_USAGE_INDEX_CAPTION =
   "Trends measured across OpenLLM gateway activity";
 
 export const PublicModelPopularity = S.Struct({
+  /** The provider's registry `displayName` — a rendered label, not a key. */
   provider: S.String,
+  /**
+   * The stable provider slug (`claude_code`, `openai`, …) behind that label.
+   * Same role as `PublicValueByTier.provider_slug`: anything rendering a logo,
+   * a tint or a public brand name keys off THIS, since `provider` above is a
+   * display string. Empty only for a legacy label the registry no longer knows.
+   */
+  provider_slug: S.String,
   model: S.String,
   users: S.Number,
   user_days: S.Number,
@@ -150,7 +158,16 @@ export type TPublicModelPopularity = S.Schema.Type<
 >;
 
 export const PublicProviderPopularity = S.Struct({
+  /** The provider's registry `displayName` — a rendered label, not a key. */
   provider: S.String,
+  /**
+   * The stable provider slug (`claude_code`, `openai`, …) behind that label.
+   * Unlike the model rows, a provider row already stores the slug as its
+   * SUBJECT, so this is carried straight through rather than recovered from
+   * the registry. Anything rendering a logo, a tint or a public brand name
+   * keys off THIS, since `provider` above is a display string.
+   */
+  provider_slug: S.String,
   users: S.Number,
   user_days: S.Number,
   requests: S.Number,

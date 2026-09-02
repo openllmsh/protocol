@@ -15,37 +15,118 @@ export const PublicUsageMetric = S.Literal(
 );
 export type TPublicUsageMetric = S.Schema.Type<typeof PublicUsageMetric>;
 
-/**
- * The exact figures stored per rollup row (the `metrics` jsonb column). One flat
- * struct across metrics: popularity rows populate `users`/`user_days`/`requests`
- * (+ the previous window's `prev_users`); value rows populate `value_usd_30d`/
- * `accounts` (+ `prev_value_usd_30d`). The row's `metric` says which apply.
- */
-export const PublicUsageIndexMetrics = S.Struct({
-  users: S.optional(S.Number),
-  user_days: S.optional(S.Number),
-  requests: S.optional(S.Number),
-  prev_users: S.optional(S.NullOr(S.Number)),
-  value_usd_30d: S.optional(S.Number),
-  accounts: S.optional(S.Number),
-  prev_value_usd_30d: S.optional(S.NullOr(S.Number)),
+export const PublicUsagePopularityMetrics = S.Struct({
+  users: S.Number,
+  user_days: S.Number,
+  requests: S.Number,
+  prev_users: S.NullOr(S.Number),
 });
+export type TPublicUsagePopularityMetrics = S.Schema.Type<
+  typeof PublicUsagePopularityMetrics
+>;
+
+export const PublicUsageValueMetrics = S.Struct({
+  value_usd_30d: S.Number,
+  accounts: S.Number,
+  /** Valid meter-delta pairs supporting the selected value estimate. */
+  pair_count: S.Number,
+  /** Ratio clustering quality for the selected value estimate. */
+  tightness: S.Number,
+  prev_value_usd_30d: S.NullOr(S.Number),
+});
+export type TPublicUsageValueMetrics = S.Schema.Type<
+  typeof PublicUsageValueMetrics
+>;
+
+/** The exact figures stored per non-marker rollup row in `metrics` jsonb. */
+export const PublicUsageIndexMetrics = S.Union(
+  PublicUsagePopularityMetrics,
+  PublicUsageValueMetrics,
+);
 export type TPublicUsageIndexMetrics = S.Schema.Type<
   typeof PublicUsageIndexMetrics
 >;
 
-/** One rollup row, matching the `public_usage_index` table. */
-export const PublicUsageIndexRow = S.Struct({
+/** Internal empty payload used only by the `__bucket__` completion marker. */
+export const PublicUsageIndexMarkerMetrics = S.Struct({});
+export type TPublicUsageIndexMarkerMetrics = S.Schema.Type<
+  typeof PublicUsageIndexMarkerMetrics
+>;
+
+/**
+ * The metric-specific portion of a stored row. This makes a row's sibling
+ * `metric` column the discriminator for its otherwise unrelated JSON payload.
+ */
+export const PublicUsageIndexStoredMetric = S.Union(
+  S.Struct({
+    metric: S.Literal("model_popularity"),
+    subject: S.String,
+    metrics: PublicUsagePopularityMetrics,
+  }),
+  S.Struct({
+    metric: S.Literal("provider_popularity"),
+    subject: S.String,
+    metrics: PublicUsagePopularityMetrics,
+  }),
+  S.Struct({
+    metric: S.Literal("value"),
+    subject: S.String,
+    metrics: PublicUsageValueMetrics,
+  }),
+  S.Struct({
+    metric: PublicUsageMetric,
+    subject: S.Literal("__bucket__"),
+    metrics: PublicUsageIndexMarkerMetrics,
+  }),
+);
+export type TPublicUsageIndexStoredMetric = S.Schema.Type<
+  typeof PublicUsageIndexStoredMetric
+>;
+
+const PublicUsageIndexRowBase = S.Struct({
   metric_version: S.String,
-  metric: PublicUsageMetric,
-  subject: S.String,
   provider: S.String,
   label: S.String,
   period_start: S.String,
   period_end: S.String,
-  metrics: PublicUsageIndexMetrics,
   updated_at: S.String,
 });
+
+/** One rollup row, matching the `public_usage_index` table. */
+export const PublicUsageIndexRow = S.Union(
+  S.extend(
+    PublicUsageIndexRowBase,
+    S.Struct({
+      metric: S.Literal("model_popularity"),
+      subject: S.String,
+      metrics: PublicUsagePopularityMetrics,
+    }),
+  ),
+  S.extend(
+    PublicUsageIndexRowBase,
+    S.Struct({
+      metric: S.Literal("provider_popularity"),
+      subject: S.String,
+      metrics: PublicUsagePopularityMetrics,
+    }),
+  ),
+  S.extend(
+    PublicUsageIndexRowBase,
+    S.Struct({
+      metric: S.Literal("value"),
+      subject: S.String,
+      metrics: PublicUsageValueMetrics,
+    }),
+  ),
+  S.extend(
+    PublicUsageIndexRowBase,
+    S.Struct({
+      metric: PublicUsageMetric,
+      subject: S.Literal("__bucket__"),
+      metrics: PublicUsageIndexMarkerMetrics,
+    }),
+  ),
+);
 export type TPublicUsageIndexRow = S.Schema.Type<typeof PublicUsageIndexRow>;
 
 /** Factual caption describing what the figures measure (not a legal hedge). */
@@ -79,22 +160,37 @@ export type TPublicProviderPopularity = S.Schema.Type<
 export const PublicValueByTier = S.Struct({
   provider: S.String,
   tier: S.String,
-  /** Projected API-equivalent value of the subscription per 30 days. */
+  /** Projected API-equivalent value of the best-calibrated subscription per 30 days. */
   value_usd_30d: S.Number,
+  /** Eligible calibrated accounts in the tier; the figure is the best-calibrated one of them. */
   accounts: S.Number,
+  /** Valid meter-delta pairs supporting the selected account's estimate. */
+  pair_count: S.Number,
+  /** Ratio clustering quality for the selected account's estimate. */
+  tightness: S.Number,
   pct_change: S.NullOr(S.Number),
 });
 export type TPublicValueByTier = S.Schema.Type<typeof PublicValueByTier>;
 
+export const PeriodWindow = S.Struct({
+  period_start: S.NullOr(S.String),
+  period_end: S.NullOr(S.String),
+});
+export type TPeriodWindow = S.Schema.Type<typeof PeriodWindow>;
+
 /**
- * Public usage artifact: exact aggregate figures grouped for display. Model and
- * provider popularity carry real counts + period-over-period change; value is a
- * per-provider tier breakdown of projected 30-day value. A provider or tier with
- * no data for the window is simply absent (no placeholder).
+ * Public usage artifact: exact aggregate figures grouped for display. The
+ * top-level period is the min/max envelope across metric-specific windows,
+ * retained for backward compatibility.
  */
 export const PublicUsageIndexResponse = S.Struct({
   period_start: S.NullOr(S.String),
   period_end: S.NullOr(S.String),
+  windows: S.Struct({
+    model: PeriodWindow,
+    provider: PeriodWindow,
+    value: PeriodWindow,
+  }),
   caption: S.Literal(PUBLIC_USAGE_INDEX_CAPTION),
   model_popularity: S.Array(PublicModelPopularity),
   provider_popularity: S.Array(PublicProviderPopularity),
@@ -103,3 +199,13 @@ export const PublicUsageIndexResponse = S.Struct({
 export type TPublicUsageIndexResponse = S.Schema.Type<
   typeof PublicUsageIndexResponse
 >;
+
+export function hasPublicUsageIndexData(
+  response: TPublicUsageIndexResponse,
+): boolean {
+  return (
+    response.model_popularity.length > 0 ||
+    response.provider_popularity.length > 0 ||
+    response.value_by_tier.length > 0
+  );
+}

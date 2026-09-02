@@ -177,6 +177,22 @@ export type TPublicProviderPopularity = S.Schema.Type<
   typeof PublicProviderPopularity
 >;
 
+/**
+ * One period's reading for a tier, for the value trend series.
+ *
+ * Deliberately only the two fields a line needs. The calibration figures
+ * (`accounts`, `pair_count`, `tightness`) describe how well a SINGLE estimate
+ * is supported and are published on the current reading; repeating them for
+ * every historical point would multiply the payload by the number of retained
+ * buckets to say something no line can draw.
+ */
+export const PublicValuePoint = S.Struct({
+  /** ISO period end, and the x value of the point. */
+  period_end: S.String,
+  value_usd_30d: S.Number,
+});
+export type TPublicValuePoint = S.Schema.Type<typeof PublicValuePoint>;
+
 export const PublicValueByTier = S.Struct({
   /**
    * The provider's registry `displayName` — a sign-in-flow label ("Claude
@@ -200,6 +216,17 @@ export const PublicValueByTier = S.Struct({
   /** Ratio clustering quality for the selected account's estimate. */
   tightness: S.Number,
   pct_change: S.NullOr(S.Number),
+  /**
+   * Every retained period for this tier, oldest first, INCLUDING the current
+   * one — so a consumer plots `history` alone rather than stitching it to the
+   * top-level reading and risking a duplicated or missing final point.
+   *
+   * The buckets were always kept (`public_usage_index` is keyed on
+   * `(metric_version, metric, subject, period_start)`); it was the reader that
+   * dropped them. A tier measured for the first time has a single point, which
+   * is a fact a chart has to render rather than an error.
+   */
+  history: S.Array(PublicValuePoint),
 });
 export type TPublicValueByTier = S.Schema.Type<typeof PublicValueByTier>;
 

@@ -82,6 +82,7 @@ export const TunnelForwardHeaders = S.Struct({
   accept: S.optional(S.Literal("application/json", "text/event-stream")),
   anthropic_version: S.optional(S.String.pipe(S.maxLength(32))),
   anthropic_beta: S.optional(S.String.pipe(S.maxLength(256))),
+  user_agent: S.optional(S.String.pipe(S.maxLength(512))),
 });
 export type TTunnelForwardHeaders = S.Schema.Type<typeof TunnelForwardHeaders>;
 
@@ -296,6 +297,7 @@ export const parseStreamOpenPayload = (
       "accept",
       "anthropic_version",
       "anthropic_beta",
+      "user_agent",
     ])
   ) {
     return null;

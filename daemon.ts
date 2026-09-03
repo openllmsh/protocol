@@ -745,6 +745,10 @@ export const DaemonStatus = S.Struct({
    *  (`/api/daemon/relay-credential`) — the cloud only ever relays ciphertext.
    *  Absent on daemons too old to publish one. */
   pubkey: S.optional(S.String),
+  /** True when the cloud's immutable daemon X25519 pin differs from this
+   * daemon's local key. A browser session must reset the pin before RTC can
+   * connect; absent on daemons that have not observed this conflict. */
+  identity_conflict: S.optional(S.Boolean),
   /** The loopback port this daemon's `/v1/*` + `/whoami` surface listens on
    *  (`OPENLLM_DAEMON_PORT`, default 8787). The dashboard probes
    *  `http://127.0.0.1:<port>/whoami` to learn which key's daemon is on THIS

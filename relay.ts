@@ -487,16 +487,18 @@ export const RelayRtcIceFrame = S.Struct({
 export type TRelayRtcIceFrame = S.Schema.Type<typeof RelayRtcIceFrame>;
 
 /** Why a serving daemon refused an `rtc_offer`. `seedgate` = the vault DEK is
- *  locked (retry after unlock); `overloaded` = transient session cap (retry
- *  soon); `disabled` / `not_capable` / `handshake_failed` = daemon posture or
- *  a failed pre-mux handshake (cache the failure — it will not recover on this
- *  immediate retry). */
+ * locked (retry after unlock); `overloaded` = transient session cap (retry
+ * soon); `disabled` / `not_capable` / `handshake_failed` = daemon posture or
+ * a failed pre-mux handshake (cache the failure — it will not recover on this
+ * immediate retry). `proof_open_failed` means the offer was sealed to a stale
+ * daemon X25519 key; consumers should refresh the cloud identity projection. */
 export const RtcNackReason = S.Literal(
   "seedgate",
   "overloaded",
   "disabled",
   "not_capable",
   "handshake_failed",
+  "proof_open_failed",
 );
 export type TRtcNackReason = S.Schema.Type<typeof RtcNackReason>;
 
@@ -508,6 +510,7 @@ export const normalizeRtcNackReason = (reason: string): TRtcNackReason => {
     case "disabled":
     case "not_capable":
     case "handshake_failed":
+    case "proof_open_failed":
       return reason;
     default:
       return "overloaded";

@@ -1,4 +1,5 @@
 import { Schema as S } from "effect";
+import { DaemonProviderReasonCode } from "./provider-status";
 
 // ─── Subscription auth lifecycle (daemon ↔ relay ↔ dashboard) ─────────
 //
@@ -107,6 +108,20 @@ export const AuthSessionLost = S.Struct({
 });
 export type TAuthSessionLost = S.Schema.Type<typeof AuthSessionLost>;
 
+/**
+ * Consecutive indeterminate probes after a last-known `connected`. Not a
+ * session-loss assertion — consumers must not treat this as
+ * `auth.session.lost` (no cloud POST, no email).
+ */
+export const AuthLivenessDegraded = S.Struct({
+  event: S.Literal("auth.liveness.degraded"),
+  key_id: S.String,
+  slug: S.String,
+  consecutive_unknown: S.Number,
+  reason_code: S.optional(DaemonProviderReasonCode),
+});
+export type TAuthLivenessDegraded = S.Schema.Type<typeof AuthLivenessDegraded>;
+
 /** Discriminated on `event`. */
 export const AuthEvent = S.Union(
   AuthLoginStarted,
@@ -114,5 +129,6 @@ export const AuthEvent = S.Union(
   AuthLoginSucceeded,
   AuthLoginFailed,
   AuthSessionLost,
+  AuthLivenessDegraded,
 );
 export type TAuthEvent = S.Schema.Type<typeof AuthEvent>;

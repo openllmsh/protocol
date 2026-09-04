@@ -35,6 +35,18 @@ export type TDaemonProviderObservationResult = {
   readonly reason_code?: TDaemonProviderReasonCode;
 };
 
+/**
+ * Visibility-only: a live local hop cooldown with reason `auth` for this
+ * provider. Does not change `status` / `observation` / `reason_code`.
+ */
+export const DaemonProviderUpstreamAuthCooldown = S.Struct({
+  until_ms: S.Number,
+  model_id: S.String,
+});
+export type TDaemonProviderUpstreamAuthCooldown = S.Schema.Type<
+  typeof DaemonProviderUpstreamAuthCooldown
+>;
+
 const OBSERVATIONS = new Set<string>(DaemonProviderObservation.literals);
 const REASONS = new Set<string>(DaemonProviderReasonCode.literals);
 

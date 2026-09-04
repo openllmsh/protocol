@@ -16,6 +16,7 @@ import {
 import {
   DaemonProviderObservation,
   DaemonProviderReasonCode,
+  DaemonProviderUpstreamAuthCooldown,
 } from "./provider-status";
 import { ProviderUsageSnapshot } from "./provider-usage";
 import { RequestStatus } from "./stats";
@@ -680,6 +681,12 @@ export const DaemonProviderConnection = S.Struct({
    *  the daemon and pushed with its status. Absent when not connected or the
    *  read failed. */
   usage: S.optional(S.NullOr(ProviderUsageSnapshot)),
+  /**
+   * Live local hop cooldown with reason `auth` (any model of this provider).
+   * Visibility only — does not change `status` / `observation` / `reason_code`.
+   * Transient; not remembered as last-known.
+   */
+  upstream_auth_cooldown: S.optional(DaemonProviderUpstreamAuthCooldown),
   /** Obscured vendor-account identity for a CONNECTED provider:
    *  sha256("openllm-account-v1:<provider>:<stable-account-id>") over the
    *  stable account id the vendor CLI stores locally (Anthropic's

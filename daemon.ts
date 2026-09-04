@@ -13,12 +13,13 @@ import {
   ProviderModelList,
   SubscriptionMeter,
 } from "./models";
+import {
+  DaemonProviderObservation,
+  DaemonProviderReasonCode,
+} from "./provider-status";
 import { ProviderUsageSnapshot } from "./provider-usage";
 import { RequestStatus } from "./stats";
 import { SubscriptionProviderSlug } from "./subscription-provider";
-
-/** Immutable `detail` sentinel for an indeterminate daemon status probe. */
-export const STATUS_CHECK_FAILED_DETAIL = "status check failed";
 
 // ─── GET /api/daemon/bootstrap (daemon → cloud) ──────────────────────
 //
@@ -611,6 +612,14 @@ export const DaemonProviderConnection = S.Struct({
    * `signed_out` = user-initiated logout (sticky until the next login).
    */
   status: DaemonProviderAuthStatus,
+  /**
+   * Typed observation. Optional so old daemons and persisted blobs remain
+   * valid. When present it wins over legacy `status` / `detail` classifiers.
+   * `unknown` is never logout and never proven serviceability.
+   */
+  observation: S.optional(DaemonProviderObservation),
+  /** Machine-readable cause for a non-connected observation. Display copy stays on `detail`. */
+  reason_code: S.optional(DaemonProviderReasonCode),
   /** The vendor CLI the daemon runs is installed on the machine. The daemon
    *  never installs it — installs are user-run (the daemon install script or by
    *  hand); the daemon lazily auto-links its isolated run-view

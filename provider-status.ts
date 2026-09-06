@@ -36,12 +36,27 @@ export type TDaemonProviderObservationResult = {
 };
 
 /**
+ * Why an `auth` hop cooldown was armed from a native refresh, not a vendor
+ * 401. Distinct from {@link DaemonProviderReasonCode} so it never rewrites
+ * `status` / `observation`.
+ */
+export const AuthRefreshCooldownReason = S.Literal(
+  "refresh_abandoned",
+  "refresh_failed",
+);
+export type TAuthRefreshCooldownReason = S.Schema.Type<
+  typeof AuthRefreshCooldownReason
+>;
+
+/**
  * Visibility-only: a live local hop cooldown with reason `auth` for this
- * provider. Does not change `status` / `observation` / `reason_code`.
+ * provider. Does not change `status` / `observation` / the connection
+ * `reason_code`. Optional `reason_code` here is the refresh-local cause.
  */
 export const DaemonProviderUpstreamAuthCooldown = S.Struct({
   until_ms: S.Number,
   model_id: S.String,
+  reason_code: S.optional(AuthRefreshCooldownReason),
 });
 export type TDaemonProviderUpstreamAuthCooldown = S.Schema.Type<
   typeof DaemonProviderUpstreamAuthCooldown

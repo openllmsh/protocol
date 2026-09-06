@@ -150,10 +150,11 @@ export const ProviderUsageSnapshot = S.Union(
   }),
   /**
    * Provider returned an error or doesn't surface anything usable — e.g. not
-   * signed in, the vendor usage endpoint rejected the token, or the plan exposes
-   * no quota window the daemon can read. The UI shows `reason`, plus an optional
-   * `link` rendered as a button to the provider's own usage / billing page when
-   * the figures can only be checked there.
+   * signed in, the stored access token is expired (`reason: "credential_expired"`,
+   * no native refresh on this path), the vendor usage endpoint rejected the token,
+   * or the plan exposes no quota window the daemon can read. The UI shows
+   * `reason`, plus an optional `link` rendered as a button to the provider's own
+   * usage / billing page when the figures can only be checked there.
    */
   S.Struct({
     kind: S.Literal("unavailable"),

@@ -392,6 +392,25 @@ export type TListLocalSessionsResult = S.Schema.Type<
   typeof ListLocalSessionsResult
 >;
 
+/**
+ * Result blob for `refresh_models_due` (command ack / lifecycle.result).
+ * Always rides a `done` lifecycle — automatic discovery never surfaces as
+ * a user-facing command error. `attempted: false` + `reported: 0` is a
+ * quiet TTL/credential skip; `reported: 0` + `failed: true` is a total
+ * failure. The dashboard refetches `/v1/models` on `reported > 0`
+ * (including partial writes) and also on quiet skips (`failed === false`)
+ * so a cached query can pick up a catalog another trigger already POSTed.
+ */
+export const RefreshModelsDueResult = S.Struct({
+  attempted: S.Boolean,
+  reported: S.Number,
+  failed: S.Boolean,
+  error: S.optional(S.String),
+});
+export type TRefreshModelsDueResult = S.Schema.Type<
+  typeof RefreshModelsDueResult
+>;
+
 /** Terminal exit reason retained for a dead but resumable device session. */
 export const SessionExitReason = S.Literal(
   "evicted",
@@ -518,6 +537,17 @@ const commandVariants = <F extends S.Struct.Fields>(addressing: F) =>
       kind: S.Literal("refresh_models"),
       payload: S.optional(EmptyPayload),
     }),
+    // Automatic, non-force model discovery. Distinct kind — never an
+    // optional flag on `refresh_models`, because an older daemon would
+    // strip unknown fields and run a throttle-resetting, auth-capable
+    // list. Empty payload. Quiet `done` even when every provider skips
+    // or fails; the dashboard only sends this when `control_caps`
+    // advertises the kind.
+    S.Struct({
+      ...addressing,
+      kind: S.Literal("refresh_models_due"),
+      payload: S.optional(EmptyPayload),
+    }),
     // List vendor-local sessions on this machine for one device CLI
     // (history stores + ~/.openllm/run live.json + in-memory PTYs). Result
     // rides on the command ack / lifecycle.result for the picker.
@@ -554,6 +584,7 @@ export const DaemonCommandKind = S.Literal(
   "update",
   "bust_plan_cache",
   "refresh_models",
+  "refresh_models_due",
   "list_local_sessions",
 );
 type TDaemonCommandKindLiteral = S.Schema.Type<typeof DaemonCommandKind>;
@@ -785,6 +816,15 @@ export const DaemonStatus = S.Struct({
   cli: S.optional(DaemonCliState),
   /** Advertised transport capabilities, retained in fleet status telemetry. */
   caps: S.optional(S.Array(S.String)),
+  /**
+   * Control-plane capabilities this daemon implements (distinct from
+   * mux/RTC `caps`). Open strings so a future daemon can advertise an
+   * extra cap without the cloud rejecting the whole status. Optional so
+   * older daemons omit it; the dashboard sends `refresh_models_due` only
+   * when this array includes that exact literal. Command vocabulary stays
+   * closed independently of this list.
+   */
+  control_caps: S.optional(S.Array(S.String)),
   /** Whether this daemon can host device chat sessions (PTY — POSIX only;
    *  false on win32). Absent on daemons too old to report it — the
    *  dashboard then hides the device variant for this box. */

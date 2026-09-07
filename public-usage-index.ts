@@ -211,10 +211,10 @@ export type TPublicValuePoint = S.Schema.Type<typeof PublicValuePoint>;
  *
  * `mergeConfiguredPublicUsageIndex` fetches a PEER deployment's
  * `/api/public/usage-index` and decodes it with this schema, so a field that
- * is merely required would make every merge fail — silently, as a skipped
- * merge — for the whole window in which the two deployments disagree. Decoded
- * with a default instead: the property stays non-optional for consumers, and
- * an older peer still parses.
+ * is merely required would make every merge fail — a permitted local fallback
+ * that is not cacheable — for the whole window in which the two deployments
+ * disagree. Decoded with a default instead: the property stays non-optional
+ * for consumers, and an older peer still parses.
  */
 export const PublicValueByTier = S.Struct({
   /**

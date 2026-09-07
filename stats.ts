@@ -107,10 +107,37 @@ export type TInferredMonthlyIndex = S.Schema.Type<typeof InferredMonthlyIndex>;
  * numbers — that is by design, not double counting to be "fixed" (the
  * meter is the account's).
  */
+/**
+ * One persistent (provider, account, plan) bucket's inferred figures.
+ * Reused under a single-account provider payload and under each
+ * `accounts[]` entry — never by duplicating `accounts[]` per tier.
+ *
+ * `current_window` / `monthly_index` are live only for the ACTIVE visit
+ * of this plan; inactive visits keep historical `off_gateway_usd` and
+ * leave those fields null.
+ */
+export const InferredTierUsage = S.Struct({
+  /** Trimmed upstream plan (`pro`, `prolite`, …). Null = unclassified. */
+  plan: S.NullOr(S.String),
+  off_gateway_usd: S.Number,
+  current_window: S.NullOr(InferredWindowUsage),
+  monthly_index: S.NullOr(InferredMonthlyIndex),
+  pair_count: S.Number,
+  tightness: S.Number,
+});
+export type TInferredTierUsage = S.Schema.Type<typeof InferredTierUsage>;
+
 export const InferredAccountUsage = S.Struct({
   /** Obscured account identity (`sha256("openllm-account-v1:…")`), or null
    *  for the legacy assumed-single-account series. */
   account_hash: S.NullOr(S.String),
+  /**
+   * Active plan for live capacity (latest unambiguous observation, or the
+   * caller-supplied selection). Null when the latest samples conflict or
+   * the plan is unknown. Top-level window/index/pairs/tightness describe
+   * this plan only.
+   */
+  plan: S.optional(S.NullOr(S.String)),
   off_gateway_usd: S.Number,
   current_window: S.NullOr(InferredWindowUsage),
   /** The uniform 30-day forecast for this account. NULL until a LIVE
@@ -119,6 +146,9 @@ export const InferredAccountUsage = S.Struct({
   monthly_index: S.NullOr(InferredMonthlyIndex),
   pair_count: S.Number,
   tightness: S.Number,
+  /** Per-plan buckets for this account. Absent when only the active
+   *  unclassified series exists (legacy no-plan callers). */
+  tiers: S.optional(S.Array(InferredTierUsage)),
 });
 export type TInferredAccountUsage = S.Schema.Type<typeof InferredAccountUsage>;
 
@@ -149,10 +179,18 @@ export const InferredProviderUsage = S.Struct({
    *  accounts: the MIN across accounts, so the conservative "≥" rendering
    *  wins whenever any account is still loose. */
   tightness: S.Number,
+  /**
+   * Active plan when this payload is a SINGLE account. Absent when several
+   * accounts are calibrated — read `accounts[].plan` instead.
+   */
+  plan: S.optional(S.NullOr(S.String)),
   /** Per-account detail, present only when ≥2 accounts calibrated for this
    *  provider. Absent in the single-account case — the top-level fields
-   *  ARE that account's. */
+   *  ARE that account's. Never one entry per tier of the same account. */
   accounts: S.optional(S.Array(InferredAccountUsage)),
+  /** Per-plan buckets when this payload is a SINGLE account. Absent when
+   *  several accounts are calibrated — read `accounts[].tiers` instead. */
+  tiers: S.optional(S.Array(InferredTierUsage)),
 });
 export type TInferredProviderUsage = S.Schema.Type<
   typeof InferredProviderUsage

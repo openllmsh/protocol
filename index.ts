@@ -14,6 +14,7 @@ export * from "./media-bytes";
 export * from "./models";
 export * from "./mux";
 export * from "./provider-status";
+export * from "./provider-tier";
 export * from "./provider-usage";
 export * from "./providers";
 export * from "./public-usage-index";

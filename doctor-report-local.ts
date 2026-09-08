@@ -325,4 +325,4 @@ export const parseDoctorReportingStatus = (
 
 export const parseDoctorLocalReportResultCli = parseDoctorLocalReportResult;
 export const parseDoctorReportingStatusCli = parseDoctorReportingStatus;
-`;
+`.replace(/\s+$/u, "\n");

@@ -1,4 +1,5 @@
 import { Schema as S } from "effect";
+import { OpaqueId } from "./doctor-report";
 import { DefaultTier, ExtendedModel } from "./models";
 
 /**
@@ -175,6 +176,18 @@ export const ExtraConfig = S.Struct({
    * Omitted means opted in.
    */
   public_usage_index_opt_out: S.optional(S.Boolean),
+  /**
+   * Account opt-in for daemon diagnostic reports. Omitted/missing is false
+   * (off). Preserve-if-omitted on full-config writes; mutate only via the
+   * narrow `/api/user/daemon-diagnostics` contract.
+   */
+  daemon_diagnostics_opt_in: S.optional(S.Boolean),
+  /**
+   * Opaque policy epoch (UUID/hex). Minted on opt-in/opt-out and cookie-consent
+   * changes so a later enablement is a new reporting window. Full-config writes
+   * must preserve it.
+   */
+  daemon_diagnostics_policy_generation: S.optional(OpaqueId),
 });
 export type TExtraConfig = S.Schema.Type<typeof ExtraConfig>;
 

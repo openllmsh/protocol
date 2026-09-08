@@ -7,6 +7,7 @@ import {
   ModelFallbackBinding,
 } from "./config";
 import { CooldownReason } from "./cooldown-reason";
+import { DaemonReportingPolicy } from "./doctor-report-policy";
 import {
   ModelCapability,
   ModelCaps,
@@ -165,6 +166,11 @@ export const DaemonBootstrap = S.Struct({
    * older clouds keep bootstrapping newer daemons.
    */
   device_access_pubkey: S.optional(S.NullOr(S.String.pipe(S.maxLength(64)))),
+  /**
+   * Optional reporting policy. Absent on old clouds = off. Expired or
+   * `enabled: false` means no upload. See `doctor-report-policy.ts`.
+   */
+  reporting_policy: S.optional(DaemonReportingPolicy),
 });
 export type TDaemonBootstrap = S.Schema.Type<typeof DaemonBootstrap>;
 

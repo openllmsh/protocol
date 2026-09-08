@@ -1,6 +1,7 @@
 import { Schema as S } from "effect";
 import {
   DOCTOR_REPORT_SCHEMA_VERSION,
+  EpochMs,
   OpaqueId,
   STRICT_DOCTOR_PARSE,
 } from "./doctor-report";
@@ -84,12 +85,7 @@ export const parseDaemonDiagnosticsPreferenceResponse = (
 export const DaemonReportingPolicy = S.Struct({
   enabled: S.Boolean,
   generation: OpaqueId,
-  expires_at_ms: S.Number.pipe(
-    S.finite(),
-    S.int(),
-    S.greaterThanOrEqualTo(0),
-    S.lessThanOrEqualTo(4_102_444_800_000),
-  ),
+  expires_at_ms: EpochMs,
   schema_version: S.Literal(DOCTOR_REPORT_SCHEMA_VERSION),
 });
 export type TDaemonReportingPolicy = S.Schema.Type<

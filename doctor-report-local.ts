@@ -54,10 +54,14 @@ export type TDoctorLocalReportRequest = S.Schema.Type<
   typeof DoctorLocalReportRequest
 >;
 
-export const DoctorLocalUnavailableReason = S.Literal(
+export const DOCTOR_LOCAL_UNAVAILABLE_REASONS = [
   "daemon_stopped",
   "upgrade_required",
   "capability_missing",
+] as const;
+
+export const DoctorLocalUnavailableReason = S.Literal(
+  ...DOCTOR_LOCAL_UNAVAILABLE_REASONS,
 );
 export type TDoctorLocalUnavailableReason = S.Schema.Type<
   typeof DoctorLocalUnavailableReason
@@ -188,11 +192,7 @@ export const opaqueDoctorScope = (
 export const DOCTOR_OPAQUE_ID_PATTERN = /${DOCTOR_OPAQUE_ID_PATTERN.source}/;
 const OPAQUE_ID = DOCTOR_OPAQUE_ID_PATTERN;
 const VERSION_STAMP = /${DOCTOR_VERSION_STAMP_PATTERN.source}/;
-const UNAVAILABLE = ${JSON.stringify([
-    "daemon_stopped",
-    "upgrade_required",
-    "capability_missing",
-  ])} as const;
+const UNAVAILABLE = ${JSON.stringify(DOCTOR_LOCAL_UNAVAILABLE_REASONS)} as const;
 
 export type TDoctorLocalUnavailableReason = (typeof UNAVAILABLE)[number];
 

@@ -61,7 +61,7 @@ export const VersionStamp = S.String.pipe(
 );
 export type TVersionStamp = S.Schema.Type<typeof VersionStamp>;
 
-const EpochMs = S.Number.pipe(
+export const EpochMs = S.Number.pipe(
   S.finite(),
   S.int(),
   S.greaterThanOrEqualTo(0),

@@ -166,7 +166,7 @@ export const renderDoctorReportCliArtifact = (): string =>
 // Regenerate via packages/protocol/doctor-report-local.ts#renderDoctorReportCliArtifact
 // (packages/cli/scripts/generate-sdk.ts should call this when CLI wiring lands).
 
-import { createHash } from "node:crypto";
+import { createHash } from ${JSON.stringify("node:crypto")};
 
 export const DOCTOR_REPORT_CLI_CONSTANTS = ${JSON.stringify(
     DOCTOR_REPORT_CLI_CONSTANTS,

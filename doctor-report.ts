@@ -1,6 +1,6 @@
-import { createHash } from "node:crypto";
 import { type Either, Schema as S } from "effect";
 import type { ParseError } from "effect/ParseResult";
+import { sha256Hex } from "./sha256-hex";
 import { SubscriptionProviderSlug } from "./subscription-provider";
 
 /**
@@ -43,10 +43,9 @@ export const doctorReportingScopeId = (
   label: TDoctorScopeLabel,
   value: string,
 ): TOpaqueId => {
-  const digest = createHash("sha256")
-    .update(`${DOCTOR_SCOPE_HASH_PREFIX}:${label}:${value}`)
-    .digest("hex")
-    .slice(0, 32);
+  const digest = sha256Hex(
+    `${DOCTOR_SCOPE_HASH_PREFIX}:${label}:${value}`,
+  ).slice(0, 32);
   return S.decodeUnknownSync(OpaqueId)(digest, STRICT_DOCTOR_PARSE);
 };
 

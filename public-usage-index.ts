@@ -59,6 +59,7 @@ export const PUBLIC_USAGE_INDEX_BUCKET_MARKER = "__bucket__";
  */
 export const PublicUsageIndexMarkerMetrics = S.Struct({
   tier_set_fingerprint: S.optional(S.String),
+  evidence_stamp: S.optional(S.String),
 });
 export type TPublicUsageIndexMarkerMetrics = S.Schema.Type<
   typeof PublicUsageIndexMarkerMetrics

@@ -8,7 +8,7 @@
  * not: callers reject null before using this as a cache key.
  */
 
-export const PROVIDER_TIER_METHODOLOGY_VERSION = "tier-isolation-v1";
+export const PROVIDER_TIER_METHODOLOGY_VERSION = "account-owned-v1";
 
 export const normalizeProviderTier = (raw: unknown): string | null => {
   if (typeof raw !== "string") return null;

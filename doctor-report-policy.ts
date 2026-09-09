@@ -7,13 +7,13 @@ import {
 } from "./doctor-report";
 
 /**
- * Account + bootstrap reporting policy. Default global off. Missing account
- * extra is treated as `false` (no diagnostics). Bootstrap absence on old
- * clouds also means off. Consent generation/expiry are opaque strings/ms.
+ * Account + bootstrap reporting policy. Missing account preference defaults
+ * enabled, subject to current cookie consent. Absent bootstrap policy on old
+ * clouds still means off. Consent generation/expiry are opaque strings/ms.
  */
 
 /** `users.config.extra` key. Omitted on the wire means not set; readers use
- *  {@link daemonDiagnosticsOptInFromExtra} so missing === false. */
+ *  {@link daemonDiagnosticsOptInFromExtra} so omission inherits enabled. */
 export const DAEMON_DIAGNOSTICS_OPT_IN_EXTRA_KEY =
   "daemon_diagnostics_opt_in" as const;
 
@@ -27,7 +27,10 @@ export type TDaemonDiagnosticsOptIn = S.Schema.Type<
 
 export const daemonDiagnosticsOptInFromExtra = (
   extra: Readonly<Record<string, unknown>> | null | undefined,
-): boolean => extra?.[DAEMON_DIAGNOSTICS_OPT_IN_EXTRA_KEY] === true;
+): boolean => {
+  const value = extra?.[DAEMON_DIAGNOSTICS_OPT_IN_EXTRA_KEY];
+  return value === undefined || value === true;
+};
 
 /** Cloud preference mutation — narrow so a stale full-config write cannot
  *  restore diagnostics or clobber unrelated extra keys. */

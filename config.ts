@@ -177,8 +177,8 @@ export const ExtraConfig = S.Struct({
    */
   public_usage_index_opt_out: S.optional(S.Boolean),
   /**
-   * Account opt-in for daemon diagnostic reports. Omitted/missing is false
-   * (off). Preserve-if-omitted on full-config writes; mutate only via the
+   * Account preference for daemon diagnostic reports. Omission defaults enabled
+   * after current cookie consent. Preserve on full-config writes; mutate only via the
    * narrow `/api/user/daemon-diagnostics` contract.
    */
   daemon_diagnostics_opt_in: S.optional(S.Boolean),

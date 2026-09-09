@@ -57,6 +57,66 @@ export const QUOTA_WARN_PERCENT = 80;
 export const QUOTA_REJECT_PERCENT = 100;
 
 /**
+ * Bounded codes for a failed usage refresh while last-good quota is still
+ * served. The only values that may appear on `refresh_failure.reason` —
+ * never vendor prose, HTTP bodies, URLs, or exception text.
+ */
+export const ProviderUsageRefreshFailureReason = S.Literal(
+  "credential_expired",
+  "account_changed",
+  "rate_limited",
+  "authorization_failed",
+  "subscription_inactive",
+  "fetch_failed",
+);
+export type TProviderUsageRefreshFailureReason = S.Schema.Type<
+  typeof ProviderUsageRefreshFailureReason
+>;
+
+export const ProviderUsageRefreshFailure = S.Struct({
+  reason: ProviderUsageRefreshFailureReason,
+  /** Unix epoch ms of the failed attempt, when known. */
+  at_ms: S.optional(S.Number),
+});
+export type TProviderUsageRefreshFailure = S.Schema.Type<
+  typeof ProviderUsageRefreshFailure
+>;
+
+/**
+ * Map an `unavailable.reason` (wire code or provider sentence) onto a
+ * {@link TProviderUsageRefreshFailureReason}. Exact known codes first;
+ * otherwise keyword / HTTP-status classification. Returns null for empty
+ * or placeholder (`loading`) reasons. Never returns the input string.
+ */
+export const classifyUsageRefreshFailureReason = (
+  reason: string,
+): TProviderUsageRefreshFailureReason | null => {
+  const trimmed = reason.trim();
+  if (trimmed.length === 0 || trimmed === "loading") return null;
+  if (S.is(ProviderUsageRefreshFailureReason)(trimmed)) return trimmed;
+  const lower = trimmed.toLowerCase();
+  if (/\b429\b/.test(trimmed) || /rate[\s-]limit/.test(lower)) {
+    return "rate_limited";
+  }
+  if (
+    /\b401\b/.test(trimmed) ||
+    /authorization was rejected/.test(lower) ||
+    /not signed in/.test(lower)
+  ) {
+    return "authorization_failed";
+  }
+  if (
+    /\b403\b/.test(trimmed) ||
+    /no active/.test(lower) ||
+    /isn't available on this plan/.test(lower) ||
+    /subscription may be inactive/.test(lower)
+  ) {
+    return "subscription_inactive";
+  }
+  return "fetch_failed";
+};
+
+/**
  * The structural meter shape the quota gate + pool matcher accept — the
  * `meter_id` identity plus its exact vendor aliases. Structurally satisfied by
  * the schema-derived `TSubscriptionMeter`, kept as a hand-written alias so
@@ -114,6 +174,12 @@ export const ProviderUsageSnapshot = S.Union(
      * read. See `packages/daemon/src/usage-cache.ts`.
      */
     stale: S.optional(S.Boolean),
+    /**
+     * Last live refresh failure while these good figures are still served.
+     * Observation time (`as_of_ms`) stays the successful fetch. Cleared on
+     * the next usable snapshot. `reason` is a bounded code only.
+     */
+    refresh_failure: S.optional(ProviderUsageRefreshFailure),
     /**
      * Feature-scoped pools metering DIFFERENT usage than `windows` (e.g.
      * Codex's per-model promo pools under `additional_rate_limits`).

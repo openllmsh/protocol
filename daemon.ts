@@ -449,9 +449,16 @@ const SubmitLoginCodePayload = S.Struct({
   sealed: Base64Blob,
 });
 const SetAutoUpdatePayload = S.Struct({ enabled: S.Boolean });
-/** `refresh` scoped to one provider's usage cache; bare `{}` clears all. */
+/** `refresh` re-reads usage for connected providers. Optional `slug` scopes
+ *  that read to one provider; omitted `slug` means every connected provider
+ *  (bare `{}` is that whole-daemon read — it does not clear the usage cache).
+ *  `manual` is the explicit Refresh-usage button only: it may native-refresh
+ *  an expired stored token. Cache TTL bypass is daemon-internal
+ *  (`cachedUsage` `force`), never this wire flag. Absent/false is the
+ *  auto/mount path (stored credential, TTL-respecting). */
 const RefreshPayload = S.Struct({
   slug: S.optional(SubscriptionProviderSlug),
+  manual: S.optional(S.Boolean),
 });
 /** Payload-less commands (`status` / `update`): accept an absent payload or a
  *  bare `{}` so every union member carries the field (uniform access). */

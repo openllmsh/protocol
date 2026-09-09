@@ -1,7 +1,7 @@
-import { type Either, Schema as S } from "effect";
+import type { Either } from "effect";
+import { Schema as S } from "effect";
 import type { ParseError } from "effect/ParseResult";
 import { sha256Hex } from "./sha256-hex";
-import { SubscriptionProviderSlug } from "./subscription-provider";
 
 /**
  * Incremental daemon doctor-report wire contract.
@@ -13,7 +13,7 @@ import { SubscriptionProviderSlug } from "./subscription-provider";
  * immutable on the wire.
  */
 
-export const DOCTOR_REPORT_SCHEMA_VERSION = 1 as const;
+export const DOCTOR_REPORT_SCHEMA_VERSION = 2 as const;
 
 export const DoctorReportSchemaVersion = S.Literal(
   DOCTOR_REPORT_SCHEMA_VERSION,
@@ -87,111 +87,11 @@ const BoundedExitCode = S.Number.pipe(
   S.lessThanOrEqualTo(255),
 );
 
-export const DoctorDiagnosticCode = S.Literal(
-  "native_auth_timeout",
-  "refresh_failure",
-  "unknown_status_sustained",
-  "late_result_discarded",
-  "login_watchdog_expiry",
-  "login_prompt_delayed",
-  "login_terminal_failure",
-  "cli_install_repeated_failure",
-  "session_lost",
-  "liveness_degraded",
-  "control_channel_unexpected_disconnect",
-  "control_channel_protocol_failure",
-  "stream_unexpected_failure",
-  "stream_hang_watchdog",
-  "fatal_process",
-);
-export type TDoctorDiagnosticCode = S.Schema.Type<typeof DoctorDiagnosticCode>;
-
-export const DoctorProducer = S.Literal(
-  "spawn",
-  "refresh",
-  "status",
-  "login_flow",
-  "cli_install",
-  "cli_version_stamp",
-  "auth_session_lost",
-  "control_channel",
-  "walker",
-  "process",
-);
-export type TDoctorProducer = S.Schema.Type<typeof DoctorProducer>;
-
-export const DoctorTrigger = S.Literal(
-  "native_login",
-  "capture",
-  "refresh",
-  "status_poll",
-  "login",
-  "logout",
-  "install",
-  "version_probe",
-  "session_lost",
-  "reconnect",
-  "stream",
-  "fatal",
-  "doctor_manual",
-  "proactive_flush",
-);
-export type TDoctorTrigger = S.Schema.Type<typeof DoctorTrigger>;
-
-export const DoctorOutcome = S.Literal(
-  "timeout",
-  "failure",
-  "cancelled",
-  "expired",
-  "delayed",
-  "discarded",
-  "degraded",
-  "unknown",
-  "disconnect",
-  "protocol_error",
-  "hang",
-  "success_context",
-);
-export type TDoctorOutcome = S.Schema.Type<typeof DoctorOutcome>;
-
-export const DoctorOperation = S.Literal(
-  "native_auth",
-  "capture",
-  "refresh",
-  "probe",
-  "login",
-  "logout",
-  "install",
-  "stamp",
-  "stream",
-  "reconnect",
-);
-export type TDoctorOperation = S.Schema.Type<typeof DoctorOperation>;
-
-export const DoctorErrorClass = S.Literal(
-  "timeout",
-  "spawn_denied",
-  "cli_crash",
-  "parse_failure",
-  "protocol_failure",
-  "transport_dns",
-  "transport_connect",
-  "transport_tls",
-  "upstream_http",
-  "watchdog",
-  "cancelled",
-  "unclassified",
-);
-export type TDoctorErrorClass = S.Schema.Type<typeof DoctorErrorClass>;
-
 export const DoctorPlatform = S.Literal("darwin", "linux", "win32");
 export type TDoctorPlatform = S.Schema.Type<typeof DoctorPlatform>;
 
 export const DoctorArchitecture = S.Literal("arm64", "x64");
 export type TDoctorArchitecture = S.Schema.Type<typeof DoctorArchitecture>;
-
-export const DoctorProvider = SubscriptionProviderSlug;
-export type TDoctorProvider = S.Schema.Type<typeof DoctorProvider>;
 
 /** Allowlisted finite timings/counts/booleans. All optional; absent ≠ zero. */
 export const DoctorEventTimings = S.Struct({
@@ -219,22 +119,17 @@ export const DoctorCachedHealth = S.Struct({
 });
 export type TDoctorCachedHealth = S.Schema.Type<typeof DoctorCachedHealth>;
 
+const BuildRevision = S.String.pipe(S.pattern(/^[0-9a-f]{7,64}$/));
+
 export const DoctorReportEvent = S.Struct({
   event_id: OpaqueId,
   observed_at_ms: EpochMs,
   daemon_version: VersionStamp,
-  daemon_build_revision: S.optional(
-    S.String.pipe(S.pattern(/^[0-9a-f]{7,64}$/)),
-  ),
+  daemon_build_revision: S.optional(BuildRevision),
   platform: DoctorPlatform,
   architecture: DoctorArchitecture,
-  code: DoctorDiagnosticCode,
-  provider: S.optional(DoctorProvider),
-  producer: DoctorProducer,
-  operation: S.optional(DoctorOperation),
-  trigger: DoctorTrigger,
-  outcome: DoctorOutcome,
-  error_class: S.optional(DoctorErrorClass),
+  severity: S.Literal("warn", "error"),
+  message: S.String.pipe(S.maxLength(240), S.minLength(1)),
   correlation_id: S.optional(OpaqueId),
   timings: S.optional(DoctorEventTimings),
 });
@@ -284,11 +179,106 @@ export const DoctorReportReject = S.Struct({
 });
 export type TDoctorReportReject = S.Schema.Type<typeof DoctorReportReject>;
 
-export const parseDoctorReport = (input: unknown): TDoctorReport =>
-  S.decodeUnknownSync(DoctorReport)(input, STRICT_DOCTOR_PARSE);
+/** Defense in depth for wire messages, not a grant of trust to runtime prose. */
+export const sanitizeDoctorMessage = (
+  message: unknown,
+  severity: "warn" | "error",
+): string => {
+  const fallback = severity === "error" ? "Daemon error." : "Daemon warning.";
+  if (
+    typeof message !== "string" ||
+    message.length === 0 ||
+    message.length > 240
+  )
+    return fallback;
+  if (!/^[A-Za-z][A-Za-z :;_,.'!?()-]*$/.test(message)) return fallback;
+  if (/\b[A-Za-z_-]+\.[A-Za-z]{2,}\b/.test(message)) return fallback;
+  if (
+    /\b(?:password|secret|token|bearer|cookie|authorization|credential value|login code|device code)\b/i.test(
+      message,
+    )
+  )
+    return fallback;
+  if (message.split(/[^A-Za-z]+/).some((word) => word.length > 24))
+    return fallback;
+  return message;
+};
 
+export const projectDoctorTimings = (
+  input: unknown,
+): TDoctorEventTimings | undefined => {
+  if (typeof input !== "object" || input === null || Array.isArray(input))
+    return undefined;
+  const result: Record<string, number | boolean> = {};
+  for (const key of Object.keys(DoctorEventTimings.fields)) {
+    try {
+      const value = (input as Record<string, unknown>)[key];
+      if (value === undefined) continue;
+      const decoded = S.decodeUnknownSync(DoctorEventTimings)(
+        { [key]: value },
+        STRICT_DOCTOR_PARSE,
+      );
+      Object.assign(result, decoded);
+    } catch {
+      /* Optional measurement failure must not remove an incident. */
+    }
+  }
+  return Object.keys(result).length > 0 ? result : undefined;
+};
+
+/** Normalize only optional measurements and message text; excess keys still fail. */
+const prepareEvent = (input: unknown): unknown => {
+  if (typeof input !== "object" || input === null || Array.isArray(input))
+    return input;
+  const event = input as Record<string, unknown>;
+  const next = { ...event };
+  if (
+    (event.severity === "warn" || event.severity === "error") &&
+    typeof event.message === "string"
+  )
+    next.message = sanitizeDoctorMessage(event.message, event.severity);
+  if (
+    typeof event.timings === "object" &&
+    event.timings !== null &&
+    !Array.isArray(event.timings)
+  ) {
+    // Keep excess keys for strict validation, but drop malformed known values individually.
+    const extras = Object.fromEntries(
+      Object.entries(event.timings).filter(
+        ([key]) => !Object.hasOwn(DoctorEventTimings.fields, key),
+      ),
+    );
+    next.timings = { ...extras, ...projectDoctorTimings(event.timings) };
+  } else if (event.timings !== undefined) {
+    delete next.timings;
+  }
+  if (
+    event.correlation_id !== undefined &&
+    !S.is(OpaqueId)(event.correlation_id)
+  )
+    delete next.correlation_id;
+  if (
+    event.daemon_build_revision !== undefined &&
+    !S.is(BuildRevision)(event.daemon_build_revision)
+  )
+    delete next.daemon_build_revision;
+  return next;
+};
+const prepareReport = (input: unknown): unknown => {
+  if (typeof input !== "object" || input === null || Array.isArray(input))
+    return input;
+  const report = input as Record<string, unknown>;
+  return Array.isArray(report.events)
+    ? { ...report, events: report.events.map(prepareEvent) }
+    : input;
+};
+export const parseDoctorReport = (input: unknown): TDoctorReport =>
+  S.decodeUnknownSync(DoctorReport)(prepareReport(input), STRICT_DOCTOR_PARSE);
 export const parseDoctorReportEvent = (input: unknown): TDoctorReportEvent =>
-  S.decodeUnknownSync(DoctorReportEvent)(input, STRICT_DOCTOR_PARSE);
+  S.decodeUnknownSync(DoctorReportEvent)(
+    prepareEvent(input),
+    STRICT_DOCTOR_PARSE,
+  );
 
 export const parseDoctorReportAck = (input: unknown): TDoctorReportAck =>
   S.decodeUnknownSync(DoctorReportAck)(input, STRICT_DOCTOR_PARSE);
@@ -304,9 +294,14 @@ export type TDoctorReportEventDecode = Either.Either<
 >;
 
 export const decodeDoctorReportEither = (input: unknown): TDoctorReportDecode =>
-  S.decodeUnknownEither(DoctorReport)(input, STRICT_DOCTOR_PARSE);
-
+  S.decodeUnknownEither(DoctorReport)(
+    prepareReport(input),
+    STRICT_DOCTOR_PARSE,
+  );
 export const decodeDoctorReportEventEither = (
   input: unknown,
 ): TDoctorReportEventDecode =>
-  S.decodeUnknownEither(DoctorReportEvent)(input, STRICT_DOCTOR_PARSE);
+  S.decodeUnknownEither(DoctorReportEvent)(
+    prepareEvent(input),
+    STRICT_DOCTOR_PARSE,
+  );

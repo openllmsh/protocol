@@ -1,10 +1,5 @@
 import { Schema as S } from "effect";
-import {
-  DOCTOR_REPORT_SCHEMA_VERSION,
-  EpochMs,
-  OpaqueId,
-  STRICT_DOCTOR_PARSE,
-} from "./doctor-report";
+import { EpochMs, OpaqueId, STRICT_DOCTOR_PARSE } from "./doctor-report";
 
 /**
  * Account + bootstrap reporting policy. Missing account preference defaults
@@ -85,11 +80,13 @@ export const parseDaemonDiagnosticsPreferenceResponse = (
  * (see {@link DOCTOR_REPORTING_POLICY_TTL_MS}, 5 min) — not the 30s
  * in-flight upload lease ({@link DOCTOR_REPORT_LEASE_MS}).
  */
+export const DOCTOR_REPORT_POLICY_SCHEMA_VERSION = 1 as const;
+
 export const DaemonReportingPolicy = S.Struct({
   enabled: S.Boolean,
   generation: OpaqueId,
   expires_at_ms: EpochMs,
-  schema_version: S.Literal(DOCTOR_REPORT_SCHEMA_VERSION),
+  schema_version: S.Literal(DOCTOR_REPORT_POLICY_SCHEMA_VERSION),
 });
 export type TDaemonReportingPolicy = S.Schema.Type<
   typeof DaemonReportingPolicy
@@ -107,7 +104,7 @@ export const reportingPolicyAllowsUpload = (
   policy !== null &&
   policy !== undefined &&
   policy.enabled === true &&
-  policy.schema_version === DOCTOR_REPORT_SCHEMA_VERSION &&
+  policy.schema_version === DOCTOR_REPORT_POLICY_SCHEMA_VERSION &&
   nowMs < policy.expires_at_ms;
 
 export const DOCTOR_REPORT_MAX_BODY_BYTES = 64 * 1024;

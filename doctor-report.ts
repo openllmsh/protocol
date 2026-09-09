@@ -61,11 +61,13 @@ export const VersionStamp = S.String.pipe(
 );
 export type TVersionStamp = S.Schema.Type<typeof VersionStamp>;
 
+export const DOCTOR_EPOCH_MS_MAX = 4_102_444_800_000;
+
 export const EpochMs = S.Number.pipe(
   S.finite(),
   S.int(),
   S.greaterThanOrEqualTo(0),
-  S.lessThanOrEqualTo(4_102_444_800_000),
+  S.lessThanOrEqualTo(DOCTOR_EPOCH_MS_MAX),
 );
 const FiniteMs = S.Number.pipe(
   S.finite(),
@@ -91,6 +93,7 @@ export const DoctorDiagnosticCode = S.Literal(
   "unknown_status_sustained",
   "late_result_discarded",
   "login_watchdog_expiry",
+  "login_prompt_delayed",
   "login_terminal_failure",
   "cli_install_repeated_failure",
   "session_lost",
@@ -140,6 +143,7 @@ export const DoctorOutcome = S.Literal(
   "failure",
   "cancelled",
   "expired",
+  "delayed",
   "discarded",
   "degraded",
   "unknown",

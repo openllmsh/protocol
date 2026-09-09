@@ -1,10 +1,12 @@
 import { Schema as S } from "effect";
 import {
+  DOCTOR_EPOCH_MS_MAX,
   DOCTOR_OPAQUE_ID_PATTERN,
   DOCTOR_REPORT_MAX_EVENTS,
   DOCTOR_REPORT_SCHEMA_VERSION,
   DOCTOR_SCOPE_HASH_PREFIX,
   DOCTOR_VERSION_STAMP_PATTERN,
+  EpochMs,
   OpaqueId,
   STRICT_DOCTOR_PARSE,
   VersionStamp,
@@ -101,6 +103,34 @@ export type TDoctorLocalPreference = S.Schema.Type<
   typeof DoctorLocalPreference
 >;
 
+export const DOCTOR_UPLOAD_BLOCKERS = [
+  "development_environment",
+  "missing_key",
+  "inactive_policy",
+  "expired_policy",
+  "local_opt_out",
+  "cloud_suspended",
+  "cloud_revoked",
+] as const;
+
+export const DoctorUploadBlocker = S.Literal(...DOCTOR_UPLOAD_BLOCKERS);
+export type TDoctorUploadBlocker = S.Schema.Type<typeof DoctorUploadBlocker>;
+
+export const DOCTOR_UPLOAD_ATTEMPT_OUTCOMES = [
+  "uploaded",
+  "retry",
+  "rejected",
+  "stopped",
+  "error",
+] as const;
+
+export const DoctorUploadAttemptOutcome = S.Literal(
+  ...DOCTOR_UPLOAD_ATTEMPT_OUTCOMES,
+);
+export type TDoctorUploadAttemptOutcome = S.Schema.Type<
+  typeof DoctorUploadAttemptOutcome
+>;
+
 export const DoctorReportingStatus = S.Struct({
   local_enabled: S.Boolean,
   account_enabled: S.Boolean,
@@ -108,6 +138,12 @@ export const DoctorReportingStatus = S.Struct({
   last_acknowledged_report_id: S.optional(OpaqueId),
   daemon_version: S.optional(VersionStamp),
   unavailable_reason: S.optional(DoctorLocalUnavailableReason),
+  /** Absent on older daemons — treat as unknown, not false. */
+  upload_eligible: S.optional(S.Boolean),
+  upload_blocker: S.optional(DoctorUploadBlocker),
+  pending_report_upload: S.optional(S.Boolean),
+  last_attempt_at_ms: S.optional(EpochMs),
+  last_attempt_outcome: S.optional(DoctorUploadAttemptOutcome),
 });
 export type TDoctorReportingStatus = S.Schema.Type<
   typeof DoctorReportingStatus
@@ -159,6 +195,8 @@ export const DOCTOR_REPORT_CLI_CONSTANTS = {
   leaseMs: DOCTOR_REPORT_LEASE_MS,
   reportingPolicyTtlMs: DOCTOR_REPORTING_POLICY_TTL_MS,
   scopeHashPrefix: DOCTOR_SCOPE_HASH_PREFIX,
+  uploadBlockers: DOCTOR_UPLOAD_BLOCKERS,
+  uploadAttemptOutcomes: DOCTOR_UPLOAD_ATTEMPT_OUTCOMES,
 } as const;
 
 export type TDoctorReportCliConstants = typeof DOCTOR_REPORT_CLI_CONSTANTS;
@@ -209,6 +247,13 @@ export type TDoctorLocalReportResult = {
   readonly unavailable_reason?: TDoctorLocalUnavailableReason;
 };
 
+const UPLOAD_BLOCKERS = DOCTOR_REPORT_CLI_CONSTANTS.uploadBlockers;
+const ATTEMPT_OUTCOMES = DOCTOR_REPORT_CLI_CONSTANTS.uploadAttemptOutcomes;
+const EPOCH_MS_MAX = ${DOCTOR_EPOCH_MS_MAX};
+
+export type TDoctorUploadBlocker = (typeof UPLOAD_BLOCKERS)[number];
+export type TDoctorUploadAttemptOutcome = (typeof ATTEMPT_OUTCOMES)[number];
+
 export type TDoctorReportingStatus = {
   readonly local_enabled: boolean;
   readonly account_enabled: boolean;
@@ -216,6 +261,11 @@ export type TDoctorReportingStatus = {
   readonly last_acknowledged_report_id?: string;
   readonly daemon_version?: string;
   readonly unavailable_reason?: TDoctorLocalUnavailableReason;
+  readonly upload_eligible?: boolean;
+  readonly upload_blocker?: TDoctorUploadBlocker;
+  readonly pending_report_upload?: boolean;
+  readonly last_attempt_at_ms?: number;
+  readonly last_attempt_outcome?: TDoctorUploadAttemptOutcome;
 };
 
 const fail = (message: string): never => {
@@ -270,6 +320,41 @@ const optionalUnavailable = (
     : fail("invalid unavailable_reason");
 };
 
+const optionalBool = (
+  input: Record<string, unknown>,
+  key: string,
+): boolean | undefined => {
+  const value = input[key];
+  if (value === undefined) return undefined;
+  return typeof value === "boolean" ? value : fail(\`invalid \${key}\`);
+};
+
+const optionalEpoch = (
+  input: Record<string, unknown>,
+  key: string,
+): number | undefined => {
+  const value = input[key];
+  if (value === undefined) return undefined;
+  return typeof value === "number" &&
+    Number.isInteger(value) &&
+    value >= 0 &&
+    value <= EPOCH_MS_MAX
+    ? value
+    : fail(\`invalid \${key}\`);
+};
+
+const optionalLiteral = <T extends string>(
+  input: Record<string, unknown>,
+  key: string,
+  allowed: readonly T[],
+): T | undefined => {
+  const value = input[key];
+  if (value === undefined) return undefined;
+  return typeof value === "string" && (allowed as readonly string[]).includes(value)
+    ? (value as T)
+    : fail(\`invalid \${key}\`);
+};
+
 export const parseDoctorLocalReportResult = (
   input: unknown,
 ): TDoctorLocalReportResult => {
@@ -320,6 +405,19 @@ export const parseDoctorReportingStatus = (
     ),
     daemon_version: optionalVersion(record, "daemon_version"),
     unavailable_reason: optionalUnavailable(record),
+    upload_eligible: optionalBool(record, "upload_eligible"),
+    upload_blocker: optionalLiteral(
+      record,
+      "upload_blocker",
+      UPLOAD_BLOCKERS,
+    ),
+    pending_report_upload: optionalBool(record, "pending_report_upload"),
+    last_attempt_at_ms: optionalEpoch(record, "last_attempt_at_ms"),
+    last_attempt_outcome: optionalLiteral(
+      record,
+      "last_attempt_outcome",
+      ATTEMPT_OUTCOMES,
+    ),
   };
 };
 

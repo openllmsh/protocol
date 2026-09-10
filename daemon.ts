@@ -438,6 +438,13 @@ export const GatewayMode = S.Literal("local", "cloud");
 export type TGatewayMode = S.Schema.Type<typeof GatewayMode>;
 
 const ProviderPayload = S.Struct({ slug: SubscriptionProviderSlug });
+/** Cancel an in-flight connect. `flow_id` is optional so old senders keep
+ *  working; when present the daemon binds the signal to that owner and
+ *  rejects mismatches. Extra field is additive — old decoders ignore it. */
+const CancelConnectPayload = S.Struct({
+  slug: SubscriptionProviderSlug,
+  flow_id: S.optional(S.String),
+});
 /** A remote-Claude headless-login code submission: the X25519-sealed OAuth
  *  authorization code the user pasted from the hosted callback page. Opened on
  *  the target daemon and written to the waiting `claude auth login` stdin. The
@@ -494,7 +501,7 @@ const commandVariants = <F extends S.Struct.Fields>(addressing: F) =>
     S.Struct({
       ...addressing,
       kind: S.Literal("cancel_connect"),
-      payload: ProviderPayload,
+      payload: CancelConnectPayload,
     }),
     S.Struct({
       ...addressing,
@@ -686,10 +693,13 @@ export const DaemonProviderConnection = S.Struct({
    *  The actionable `url`/`code` are OPTIONAL because the relay REDACTS them
    *  from the broadcast + persisted status for every dashboard EXCEPT the one
    *  that started the login (issue #3 — otherwise the OAuth secret fans out to
-   *  every same-user browser). A redacted snapshot carries `{ pending: true,
-   *  mode? }` with no url/code; the initiating dashboard receives the full
-   *  `{ url, code, mode? }` directly. UIs must treat a missing/empty `url` as
-   *  "awaiting authorization" (non-actionable), never auto-opening a flow. */
+   *  every same-user browser). A redacted / marker snapshot is the non-secret
+   *  owner shape `{ pending: true, flow_id?, started_at_ms?, cancel_requested?,
+   *  mode? }` with no url/code — not a new `mode` value. The initiating
+   *  dashboard receives `{ url, code, mode? }` on `auth.login.prompt` only.
+   *  UIs must treat a missing/empty `url` as non-actionable (never auto-open).
+   *  A cached HTTP/DB marker is unconfirmed until a current-session ordered
+   *  live `status_push` is applied; TTL does not evict that live owner. */
   pending_auth: S.optional(
     S.NullOr(
       S.Struct({
@@ -718,6 +728,9 @@ export const DaemonProviderConnection = S.Struct({
          *  would re-surface + auto-open a sign-in flow that no longer exists on
          *  every cold load. Absent on daemons predating this field. */
         started_at_ms: S.optional(S.Number),
+        /** Slot-derived: cancel was accepted but the owner is still
+         *  contained. Additive; older decoders ignore it. Not a new mode. */
+        cancel_requested: S.optional(S.Boolean),
       }),
     ),
   ),
@@ -747,15 +760,12 @@ export type TDaemonProviderConnection = S.Schema.Type<
 >;
 
 /**
- * A `pending_auth` self-expires after this. The login ceiling
- * (`DEFAULT_LOGIN_TIMEOUT_MS`, 5 min) reaps the live child and the
- * background-exit cleanup clears the entry on a clean run; this TTL is the
- * BACKSTOP for when that cleanup never runs (daemon restart, a browser-OAuth
- * child with no hard ceiling that the user never completes). Comfortably above
- * any real human login so a still-live flow is never expired early, yet short
- * enough that a stale entry surfaced on a later cold load is dropped rather than
- * re-opening a dead sign-in dialog. Shared by the daemon (in-memory expiry) and
- * the browser (mirror expiry against the persisted `started_at_ms`). */
+ * A `pending_auth` self-expires after this **on cached / unconfirmed
+ * snapshots**. The login ceiling (`DEFAULT_LOGIN_TIMEOUT_MS`, 5 min) reaps
+ * the live child and matching-flow finalization clears the marker; this TTL
+ * is the BACKSTOP for abandoned HTTP/DB rows. A current-session live marker
+ * beats its age — replacement Connect stays forbidden while ownership is
+ * confirmed. Shared by the daemon (in-memory expiry) and the browser. */
 export const PENDING_AUTH_TTL_MS = 10 * 60_000;
 
 // Outcome of the daemon's last cloud bootstrap — drives the dashboard's

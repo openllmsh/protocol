@@ -13,7 +13,7 @@ import { sha256Hex } from "./sha256-hex";
  * immutable on the wire.
  */
 
-export const DOCTOR_REPORT_SCHEMA_VERSION = 2 as const;
+export const DOCTOR_REPORT_SCHEMA_VERSION = 3 as const;
 
 export const DoctorReportSchemaVersion = S.Literal(
   DOCTOR_REPORT_SCHEMA_VERSION,
@@ -93,6 +93,11 @@ export type TDoctorPlatform = S.Schema.Type<typeof DoctorPlatform>;
 export const DoctorArchitecture = S.Literal("arm64", "x64");
 export type TDoctorArchitecture = S.Schema.Type<typeof DoctorArchitecture>;
 
+export const DoctorSeverity = S.Literal("info", "warn", "error");
+export type TDoctorSeverity = S.Schema.Type<typeof DoctorSeverity>;
+
+export const DOCTOR_SCOPE_FALLBACK = "daemon" as const;
+
 /** Allowlisted finite timings/counts/booleans. All optional; absent ≠ zero. */
 export const DoctorEventTimings = S.Struct({
   configured_timeout_ms: S.optional(FiniteMs),
@@ -128,7 +133,8 @@ export const DoctorReportEvent = S.Struct({
   daemon_build_revision: S.optional(BuildRevision),
   platform: DoctorPlatform,
   architecture: DoctorArchitecture,
-  severity: S.Literal("warn", "error"),
+  severity: DoctorSeverity,
+  scope: S.String.pipe(S.maxLength(32), S.minLength(1)),
   message: S.String.pipe(S.maxLength(240), S.minLength(1)),
   correlation_id: S.optional(OpaqueId),
   timings: S.optional(DoctorEventTimings),
@@ -179,12 +185,36 @@ export const DoctorReportReject = S.Struct({
 });
 export type TDoctorReportReject = S.Schema.Type<typeof DoctorReportReject>;
 
+const doctorMessageFallback = (severity: TDoctorSeverity): string => {
+  if (severity === "error") return "Daemon error.";
+  if (severity === "warn") return "Daemon warning.";
+  return "Daemon notice.";
+};
+
+/** Defense in depth for log scope. No catalog — invalid values fall back. */
+export const sanitizeDoctorScope = (scope: unknown): string => {
+  if (typeof scope !== "string" || scope.length === 0 || scope.length > 32) {
+    return DOCTOR_SCOPE_FALLBACK;
+  }
+  if (!/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/.test(scope)) {
+    return DOCTOR_SCOPE_FALLBACK;
+  }
+  if (
+    /\b(?:password|secret|token|bearer|cookie|authorization|credential)\b/i.test(
+      scope,
+    )
+  ) {
+    return DOCTOR_SCOPE_FALLBACK;
+  }
+  return scope;
+};
+
 /** Defense in depth for wire messages, not a grant of trust to runtime prose. */
 export const sanitizeDoctorMessage = (
   message: unknown,
-  severity: "warn" | "error",
+  severity: TDoctorSeverity,
 ): string => {
-  const fallback = severity === "error" ? "Daemon error." : "Daemon warning.";
+  const fallback = doctorMessageFallback(severity);
   if (
     typeof message !== "string" ||
     message.length === 0 ||
@@ -233,10 +263,16 @@ const prepareEvent = (input: unknown): unknown => {
   const event = input as Record<string, unknown>;
   const next = { ...event };
   if (
-    (event.severity === "warn" || event.severity === "error") &&
+    (event.severity === "info" ||
+      event.severity === "warn" ||
+      event.severity === "error") &&
     typeof event.message === "string"
-  )
+  ) {
     next.message = sanitizeDoctorMessage(event.message, event.severity);
+  }
+  if (Object.hasOwn(event, "scope")) {
+    next.scope = sanitizeDoctorScope(event.scope);
+  }
   if (
     typeof event.timings === "object" &&
     event.timings !== null &&

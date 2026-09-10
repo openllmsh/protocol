@@ -1,4 +1,5 @@
 import { Schema as S } from "effect";
+import { ReasoningEffort } from "./chat";
 
 /**
  * OpenAI **Responses API** wire types (`POST /v1/responses`) — the inbound
@@ -135,9 +136,7 @@ export const ResponsesRequest = S.Struct({
   reasoning: S.optional(
     S.NullishOr(
       S.Struct({
-        effort: S.optional(
-          S.NullishOr(S.Literal("minimal", "low", "medium", "high")),
-        ),
+        effort: S.optional(S.NullishOr(ReasoningEffort)),
       }),
     ),
   ),

@@ -1,5 +1,21 @@
 import { Schema as S } from "effect";
 
+/**
+ * OpenAI-compatible reasoning effort. Shared by chat `reasoning_effort`
+ * and Responses `reasoning.effort` so Codex values like `xhigh` decode
+ * on both inbound surfaces. Downstream providers may still clamp.
+ */
+export const ReasoningEffort = S.Literal(
+  "minimal",
+  "low",
+  "medium",
+  "high",
+  "xhigh",
+  "max",
+  "none",
+);
+export type TReasoningEffort = S.Schema.Type<typeof ReasoningEffort>;
+
 const FunctionCall = S.Struct({
   name: S.String,
   arguments: S.String,
@@ -232,9 +248,7 @@ export const ChatCompletionRequest = S.Struct({
   // Full OpenAI-compatible enum (matches LiteLLM's accepted set so we
   // can translate the same range of efforts that `gpt-5` / Claude
   // canonical clients ship). `none` explicitly disables thinking.
-  reasoning_effort: S.optional(
-    S.Literal("minimal", "low", "medium", "high", "xhigh", "max", "none"),
-  ),
+  reasoning_effort: S.optional(ReasoningEffort),
   metadata: S.optional(S.Record({ key: S.String, value: S.String })),
   /**
    * OpenAI prompt-cache routing hint. A stable value across the turns of one

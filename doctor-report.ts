@@ -1,8 +1,18 @@
 import type { Either } from "effect";
 import { Schema as S } from "effect";
 import type { ParseError } from "effect/ParseResult";
+import type {
+  TDaemonProviderObservation,
+  TDaemonProviderReasonCode,
+} from "./provider-status";
+import {
+  DaemonProviderObservation,
+  DaemonProviderReasonCode,
+} from "./provider-status";
 import { ReplaySessionId } from "./replay-session";
 import { sha256Hex } from "./sha256-hex";
+import type { TSubscriptionProviderSlug } from "./subscription-provider";
+import { SubscriptionProviderSlug } from "./subscription-provider";
 
 /**
  * Incremental daemon doctor-report wire contract.
@@ -125,6 +135,176 @@ export const DoctorCachedHealth = S.Struct({
 });
 export type TDoctorCachedHealth = S.Schema.Type<typeof DoctorCachedHealth>;
 
+/**
+ * Closed auth-lifecycle ledger. Optional on schema 3 so a report that omits
+ * them still parses. A *strict* schema-3 origin that does not yet list these
+ * keys still rejects them (`onExcessProperty: error`) — uploaders must strip
+ * on 422 rather than treating keep-v3 as fully backward compatible.
+ */
+export const DoctorAuthOperationKind = S.Literal(
+  "login",
+  "logout",
+  "verify",
+  "status_probe",
+  "status_publish",
+);
+export type TDoctorAuthOperationKind = S.Schema.Type<
+  typeof DoctorAuthOperationKind
+>;
+
+export const DoctorAuthPhase = S.Literal(
+  "readiness_wait",
+  "readiness",
+  "start",
+  "child_wait",
+  "child",
+  "prep_wait",
+  "prep",
+  "verify_wait",
+  "verify",
+  "terminal",
+);
+export type TDoctorAuthPhase = S.Schema.Type<typeof DoctorAuthPhase>;
+
+export const DoctorAuthOutcome = S.Literal(
+  "succeeded",
+  "failed",
+  "cancelled",
+  "abandoned",
+  "timeout",
+  "unknown",
+);
+export type TDoctorAuthOutcome = S.Schema.Type<typeof DoctorAuthOutcome>;
+
+const DoctorStatusSeq = S.Number.pipe(
+  S.finite(),
+  S.int(),
+  S.greaterThanOrEqualTo(0),
+  S.lessThanOrEqualTo(1_000_000_000),
+);
+
+export const DOCTOR_OUTCOME_LEDGER_KEYS = [
+  "provider",
+  "operation_kind",
+  "phase",
+  "outcome",
+  "observation",
+  "reason_code",
+  "status_seq",
+] as const;
+
+export type TDoctorOutcomeLedger = {
+  readonly provider?: TSubscriptionProviderSlug;
+  readonly operation_kind?: TDoctorAuthOperationKind;
+  readonly phase?: TDoctorAuthPhase;
+  readonly outcome?: TDoctorAuthOutcome;
+  readonly observation?: TDaemonProviderObservation;
+  readonly reason_code?: TDaemonProviderReasonCode;
+  readonly status_seq?: number;
+};
+
+const decodeOptionalLiteral = <A>(
+  schema: S.Schema<A, A>,
+  value: unknown,
+): A | undefined => {
+  if (value === undefined) return undefined;
+  try {
+    return S.decodeUnknownSync(schema)(value, STRICT_DOCTOR_PARSE);
+  } catch {
+    return undefined;
+  }
+};
+
+/** Producer-side projection: invalid enums are omitted, the event is kept. */
+export const projectDoctorOutcomeLedger = (
+  input: unknown,
+): TDoctorOutcomeLedger => {
+  if (typeof input !== "object" || input === null || Array.isArray(input)) {
+    return {};
+  }
+  const raw = input as Record<string, unknown>;
+  const ledger: {
+    provider?: TSubscriptionProviderSlug;
+    operation_kind?: TDoctorAuthOperationKind;
+    phase?: TDoctorAuthPhase;
+    outcome?: TDoctorAuthOutcome;
+    observation?: TDaemonProviderObservation;
+    reason_code?: TDaemonProviderReasonCode;
+    status_seq?: number;
+  } = {};
+  const provider = decodeOptionalLiteral(
+    SubscriptionProviderSlug,
+    raw.provider,
+  );
+  if (provider !== undefined) ledger.provider = provider;
+  const operation_kind = decodeOptionalLiteral(
+    DoctorAuthOperationKind,
+    raw.operation_kind,
+  );
+  if (operation_kind !== undefined) ledger.operation_kind = operation_kind;
+  const phase = decodeOptionalLiteral(DoctorAuthPhase, raw.phase);
+  if (phase !== undefined) ledger.phase = phase;
+  const outcome = decodeOptionalLiteral(DoctorAuthOutcome, raw.outcome);
+  if (outcome !== undefined) ledger.outcome = outcome;
+  const observation = decodeOptionalLiteral(
+    DaemonProviderObservation,
+    raw.observation,
+  );
+  if (observation !== undefined) ledger.observation = observation;
+  const reason_code = decodeOptionalLiteral(
+    DaemonProviderReasonCode,
+    raw.reason_code,
+  );
+  if (reason_code !== undefined) ledger.reason_code = reason_code;
+  if (raw.status_seq !== undefined) {
+    try {
+      ledger.status_seq = S.decodeUnknownSync(DoctorStatusSeq)(
+        raw.status_seq,
+        STRICT_DOCTOR_PARSE,
+      );
+    } catch {
+      /* omit */
+    }
+  }
+  return ledger;
+};
+
+export const doctorEventHasOutcomeLedger = (
+  event: TDoctorOutcomeLedger,
+): boolean =>
+  DOCTOR_OUTCOME_LEDGER_KEYS.some((key) => event[key] !== undefined);
+
+export const stripDoctorOutcomeLedger = (report: {
+  readonly events: ReadonlyArray<TDoctorReportEvent>;
+  readonly schema_version: TDoctorReportSchemaVersion;
+  readonly report_id: TOpaqueId;
+  readonly emitted_at_ms: number;
+  readonly reporter_cli_version?: TVersionStamp;
+  readonly cursor_gap_count: number;
+  readonly suppressed_event_count: number;
+  readonly health?: TDoctorCachedHealth;
+}): TDoctorReport => {
+  const events = report.events.map((event) => {
+    const next: Record<string, unknown> = { ...event };
+    for (const key of DOCTOR_OUTCOME_LEDGER_KEYS) {
+      delete next[key];
+    }
+    return next as TDoctorReportEvent;
+  });
+  return {
+    schema_version: report.schema_version,
+    report_id: report.report_id,
+    emitted_at_ms: report.emitted_at_ms,
+    ...(report.reporter_cli_version !== undefined
+      ? { reporter_cli_version: report.reporter_cli_version }
+      : {}),
+    cursor_gap_count: report.cursor_gap_count,
+    suppressed_event_count: report.suppressed_event_count,
+    events,
+    ...(report.health !== undefined ? { health: report.health } : {}),
+  };
+};
+
 const BuildRevision = S.String.pipe(S.pattern(/^[0-9a-f]{7,64}$/));
 
 export const DoctorReportEvent = S.Struct({
@@ -140,6 +320,13 @@ export const DoctorReportEvent = S.Struct({
   correlation_id: S.optional(OpaqueId),
   replay_session_id: S.optional(ReplaySessionId),
   timings: S.optional(DoctorEventTimings),
+  provider: S.optional(SubscriptionProviderSlug),
+  operation_kind: S.optional(DoctorAuthOperationKind),
+  phase: S.optional(DoctorAuthPhase),
+  outcome: S.optional(DoctorAuthOutcome),
+  observation: S.optional(DaemonProviderObservation),
+  reason_code: S.optional(DaemonProviderReasonCode),
+  status_seq: S.optional(DoctorStatusSeq),
 });
 export type TDoctorReportEvent = S.Schema.Type<typeof DoctorReportEvent>;
 

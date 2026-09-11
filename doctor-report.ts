@@ -176,6 +176,17 @@ export const DoctorAuthOutcome = S.Literal(
 );
 export type TDoctorAuthOutcome = S.Schema.Type<typeof DoctorAuthOutcome>;
 
+/**
+ * How a browser-applied live status snapshot relates to an auth terminal.
+ * `temporal_same_session` is not causal: the snapshot was applied on the same
+ * live daemon session after the operation's seq floor, with this flow no
+ * longer on `pending_auth`. Status may precede the terminal frame.
+ */
+export const DoctorAuthStatusCorrelation = S.Literal("temporal_same_session");
+export type TDoctorAuthStatusCorrelation = S.Schema.Type<
+  typeof DoctorAuthStatusCorrelation
+>;
+
 const DoctorStatusSeq = S.Number.pipe(
   S.finite(),
   S.int(),

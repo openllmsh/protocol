@@ -23,6 +23,7 @@ export * from "./providers";
 export * from "./public-usage-index";
 export * from "./registry-pointer";
 export * from "./relay";
+export * from "./replay-session";
 export * from "./responses";
 export * from "./semver";
 export * from "./stats";

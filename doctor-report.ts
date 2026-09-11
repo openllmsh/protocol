@@ -1,6 +1,7 @@
 import type { Either } from "effect";
 import { Schema as S } from "effect";
 import type { ParseError } from "effect/ParseResult";
+import { ReplaySessionId } from "./replay-session";
 import { sha256Hex } from "./sha256-hex";
 
 /**
@@ -137,6 +138,7 @@ export const DoctorReportEvent = S.Struct({
   scope: S.String.pipe(S.maxLength(32), S.minLength(1)),
   message: S.String.pipe(S.maxLength(240), S.minLength(1)),
   correlation_id: S.optional(OpaqueId),
+  replay_session_id: S.optional(ReplaySessionId),
   timings: S.optional(DoctorEventTimings),
 });
 export type TDoctorReportEvent = S.Schema.Type<typeof DoctorReportEvent>;

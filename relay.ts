@@ -2,6 +2,7 @@ import { Schema as S } from "effect";
 import { AuthEvent } from "./auth";
 import { RelayCommandLifecycleFrame } from "./control-channel";
 import { DaemonCommand, DaemonCommandAck } from "./daemon";
+import { ReplaySessionId } from "./replay-session";
 
 // ─── Daemon relay (push over a Sandbox WebSocket, in-memory routing) ──
 //
@@ -295,6 +296,7 @@ export const RelayEnqueueFrame = S.Struct({
   key_id: S.String,
   kind: S.String,
   payload: S.optional(S.Unknown),
+  replay_session_id: S.optional(ReplaySessionId),
 });
 export type TRelayEnqueueFrame = S.Schema.Type<typeof RelayEnqueueFrame>;
 

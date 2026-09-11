@@ -20,6 +20,7 @@ import {
   DaemonProviderUpstreamAuthCooldown,
 } from "./provider-status";
 import { ProviderUsageSnapshot } from "./provider-usage";
+import { ReplaySessionId } from "./replay-session";
 import { RequestStatus } from "./stats";
 import { SubscriptionProviderSlug } from "./subscription-provider";
 
@@ -621,7 +622,12 @@ void _kindDriftGuard;
 
 /** One control command delivered to the daemon over its relay socket.
  *  `id` is `daemon_commands.id` (bigserial), stringified for the wire. */
-export const DaemonCommand = S.Union(...commandVariants({ id: S.String }));
+export const DaemonCommand = S.Union(
+  ...commandVariants({
+    id: S.String,
+    replay_session_id: S.optional(ReplaySessionId),
+  }),
+);
 export type TDaemonCommand = S.Schema.Type<typeof DaemonCommand>;
 
 /** POST /api/daemon/cmd (dashboard → cloud) — enqueue for a target key

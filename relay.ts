@@ -531,6 +531,8 @@ export const RelayRtcNackFrame = S.Struct({
    * non-cacheable refusals to consumers.
    */
   reason: RelayFreeString,
+  /** Effective session limit on overload; absent on older daemons. */
+  cap: S.optional(S.Number.pipe(S.int(), S.between(1, 256))),
 });
 export type TRelayRtcNackFrame = S.Schema.Type<typeof RelayRtcNackFrame>;
 

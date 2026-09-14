@@ -48,6 +48,18 @@ export const hasSeedgateCap = (caps: readonly string[] | undefined): boolean =>
   caps?.includes(SEEDGATE_CAP) ?? false;
 
 /**
+ * Capability advertising host PTY sessions backed by a BridgeSessions
+ * session-worker (`bridgesessions session-worker`). The worker owns the
+ * PTY outside the daemon so a named shell can survive daemon restart,
+ * and a dashboard can prefer this host path over a Vercel-sandbox shell.
+ */
+export const BS_CAP = "bs1";
+
+/** Returns whether an open-vocabulary capability list advertises bs1. */
+export const hasBsCap = (caps: readonly string[] | undefined): boolean =>
+  caps?.includes(BS_CAP) ?? false;
+
+/**
  * Normalizes an optional relay version for observability only. Feature gating is
  * capability-based, never version-based.
  */

@@ -163,14 +163,24 @@ export type TImageEditMultipartFile = {
   readonly contentType?: string;
 };
 
+// `String.fromCharCode(...bytes)` on the WHOLE array blows the call-stack /
+// argument-count limit on a large image (spreads one argument per byte); a
+// per-byte `+=` loop avoids that but is slow. Converting in bounded chunks
+// gets the portable, allocation-cheap middle: each chunk is small enough for
+// a safe spread, and the chunk strings are joined once at the end.
+const BASE64_CHUNK_BYTES = 8192;
+
 const bytesToDataUrl = (
   bytes: Uint8Array,
   contentType: string | undefined,
 ): string => {
   const mime = contentType?.split(";")[0]?.trim() || "image/png";
-  let binary = "";
-  for (const byte of bytes) binary += String.fromCharCode(byte);
-  return `data:${mime};base64,${btoa(binary)}`;
+  const chunks: string[] = [];
+  for (let offset = 0; offset < bytes.length; offset += BASE64_CHUNK_BYTES) {
+    const chunk = bytes.subarray(offset, offset + BASE64_CHUNK_BYTES);
+    chunks.push(String.fromCharCode(...chunk));
+  }
+  return `data:${mime};base64,${btoa(chunks.join(""))}`;
 };
 
 /**
@@ -195,6 +205,18 @@ export const parseImageEditMultipart = (input: {
     return fail(
       "image_edit_multi_reference_unsupported",
       "Image edits accept exactly one reference image.",
+    );
+  }
+  // A file field AND an inline `image`/`images` string field together are an
+  // ambiguous duplicate reference (which one wins?) — reject explicitly
+  // rather than silently letting the file overwrite the string field below.
+  if (
+    imageFiles.length === 1 &&
+    (isPresent(input.fields.image) || isPresent(input.fields.images))
+  ) {
+    return fail(
+      "image_edit_multi_reference_unsupported",
+      "Image edits accept exactly one reference image; do not combine an image file with an inline image field.",
     );
   }
 

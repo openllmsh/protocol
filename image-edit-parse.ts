@@ -183,6 +183,23 @@ const bytesToDataUrl = (
   return `data:${mime};base64,${btoa(chunks.join(""))}`;
 };
 
+// Multipart form fields arrive as bare strings; the shared schema
+// (`ImageEditRequest.n: S.Number.pipe(S.int(), S.positive())`) requires a
+// real number and does not coerce strings, so a multipart `n` must be
+// normalized before it reaches `decodeImageEditRequest` — otherwise every
+// multipart request that sets `n` (even a valid "1") fails with a generic
+// schema error instead of the field actually being honored. Only a strict,
+// bare positive-integer string is accepted: no `parseInt` (stops at the
+// first non-digit, so "1abc" would silently become `1`) and no `Number()`
+// coercion (`Number("")` and `Number(" ")` are both `0`, which would
+// silently satisfy a blank/whitespace field). Anything else — empty,
+// signed, fractional, hex, whitespace-padded, or non-numeric — is rejected
+// explicitly here rather than passed through.
+const POSITIVE_INTEGER_FIELD_PATTERN = /^[1-9][0-9]*$/;
+
+const parseMultipartNField = (raw: string): number | null =>
+  POSITIVE_INTEGER_FIELD_PATTERN.test(raw) ? Number(raw) : null;
+
 /**
  * Map OpenAI-style multipart edits (`image` file + string fields) onto the
  * same canonical parser as JSON.
@@ -226,6 +243,16 @@ export const parseImageEditMultipart = (input: {
     if (file !== undefined) {
       raw.image = bytesToDataUrl(file.bytes, file.contentType);
     }
+  }
+  if (typeof input.fields.n === "string") {
+    const n = parseMultipartNField(input.fields.n);
+    if (n === null) {
+      return fail(
+        "image_edit_invalid",
+        'Image edit "n" must be a positive integer.',
+      );
+    }
+    raw.n = n;
   }
   return parseImageEditInput(raw);
 };

@@ -48,6 +48,38 @@ export const hasSeedgateCap = (caps: readonly string[] | undefined): boolean =>
   caps?.includes(SEEDGATE_CAP) ?? false;
 
 /**
+ * HTTP media over the existing mux `kind:"tunnel"` stream (STT / TTS / image
+ * generations / image edits). Old peers omit this; consumers MUST fail closed
+ * before OPEN rather than send unknown surfaces.
+ *
+ * Advertisement is owned by the daemon hello/status list and MUST stay off
+ * until the listener/walker actually serves these surfaces.
+ */
+export const MEDIA_HTTP_CAP = "media1";
+
+export const hasMediaHttpCap = (
+  caps: readonly string[] | undefined,
+): boolean => caps?.includes(MEDIA_HTTP_CAP) ?? false;
+
+/**
+ * Reserved for a later dedicated duplex realtime mux kind. Not advertised,
+ * not present in {@link StreamOpenPayload}. Do not overload `kind:"tunnel"`
+ * (HTTP) or PTY `kind:"session"`.
+ */
+export const REALTIME_DUPLEX_CAP = "realtime1";
+
+export const hasRealtimeDuplexCap = (
+  caps: readonly string[] | undefined,
+): boolean => caps?.includes(REALTIME_DUPLEX_CAP) ?? false;
+
+/**
+ * Bounded capture for tunneled media HTTP bodies (multipart/binary). Distinct
+ * from media-persistence limits. Daemon/cloud request readers should import
+ * this rather than duplicating the literal.
+ */
+export const TUNNEL_MEDIA_MAX_BODY_BYTES = 20 * 1024 * 1024;
+
+/**
  * Normalizes an optional relay version for observability only. Feature gating is
  * capability-based, never version-based.
  */
@@ -67,8 +99,151 @@ export const TunnelSurface = S.Literal(
   "messages",
   "responses",
   "responses_compact",
+  "audio_transcriptions",
+  "audio_speech",
+  "images_generations",
+  "images_edits",
 );
 export type TTunnelSurface = S.Schema.Type<typeof TunnelSurface>;
+
+export const MEDIA_HTTP_TUNNEL_SURFACES = [
+  "audio_transcriptions",
+  "audio_speech",
+  "images_generations",
+  "images_edits",
+] as const satisfies readonly TTunnelSurface[];
+
+export const isMediaHttpTunnelSurface = (
+  surface: TTunnelSurface,
+): boolean =>
+  (MEDIA_HTTP_TUNNEL_SURFACES as readonly string[]).includes(surface);
+
+const TUNNEL_CONTENT_TYPE_MAX = 256;
+
+const ALLOWED_TUNNEL_ACCEPT = [
+  "application/json",
+  "text/event-stream",
+  "audio/mpeg",
+  "audio/wav",
+  "audio/l16",
+  "application/octet-stream",
+  "image/png",
+  "image/jpeg",
+  "image/webp",
+] as const;
+
+export type TTunnelAccept = (typeof ALLOWED_TUNNEL_ACCEPT)[number];
+
+const isAllowedTunnelAcceptValue = (value: string): value is TTunnelAccept =>
+  (ALLOWED_TUNNEL_ACCEPT as readonly string[]).includes(value);
+
+/**
+ * Parse `name=value` / `name="quoted"` Content-Type parameters. Rejects CRLF,
+ * NUL, empty names, and duplicate keys (including duplicate `boundary`).
+ */
+const contentTypeParams = (
+  rest: string,
+): Map<string, string> | null => {
+  const params = new Map<string, string>();
+  let i = 0;
+  while (i < rest.length) {
+    while (rest[i] === " " || rest[i] === "\t") i += 1;
+    if (i >= rest.length) break;
+    const eq = rest.indexOf("=", i);
+    if (eq < 0) return null;
+    const name = rest.slice(i, eq).trim().toLowerCase();
+    if (name === "" || name.includes("\r") || name.includes("\n")) return null;
+    if (params.has(name)) return null;
+    i = eq + 1;
+    if (rest[i] === '"') {
+      i += 1;
+      let value = "";
+      while (i < rest.length) {
+        const ch = rest[i];
+        if (ch === "\\") {
+          i += 1;
+          if (i >= rest.length) return null;
+          value += rest[i];
+          i += 1;
+          continue;
+        }
+        if (ch === '"') {
+          i += 1;
+          break;
+        }
+        if (ch === "\r" || ch === "\n" || ch === "\0") return null;
+        value += ch;
+        i += 1;
+      }
+      params.set(name, value);
+    } else {
+      const semi = rest.indexOf(";", i);
+      const end = semi < 0 ? rest.length : semi;
+      const value = rest.slice(i, end).trim();
+      if (
+        value === "" ||
+        value.includes("\r") ||
+        value.includes("\n") ||
+        value.includes("\0")
+      ) {
+        return null;
+      }
+      params.set(name, value);
+      i = end;
+    }
+    if (rest[i] === ";") i += 1;
+    else if (i < rest.length && rest[i] !== " " && rest[i] !== "\t") {
+      return null;
+    }
+  }
+  return params;
+};
+
+/**
+ * Allowlisted request Content-Type. Multipart MUST carry exactly one
+ * `boundary` (quoted or token). Original spelling is preserved on success
+ * so the FormData delimiter in the body still matches the header.
+ */
+export const isAllowedTunnelRequestContentType = (raw: string): boolean => {
+  if (raw.length === 0 || raw.length > TUNNEL_CONTENT_TYPE_MAX) return false;
+  if (raw.includes("\r") || raw.includes("\n") || raw.includes("\0")) {
+    return false;
+  }
+  const slash = raw.indexOf("/");
+  if (slash < 0) return false;
+  const semi = raw.indexOf(";");
+  const type = (semi < 0 ? raw : raw.slice(0, semi)).trim().toLowerCase();
+  const params = semi < 0 ? new Map<string, string>() : contentTypeParams(raw.slice(semi + 1));
+  if (params === null) return false;
+  if (type === "application/json") {
+    const charset = params.get("charset");
+    if (charset !== undefined && charset.toLowerCase() !== "utf-8") return false;
+    for (const key of params.keys()) {
+      if (key !== "charset") return false;
+    }
+    return true;
+  }
+  if (type === "application/octet-stream") {
+    return params.size === 0;
+  }
+  if (type === "multipart/form-data") {
+    const boundary = params.get("boundary");
+    if (boundary === undefined || boundary === "") return false;
+    for (const key of params.keys()) {
+      if (key !== "boundary") return false;
+    }
+    return true;
+  }
+  return false;
+};
+
+export const TunnelAccept = S.Literal(...ALLOWED_TUNNEL_ACCEPT);
+export const TunnelRequestContentType = S.String.pipe(
+  S.maxLength(TUNNEL_CONTENT_TYPE_MAX),
+  S.filter(isAllowedTunnelRequestContentType, {
+    message: () => "unsupported tunnel content-type",
+  }),
+);
 
 /** The ONLY request headers a consumer may forward — a closed struct, not a
  * free map, per the relay's reviewable-vocabulary posture. Everything else
@@ -78,8 +253,8 @@ export type TTunnelSurface = S.Schema.Type<typeof TunnelSurface>;
  * decodes it.
  */
 export const TunnelForwardHeaders = S.Struct({
-  content_type: S.optional(S.Literal("application/json")),
-  accept: S.optional(S.Literal("application/json", "text/event-stream")),
+  content_type: S.optional(TunnelRequestContentType),
+  accept: S.optional(TunnelAccept),
   anthropic_version: S.optional(S.String.pipe(S.maxLength(32))),
   anthropic_beta: S.optional(S.String.pipe(S.maxLength(256))),
   user_agent: S.optional(S.String.pipe(S.maxLength(512))),

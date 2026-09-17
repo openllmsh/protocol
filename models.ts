@@ -6,7 +6,9 @@ export const ModelCapability = S.Literal(
   "transcription",
   "speech",
   "image_generation",
+  "image_editing",
   "video_generation",
+  "realtime",
   "vision",
   "tools",
   "json_mode",
@@ -14,6 +16,79 @@ export const ModelCapability = S.Literal(
   "reasoning",
 );
 export type TModelCapability = S.Schema.Type<typeof ModelCapability>;
+
+/**
+ * Capability literals published before image_editing/realtime. Bootstrap
+ * payloads sent to older daemons MUST be filtered to this set — a closed
+ * `ModelCapability` decoder rejects the entire catalog if it sees an
+ * unknown string.
+ */
+export const BOOTSTRAP_SAFE_MODEL_CAPABILITIES = [
+  "chat",
+  "embedding",
+  "transcription",
+  "speech",
+  "image_generation",
+  "video_generation",
+  "vision",
+  "tools",
+  "json_mode",
+  "streaming",
+  "reasoning",
+] as const satisfies ReadonlyArray<TModelCapability>;
+
+export const isBootstrapSafeModelCapability = (
+  capability: string,
+): capability is (typeof BOOTSTRAP_SAFE_MODEL_CAPABILITIES)[number] =>
+  (BOOTSTRAP_SAFE_MODEL_CAPABILITIES as ReadonlyArray<string>).includes(
+    capability,
+  );
+
+export const toBootstrapSafeCapabilities = (
+  capabilities: ReadonlyArray<string>,
+): TModelCapability[] =>
+  capabilities.filter(isBootstrapSafeModelCapability);
+
+/**
+ * Advertises that the requesting daemon's `DaemonCatalogEntry.capabilities`
+ * decoder accepts the OPEN string array (post image_editing/realtime
+ * widening) rather than the older closed {@link ModelCapability} literal
+ * set. Sent as the value of `DAEMON_BOOTSTRAP_CAPS_HEADER` (see
+ * `./daemon`) by a daemon binary compiled after the widening landed. An
+ * old compiled daemon never sends this — the bootstrap encoder MUST treat
+ * its absence as "closed literal decoder only" and filter via
+ * {@link toBootstrapSafeCapabilities}. Never inferred from a package/binary
+ * version string, which an unbumped daemon build would leave stale.
+ */
+export const MODEL_CAPABILITIES_OPEN_CAP = "model-capabilities-open1";
+
+/** Returns whether a negotiated capability list includes {@link MODEL_CAPABILITIES_OPEN_CAP}. */
+export const hasOpenModelCapabilitiesCap = (
+  caps: readonly string[] | undefined,
+): boolean => caps?.includes(MODEL_CAPABILITIES_OPEN_CAP) ?? false;
+
+export const isKnownModelCapability = (
+  capability: string,
+): capability is TModelCapability =>
+  (ModelCapability.literals as ReadonlyArray<string>).includes(capability);
+
+/**
+ * Discoverable audio/realtime option metadata. Presence on a catalog
+ * card is not a billing claim — subscription media may still consume
+ * vendor quota.
+ */
+export const ModelAudioSupport = S.Struct({
+  input_formats: S.optional(S.Array(S.String)),
+  output_formats: S.optional(S.Array(S.String)),
+  voices: S.optional(S.Array(S.String)),
+  /**
+   * Verified realtime operations only. Grok currently advertises
+   * `text_to_audio`; microphone / interruption legs are omitted until
+   * verified.
+   */
+  realtime_operations: S.optional(S.Array(S.String)),
+});
+export type TModelAudioSupport = S.Schema.Type<typeof ModelAudioSupport>;
 
 // Built-in default-chain tiers. When a user has no fallback group with
 // one of these names, the gateway derives a virtual chain from catalog
@@ -53,6 +128,11 @@ export const ExtendedModelCard = S.extend(
     provider_model_id: S.String,
     display_name: S.String,
     capabilities: S.Array(ModelCapability),
+    /**
+     * Optional audio/realtime support advertised on `/v1/models`. Catalog
+     * capability is access, not billing inclusion.
+     */
+    audio_support: S.optional(ModelAudioSupport),
     // Curated list of dim presets to show in the endpoint picker on
     // `/config`. Catalog-defined so the UI doesn't have to know which
     // values are "interesting" — `text-embedding-3-large` could
@@ -168,6 +248,7 @@ export const ExtendedModel = S.Struct({
   deprecated: S.optional(S.Boolean),
   // Embedding-only metadata — see ExtendedModelCard for semantics.
   dimension_presets: S.optional(S.Array(S.Number)),
+  audio_support: S.optional(ModelAudioSupport),
   // Membership in derived default chains (`DEFAULT_TIER_ALIASES`).
   // Chat models only. A model can belong to several tiers (e.g. a
   // single-model subscription serving all three); the ARRAY ORDER is

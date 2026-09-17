@@ -8,12 +8,7 @@ import {
 } from "./config";
 import { CooldownReason } from "./cooldown-reason";
 import { DaemonReportingPolicy } from "./doctor-report-policy";
-import {
-  ModelCapability,
-  ModelCaps,
-  ProviderModelList,
-  SubscriptionMeter,
-} from "./models";
+import { ModelCaps, ProviderModelList, SubscriptionMeter } from "./models";
 import {
   DaemonProviderObservation,
   DaemonProviderReasonCode,
@@ -43,8 +38,14 @@ export const DaemonCatalogEntry = S.Struct({
    * Catalog capabilities for this model. Optional so older clouds keep
    * bootstrapping newer daemons. Absent / empty = unknown (never treated
    * as known-non-vision). The walker vision gate reads this on each hop.
+   *
+   * Open string array: unknown future literals (e.g. `image_editing`,
+   * `realtime`) must not fail the whole bootstrap. Older compiled daemons
+   * still decode a closed `ModelCapability` set — cloud encoders should
+   * send {@link toBootstrapSafeCapabilities} until those binaries are
+   * replaced.
    */
-  capabilities: S.optional(S.Array(ModelCapability)),
+  capabilities: S.optional(S.Array(S.String)),
   /** Catalog-declared final outbound-body constraints for this model. */
   caps: S.optional(ModelCaps),
   /** Optional so older clouds keep bootstrapping newer daemons. */
@@ -951,6 +952,32 @@ export const TOOL_SESSION_HEADER = "x-openllm-tool-session";
  *  `docs/proposals/daemon-device-aware-this-machine.md`. */
 export const DAEMON_DEVICE_ID_HEADER = "x-openllm-device-id";
 export const DAEMON_DEVICE_LABEL_HEADER = "x-openllm-device-label";
+
+/**
+ * Header a daemon sends on control-plane calls (chiefly
+ * `GET /api/daemon/bootstrap`) listing the open-vocabulary decode
+ * capabilities it supports — e.g. `MODEL_CAPABILITIES_OPEN_CAP` from
+ * `./models`. Comma-joined; absent/empty on an old compiled daemon, which
+ * the bootstrap encoder MUST treat as "closed literal decoder only" —
+ * never inferred from a version string, which an unbumped daemon build
+ * would leave stale.
+ */
+export const DAEMON_BOOTSTRAP_CAPS_HEADER = "x-openllm-daemon-caps";
+
+/**
+ * Parse the comma-joined {@link DAEMON_BOOTSTRAP_CAPS_HEADER} value into a
+ * capability list. A null/empty header (old daemon, or the header simply
+ * absent) decodes to an empty list — no negotiated capability.
+ */
+export const parseDaemonBootstrapCapsHeader = (
+  value: string | null,
+): string[] =>
+  value === null || value.trim() === ""
+    ? []
+    : value
+        .split(",")
+        .map((c) => c.trim())
+        .filter((c) => c.length > 0);
 
 /** Header a BROWSER client (the dashboard "Try" card) sets to ask the cloud to
  *  describe a daemon redirect as a readable `200 { redirect, location }` JSON

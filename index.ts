@@ -1,4 +1,5 @@
 export * from "./api-key-syntax";
+export * from "./audio";
 export * from "./auth";
 export * from "./chat";
 export * from "./config";
@@ -12,6 +13,7 @@ export * from "./doctor-report";
 export * from "./doctor-report-local";
 export * from "./doctor-report-policy";
 export * from "./errors";
+export * from "./image-edit-parse";
 export * from "./images";
 export * from "./media-bytes";
 export * from "./models";

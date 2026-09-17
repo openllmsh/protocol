@@ -23,6 +23,7 @@ export * from "./provider-tier";
 export * from "./provider-usage";
 export * from "./providers";
 export * from "./public-usage-index";
+export * from "./realtime";
 export * from "./registry-pointer";
 export * from "./relay";
 export * from "./replay-session";

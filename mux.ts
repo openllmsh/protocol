@@ -12,6 +12,7 @@ import {
   SessionTitleField,
   supportsDangerousSession,
 } from "./daemon";
+import { RealtimeStreamOpenPayload } from "./realtime";
 
 /**
  * Capability advertising support for the binary mux wire format: the 16-byte
@@ -57,14 +58,24 @@ export const hasSeedgateCap = (caps: readonly string[] | undefined): boolean =>
  */
 export const MEDIA_HTTP_CAP = "media1";
 
-export const hasMediaHttpCap = (
-  caps: readonly string[] | undefined,
-): boolean => caps?.includes(MEDIA_HTTP_CAP) ?? false;
+export const hasMediaHttpCap = (caps: readonly string[] | undefined): boolean =>
+  caps?.includes(MEDIA_HTTP_CAP) ?? false;
 
 /**
- * Reserved for a later dedicated duplex realtime mux kind. Not advertised,
- * not present in {@link StreamOpenPayload}. Do not overload `kind:"tunnel"`
- * (HTTP) or PTY `kind:"session"`.
+ * The dedicated duplex realtime mux kind (`kind:"realtime"` in
+ * {@link StreamOpenPayload}, vocabulary in `./realtime`). A distinct kind
+ * from `kind:"tunnel"` (request/response HTTP) and PTY `kind:"session"` —
+ * never overload either for a long-lived bidirectional voice session.
+ *
+ * NOT YET ADVERTISED: a daemon must add this to its capability list only
+ * once (a) a provider delegate actually exposes `credentialForRealtime` and
+ * (b) the local runtime path (dial → translate → bound) is wired end to
+ * end. An old/unadvertising peer's `kind:"realtime"` OPEN still gets a
+ * typed `realtime_unsupported` RESET before any session work starts — "old
+ * peer fails before OPEN" is a CONSUMER-side responsibility (check
+ * `hasRealtimeDuplexCap` on the peer's caps before calling
+ * `@openllmsh/tunnel/streams`'s `realtimeStream`), not something the wire
+ * format itself can enforce.
  */
 export const REALTIME_DUPLEX_CAP = "realtime1";
 
@@ -113,9 +124,7 @@ export const MEDIA_HTTP_TUNNEL_SURFACES = [
   "images_edits",
 ] as const satisfies readonly TTunnelSurface[];
 
-export const isMediaHttpTunnelSurface = (
-  surface: TTunnelSurface,
-): boolean =>
+export const isMediaHttpTunnelSurface = (surface: TTunnelSurface): boolean =>
   (MEDIA_HTTP_TUNNEL_SURFACES as readonly string[]).includes(surface);
 
 const TUNNEL_CONTENT_TYPE_MAX = 256;
@@ -141,9 +150,7 @@ const isAllowedTunnelAcceptValue = (value: string): value is TTunnelAccept =>
  * Parse `name=value` / `name="quoted"` Content-Type parameters. Rejects CRLF,
  * NUL, empty names, and duplicate keys (including duplicate `boundary`).
  */
-const contentTypeParams = (
-  rest: string,
-): Map<string, string> | null => {
+const contentTypeParams = (rest: string): Map<string, string> | null => {
   const params = new Map<string, string>();
   let i = 0;
   while (i < rest.length) {
@@ -213,11 +220,15 @@ export const isAllowedTunnelRequestContentType = (raw: string): boolean => {
   if (slash < 0) return false;
   const semi = raw.indexOf(";");
   const type = (semi < 0 ? raw : raw.slice(0, semi)).trim().toLowerCase();
-  const params = semi < 0 ? new Map<string, string>() : contentTypeParams(raw.slice(semi + 1));
+  const params =
+    semi < 0
+      ? new Map<string, string>()
+      : contentTypeParams(raw.slice(semi + 1));
   if (params === null) return false;
   if (type === "application/json") {
     const charset = params.get("charset");
-    if (charset !== undefined && charset.toLowerCase() !== "utf-8") return false;
+    if (charset !== undefined && charset.toLowerCase() !== "utf-8")
+      return false;
     for (const key of params.keys()) {
       if (key !== "charset") return false;
     }
@@ -356,6 +367,7 @@ export type TSessionStreamOpenPayload = S.Schema.Type<
 export const StreamOpenPayload = S.Union(
   TunnelStreamOpenPayload,
   SessionStreamOpenPayload,
+  RealtimeStreamOpenPayload,
 );
 export type TStreamOpenPayload = S.Schema.Type<typeof StreamOpenPayload>;
 
@@ -390,6 +402,10 @@ export const StreamCtrlPayload = S.Union(
   S.Struct({ t: S.Literal("focus") }),
   S.Struct({ t: S.Literal("replay_done") }),
   S.Struct({ t: S.Literal("close"), intent: S.Literal("detach", "kill") }),
+  /** Realtime (`kind:"realtime"`) liveness — either peer may send this while
+   * NDJSON event traffic is naturally quiet (e.g. waiting on the user).
+   * Carries no data; its arrival IS the signal. */
+  S.Struct({ t: S.Literal("heartbeat") }),
 );
 export type TStreamCtrlPayload = S.Schema.Type<typeof StreamCtrlPayload>;
 
@@ -415,6 +431,27 @@ export const StreamResetCode = S.Literal(
    * disabled. Terminal — not retryable until the user enables them on the
    * device (`openllmd sessions on`, or reinstall with the toggle on). */
   "sessions_disabled",
+  /** This daemon does not (yet) serve `kind:"realtime"` — no provider
+   * delegate exposes `credentialForRealtime`, or the runtime path isn't
+   * wired. Mirrors `pty_unsupported`. */
+  "realtime_unsupported",
+  /** Max concurrent realtime sessions reached on this daemon. Mirrors
+   * `tunnel_busy` / `session_busy`. */
+  "realtime_busy",
+  /** Admission refused for a reason OTHER than capacity — no credential
+   * available (stale refresh, not logged in), or the vendor connection
+   * itself failed before any event was exchanged. Retryable after the
+   * underlying cause (e.g. re-login) clears. */
+  "realtime_refused",
+  /** The cloud's signed plan for this OPEN's `provider`/`model` was missing,
+   * unsigned/tampered, unreachable, or did not resolve to exactly that hop —
+   * the same account/entitlement gate every other subscription surface
+   * (`planSignatureOk`) enforces before a vendor dial. Distinct from
+   * `realtime_refused` (a credential-layer failure): this is a POLICY
+   * refusal, and it fires before the daemon ever asks its delegate for a
+   * credential. Never retryable by simply reconnecting — the caller needs a
+   * plan the cloud actually signed for this provider/model. */
+  "realtime_policy_refused",
 );
 export type TStreamResetCode = S.Schema.Type<typeof StreamResetCode>;
 
@@ -461,6 +498,9 @@ export const parseStreamOpenPayload = (
       "dangerous",
       "resume_session_id",
       "cwd",
+      "provider",
+      "model",
+      "voice",
     ])
   ) {
     return null;

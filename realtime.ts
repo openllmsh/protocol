@@ -274,9 +274,16 @@ export type TRealtimeLineSplitResult = {
  * `MAX_PAYLOAD_BYTES`), so a caller that rejects a null result before the
  * next call never accumulates past one frame beyond the line bound.
  *
- * Returns null when the NOT-YET-TERMINATED remainder would exceed
- * {@link REALTIME_MAX_LINE_BYTES} — callers MUST treat that as a
- * bounded-queue overflow (RESET `lagging`), never grow the buffer further.
+ * Returns null when EITHER a newline-terminated segment OR the trailing
+ * not-yet-terminated remainder would exceed {@link REALTIME_MAX_LINE_BYTES}
+ * — callers MUST treat that as a bounded-queue overflow (RESET `lagging`),
+ * never grow the buffer further. Checking only the tail is not enough: the
+ * mux's own `MAX_PAYLOAD_BYTES` (256 KiB) is larger than
+ * `REALTIME_MAX_LINE_BYTES` (64 KiB), so a single inbound DATA frame can by
+ * itself carry a newline-terminated segment well past the line bound —
+ * that segment must be rejected before it is ever handed to
+ * `decodeRealtimeLine`/`JSON.parse`, not silently accepted because it
+ * happened to end in `\n`.
  */
 export const splitRealtimeLines = (
   remainder: Uint8Array,
@@ -289,6 +296,7 @@ export const splitRealtimeLines = (
   let start = 0;
   for (let i = 0; i < combined.byteLength; i += 1) {
     if (combined[i] === NEWLINE) {
+      if (i - start > REALTIME_MAX_LINE_BYTES) return null;
       lines.push(combined.subarray(start, i));
       start = i + 1;
     }

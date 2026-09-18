@@ -143,9 +143,6 @@ const ALLOWED_TUNNEL_ACCEPT = [
 
 export type TTunnelAccept = (typeof ALLOWED_TUNNEL_ACCEPT)[number];
 
-const isAllowedTunnelAcceptValue = (value: string): value is TTunnelAccept =>
-  (ALLOWED_TUNNEL_ACCEPT as readonly string[]).includes(value);
-
 /**
  * Parse `name=value` / `name="quoted"` Content-Type parameters. Rejects CRLF,
  * NUL, empty names, and duplicate keys (including duplicate `boundary`).
@@ -256,6 +253,16 @@ export const TunnelRequestContentType = S.String.pipe(
   }),
 );
 
+/** Speech persistence is daemon-owned unless the browser opts in and receives
+ * this acknowledgement. Internal HTTP names bridge the closed mux metadata;
+ * the request header is never forwarded to the cloud or provider. */
+export const MEDIA_PERSISTENCE_REQUEST_HEADER = "x-openllm-media-persistence";
+export const MEDIA_PERSISTENCE_RESPONSE_HEADER =
+  "x-openllm-media-persistence-ack";
+export const MEDIA_PERSISTENCE_BROWSER = "browser";
+export const MEDIA_URL_RESPONSE_HEADER = "x-openllm-media-url";
+export const TUNNEL_MEDIA_URL_MAX_LENGTH = 2048;
+
 /** The ONLY request headers a consumer may forward — a closed struct, not a
  * free map, per the relay's reviewable-vocabulary posture. Everything else
  * (auth, plan params) is the serving daemon's own business.
@@ -264,6 +271,7 @@ export const TunnelRequestContentType = S.String.pipe(
  * decodes it.
  */
 export const TunnelForwardHeaders = S.Struct({
+  media_persistence: S.optional(S.Literal(MEDIA_PERSISTENCE_BROWSER)),
   content_type: S.optional(TunnelRequestContentType),
   accept: S.optional(TunnelAccept),
   anthropic_version: S.optional(S.String.pipe(S.maxLength(32))),
@@ -278,6 +286,10 @@ export type TTunnelForwardHeaders = S.Schema.Type<typeof TunnelForwardHeaders>;
  * decodes it.
  */
 export const TunnelResponseHeaders = S.Struct({
+  media_url: S.optional(
+    S.String.pipe(S.maxLength(TUNNEL_MEDIA_URL_MAX_LENGTH)),
+  ),
+  media_persistence: S.optional(S.Literal(MEDIA_PERSISTENCE_BROWSER)),
   content_type: S.optional(S.String.pipe(S.maxLength(128))),
   is_sse: S.optional(S.Boolean),
 });
@@ -513,6 +525,7 @@ export const parseStreamOpenPayload = (
       "anthropic_version",
       "anthropic_beta",
       "user_agent",
+      "media_persistence",
     ])
   ) {
     return null;

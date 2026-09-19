@@ -100,6 +100,15 @@ export const DEFAULT_TIER_ALIASES = ["ultra", "plus", "lite"] as const;
 export const DefaultTier = S.Literal(...DEFAULT_TIER_ALIASES);
 export type TDefaultTier = S.Schema.Type<typeof DefaultTier>;
 
+/** Chat tiers plus the one implicit media default class (not a user alias). */
+export const MEDIA_DEFAULT_CLASS = "media";
+export const DEFAULT_CHAIN_CLASSES = [
+  ...DEFAULT_TIER_ALIASES,
+  MEDIA_DEFAULT_CLASS,
+] as const;
+export const DefaultChainClass = S.Literal(...DEFAULT_CHAIN_CLASSES);
+export type TDefaultChainClass = S.Schema.Type<typeof DefaultChainClass>;
+
 /**
  * Canonical classification of a *direct* catalog/live/custom card.
  * `subscription` still consumes vendor quota. `api_key` is BYOK auth —
@@ -262,16 +271,18 @@ export const ExtendedModel = S.Struct({
   // Embedding-only metadata — see ExtendedModelCard for semantics.
   dimension_presets: S.optional(S.Array(S.Number)),
   audio_support: S.optional(ModelAudioSupport),
-  // Membership in derived default chains (`DEFAULT_TIER_ALIASES`).
-  // Chat models only. A model can belong to several tiers (e.g. a
-  // single-model subscription serving all three); the ARRAY ORDER is
-  // its priority — index 0 is its primary tier, and within each chain
-  // a model with the tier at a later index sorts after models that
-  // hold it earlier. `tier_rank` breaks ties within the same index
-  // across providers (lower = tried first) — explicit so quality
-  // ordering is deliberate, not an accident of catalog array order.
-  default_tiers: S.optional(S.Array(DefaultTier)),
+  // Membership in derived default chains (`DEFAULT_CHAIN_CLASSES`).
+  // Chat uses ultra/plus/lite; media uses the single `media` class.
+  // ARRAY ORDER is priority — index 0 is primary. `tier_rank` breaks
+  // ties (lower = tried first), not catalog array order.
+  default_tiers: S.optional(S.Array(DefaultChainClass)),
   tier_rank: S.optional(S.Number),
+  /**
+   * Auth class of this catalog/live entry. Subscription twins must set
+   * `subscription` even if derived from an API-key sibling. Omitted on
+   * mixed aliases.
+   */
+  provider_type: S.optional(ModelProviderType),
 });
 export type TExtendedModel = S.Schema.Type<typeof ExtendedModel>;
 

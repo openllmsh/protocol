@@ -12,6 +12,10 @@ import {
   SessionTitleField,
   supportsDangerousSession,
 } from "./daemon";
+import {
+  OPENLLM_CHAIN_HEADER,
+  OPENLLM_RESOLVED_MODEL_HEADER,
+} from "./inference-headers";
 import { RealtimeStreamOpenPayload } from "./realtime";
 
 /**
@@ -60,6 +64,18 @@ export const MEDIA_HTTP_CAP = "media1";
 
 export const hasMediaHttpCap = (caps: readonly string[] | undefined): boolean =>
   caps?.includes(MEDIA_HTTP_CAP) ?? false;
+
+/**
+ * POST `/v1/videos` (create job) over mux `kind:"tunnel"`. Distinct from
+ * `media1` so a media1-only daemon never receives `video_create` OPEN.
+ * Consumers MUST check {@link hasMediaHttpVideoCap} before OPEN.
+ * GET poll/content stay off the mux (POST-only).
+ */
+export const MEDIA_HTTP_VIDEO_CAP = "media2";
+
+export const hasMediaHttpVideoCap = (
+  caps: readonly string[] | undefined,
+): boolean => caps?.includes(MEDIA_HTTP_VIDEO_CAP) ?? false;
 
 /**
  * The dedicated duplex realtime mux kind (`kind:"realtime"` in
@@ -114,6 +130,9 @@ export const TunnelSurface = S.Literal(
   "audio_speech",
   "images_generations",
   "images_edits",
+  "video_create",
+  "video_retrieve",
+  "video_content",
 );
 export type TTunnelSurface = S.Schema.Type<typeof TunnelSurface>;
 
@@ -122,10 +141,35 @@ export const MEDIA_HTTP_TUNNEL_SURFACES = [
   "audio_speech",
   "images_generations",
   "images_edits",
+  "video_create",
 ] as const satisfies readonly TTunnelSurface[];
 
 export const isMediaHttpTunnelSurface = (surface: TTunnelSurface): boolean =>
   (MEDIA_HTTP_TUNNEL_SURFACES as readonly string[]).includes(surface);
+
+export const requiredMediaHttpCap = (
+  surface: TTunnelSurface,
+): typeof MEDIA_HTTP_CAP | typeof MEDIA_HTTP_VIDEO_CAP | null => {
+  if (
+    surface === "video_create" ||
+    surface === "video_retrieve" ||
+    surface === "video_content"
+  ) {
+    return MEDIA_HTTP_VIDEO_CAP;
+  }
+  if (isMediaHttpTunnelSurface(surface)) return MEDIA_HTTP_CAP;
+  return null;
+};
+
+/** Fail closed: never OPEN a media surface the peer has not advertised. */
+export const peerSupportsTunnelSurface = (
+  caps: readonly string[] | undefined,
+  surface: TTunnelSurface,
+): boolean => {
+  const required = requiredMediaHttpCap(surface);
+  if (required === null) return true;
+  return caps?.includes(required) ?? false;
+};
 
 const TUNNEL_CONTENT_TYPE_MAX = 256;
 
@@ -139,6 +183,7 @@ const ALLOWED_TUNNEL_ACCEPT = [
   "image/png",
   "image/jpeg",
   "image/webp",
+  "video/mp4",
 ] as const;
 
 export type TTunnelAccept = (typeof ALLOWED_TUNNEL_ACCEPT)[number];
@@ -277,6 +322,10 @@ export const TunnelForwardHeaders = S.Struct({
   anthropic_version: S.optional(S.String.pipe(S.maxLength(32))),
   anthropic_beta: S.optional(S.String.pipe(S.maxLength(256))),
   user_agent: S.optional(S.String.pipe(S.maxLength(512))),
+  /** Opaque video job id for GET retrieve/content mux follow-up. */
+  video_id: S.optional(
+    S.String.pipe(S.maxLength(256), S.pattern(/^[A-Za-z0-9._-]+$/)),
+  ),
 });
 export type TTunnelForwardHeaders = S.Schema.Type<typeof TunnelForwardHeaders>;
 
@@ -285,6 +334,9 @@ export type TTunnelForwardHeaders = S.Schema.Type<typeof TunnelForwardHeaders>;
  * Validated by the SERVING DAEMON at stream open (mux); the relay never
  * decodes it.
  */
+export const TUNNEL_RESOLVED_MODEL_MAX = 256;
+export const TUNNEL_CHAIN_MAX = 4096;
+
 export const TunnelResponseHeaders = S.Struct({
   media_url: S.optional(
     S.String.pipe(S.maxLength(TUNNEL_MEDIA_URL_MAX_LENGTH)),
@@ -292,10 +344,79 @@ export const TunnelResponseHeaders = S.Struct({
   media_persistence: S.optional(S.Literal(MEDIA_PERSISTENCE_BROWSER)),
   content_type: S.optional(S.String.pipe(S.maxLength(128))),
   is_sse: S.optional(S.Boolean),
+  /** Winning hop id — maps to {@link OPENLLM_RESOLVED_MODEL_HEADER}. */
+  resolved_model: S.optional(
+    S.String.pipe(S.maxLength(TUNNEL_RESOLVED_MODEL_MAX)),
+  ),
+  /** Comma-separated attempted hops — maps to {@link OPENLLM_CHAIN_HEADER}. */
+  chain: S.optional(S.String.pipe(S.maxLength(TUNNEL_CHAIN_MAX))),
 });
 export type TTunnelResponseHeaders = S.Schema.Type<
   typeof TunnelResponseHeaders
 >;
+
+const boundedOptional = (
+  value: string | null,
+  max: number,
+): string | undefined => {
+  if (value === null || value.length === 0 || value.length > max)
+    return undefined;
+  return value;
+};
+
+/** Copy closed mux res_head fields onto an HTTP Headers object. */
+export const applyTunnelResponseHeadersToHttp = (
+  headers: Headers,
+  res: TTunnelResponseHeaders,
+): void => {
+  if (res.media_url !== undefined) {
+    headers.set(MEDIA_URL_RESPONSE_HEADER, res.media_url);
+  }
+  if (res.media_persistence === MEDIA_PERSISTENCE_BROWSER) {
+    headers.set(MEDIA_PERSISTENCE_RESPONSE_HEADER, MEDIA_PERSISTENCE_BROWSER);
+  }
+  if (res.content_type !== undefined) {
+    headers.set("content-type", res.content_type);
+  }
+  if (res.resolved_model !== undefined) {
+    headers.set(OPENLLM_RESOLVED_MODEL_HEADER, res.resolved_model);
+  }
+  if (res.chain !== undefined) {
+    headers.set(OPENLLM_CHAIN_HEADER, res.chain);
+  }
+};
+
+/** Project HTTP response headers onto the closed mux res_head struct. */
+export const tunnelResponseHeadersFromHttp = (
+  headers: Headers,
+): TTunnelResponseHeaders => {
+  const contentType = headers.get("content-type") ?? undefined;
+  const mediaUrl = boundedOptional(
+    headers.get(MEDIA_URL_RESPONSE_HEADER),
+    TUNNEL_MEDIA_URL_MAX_LENGTH,
+  );
+  const resolved = boundedOptional(
+    headers.get(OPENLLM_RESOLVED_MODEL_HEADER),
+    TUNNEL_RESOLVED_MODEL_MAX,
+  );
+  const chain = boundedOptional(
+    headers.get(OPENLLM_CHAIN_HEADER),
+    TUNNEL_CHAIN_MAX,
+  );
+  return {
+    ...(mediaUrl === undefined ? {} : { media_url: mediaUrl }),
+    ...(headers.get(MEDIA_PERSISTENCE_RESPONSE_HEADER) ===
+    MEDIA_PERSISTENCE_BROWSER
+      ? { media_persistence: MEDIA_PERSISTENCE_BROWSER }
+      : {}),
+    ...(contentType === undefined
+      ? {}
+      : { content_type: contentType.slice(0, 128) }),
+    is_sse: contentType?.includes("text/event-stream") === true,
+    ...(resolved === undefined ? {} : { resolved_model: resolved }),
+    ...(chain === undefined ? {} : { chain }),
+  };
+};
 
 /** Session ids are client-minted url-safe tokens. The url-safe pattern is
  * still required because the id is embedded in the session-host pidfile name
@@ -526,6 +647,7 @@ export const parseStreamOpenPayload = (
       "anthropic_beta",
       "user_agent",
       "media_persistence",
+      "video_id",
     ])
   ) {
     return null;

@@ -1,4 +1,5 @@
 import { Schema as S } from "effect";
+import type { TModelProviderType } from "./models";
 
 /** The closed set of subscription-provider slugs a control command may
  *  address — the ONLY values that can ever reach a daemon delegate or the
@@ -16,3 +17,12 @@ export const SubscriptionProviderSlug = S.Literal(
 export type TSubscriptionProviderSlug = S.Schema.Type<
   typeof SubscriptionProviderSlug
 >;
+
+/** Catalog tagging only — execution still uses registry `authKind`. */
+export const isSubscriptionProviderSlug = (provider: string): boolean =>
+  (SubscriptionProviderSlug.literals as ReadonlyArray<string>).includes(
+    provider,
+  );
+
+export const catalogProviderType = (provider: string): TModelProviderType =>
+  isSubscriptionProviderSlug(provider) ? "subscription" : "api_key";

@@ -22,6 +22,14 @@ export type TImageGenerationRequest = S.Schema.Type<
   typeof ImageGenerationRequest
 >;
 
+const { model: _imageGenerationModel, ...imageGenerationInputFields } =
+  ImageGenerationRequest.fields;
+export const ImageGenerationInput = S.Struct({
+  ...imageGenerationInputFields,
+  model: S.optional(S.String),
+});
+export type TImageGenerationInput = S.Schema.Type<typeof ImageGenerationInput>;
+
 const ImageData = S.Struct({
   url: S.optional(S.String),
   b64_json: S.optional(S.String),
@@ -56,6 +64,14 @@ export const ImageEditRequest = S.Struct({
   response_format: S.optional(S.Literal("url", "b64_json")),
 });
 export type TImageEditRequest = S.Schema.Type<typeof ImageEditRequest>;
+
+const { model: _imageEditModel, ...imageEditInputFields } =
+  ImageEditRequest.fields;
+export const ImageEditInput = S.Struct({
+  ...imageEditInputFields,
+  model: S.optional(S.String),
+});
+export type TImageEditInput = S.Schema.Type<typeof ImageEditInput>;
 
 export const ImageEditParseErrorCode = S.Literal(
   "image_edit_mask_unsupported",

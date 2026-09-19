@@ -16,6 +16,7 @@ export * from "./errors";
 export * from "./image-edit-parse";
 export * from "./images";
 export * from "./media-bytes";
+export * from "./media-default";
 export * from "./models";
 export * from "./mux";
 export * from "./provider-status";

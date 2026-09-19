@@ -46,8 +46,7 @@ export const isBootstrapSafeModelCapability = (
 
 export const toBootstrapSafeCapabilities = (
   capabilities: ReadonlyArray<string>,
-): TModelCapability[] =>
-  capabilities.filter(isBootstrapSafeModelCapability);
+): TModelCapability[] => capabilities.filter(isBootstrapSafeModelCapability);
 
 /**
  * Advertises that the requesting daemon's `DaemonCatalogEntry.capabilities`
@@ -101,6 +100,15 @@ export const DEFAULT_TIER_ALIASES = ["ultra", "plus", "lite"] as const;
 export const DefaultTier = S.Literal(...DEFAULT_TIER_ALIASES);
 export type TDefaultTier = S.Schema.Type<typeof DefaultTier>;
 
+/**
+ * Canonical classification of a *direct* catalog/live/custom card.
+ * `subscription` still consumes vendor quota. `api_key` is BYOK auth —
+ * not a claim that usage is metered. Omit on fallback aliases: mixed
+ * chains are neither a subscription guarantee nor API-key-only.
+ */
+export const ModelProviderType = S.Literal("subscription", "api_key");
+export type TModelProviderType = S.Schema.Type<typeof ModelProviderType>;
+
 export const ModelCard = S.Struct({
   id: S.String,
   object: S.Literal("model"),
@@ -144,6 +152,11 @@ export const ExtendedModelCard = S.extend(
     // CLI clients (e.g. Claude Code) can size context before auto-compact.
     max_input_tokens: S.optional(S.Number),
     max_output_tokens: S.optional(S.Number),
+    /**
+     * Direct-card auth class. Absent on fallback aliases. `api_key` is
+     * not necessarily usage-billed.
+     */
+    provider_type: S.optional(ModelProviderType),
     /** Prompt/context budget; equals `max_input_tokens` when present. */
     context_window: S.optional(S.Number),
     // llama.cpp/Ollama-style context hint mirrored under `meta.n_ctx`.

@@ -22,6 +22,14 @@ export type TVideoGenerationRequest = S.Schema.Type<
   typeof VideoGenerationRequest
 >;
 
+const { model: _videoGenerationModel, ...videoGenerationInputFields } =
+  VideoGenerationRequest.fields;
+export const VideoGenerationInput = S.Struct({
+  ...videoGenerationInputFields,
+  model: S.optional(S.String),
+});
+export type TVideoGenerationInput = S.Schema.Type<typeof VideoGenerationInput>;
+
 export const VideoJobStatus = S.Literal(
   "queued",
   "in_progress",

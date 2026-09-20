@@ -1,4 +1,5 @@
 import { Schema as S } from "effect";
+import { OptionalMediaModel } from "./media-input";
 import { VideoInputMode, VideoReferenceInputs } from "./models";
 
 export const VIDEO_INPUT_ERROR =
@@ -81,8 +82,12 @@ const { model: _videoGenerationModel, ...videoGenerationInputFields } =
   VideoGenerationRequest.fields;
 export const VideoGenerationInput = S.Struct({
   ...videoGenerationInputFields,
-  model: S.optional(S.String),
-}).annotations({ parseOptions: { onExcessProperty: "error" } });
+  model: OptionalMediaModel,
+}).annotations({
+  description:
+    "Video creation input. Only prompt is required. Send only needed optional keys; omit unused model and reference arrays rather than filling dummy empty strings or arrays.",
+  parseOptions: { onExcessProperty: "error" },
+});
 export type TVideoGenerationInput = S.Schema.Type<typeof VideoGenerationInput>;
 
 const decodeVideoInput = S.decodeUnknownEither(VideoGenerationInput);

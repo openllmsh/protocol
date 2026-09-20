@@ -1,4 +1,5 @@
 import { Schema as S } from "effect";
+import { OptionalVideoReferences } from "./media-input";
 
 export const ModelCapability = S.Literal(
   "chat",
@@ -97,17 +98,14 @@ export const VideoReferenceInputs = S.Struct({
         "Starting-frame image as an HTTPS URL or base64 image data URL (for example data:image/png;base64,...). Not subject guidance. MIME is detected from PNG, JPEG, GIF, or WebP bytes; the provider validates its accepted formats.",
     }),
   ),
-  reference_images: S.optional(
-    S.Array(S.String.pipe(S.minLength(1))).annotations({
-      description:
-        "Ordered subject-reference images as HTTPS URLs or base64 image data URLs. References guide identity/appearance, not the first frame. Every input is preserved; the provider validates format and count limits.",
-    }),
-  ),
-  reference_voices: S.optional(
-    S.Array(S.String.pipe(S.minLength(1))).annotations({
-      description: "Provider voice IDs for reference guidance.",
-    }),
-  ),
+  reference_images: OptionalVideoReferences.annotations({
+    description:
+      "Optional ordered subject-reference images as HTTPS URLs or base64 image data URLs. Omit when unused; do not send a dummy empty array. References guide identity/appearance, not the first frame. Every input is preserved; the provider validates format and count limits.",
+  }),
+  reference_voices: OptionalVideoReferences.annotations({
+    description:
+      "Optional provider voice IDs for reference guidance. Omit when unused; do not send a dummy empty array.",
+  }),
 });
 
 /** Finite receipt vocabulary; not an author-maintained model allowlist. */

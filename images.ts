@@ -1,4 +1,5 @@
 import { Schema as S } from "effect";
+import { OptionalMediaModel } from "./media-input";
 import { TUNNEL_MEDIA_MAX_BODY_BYTES } from "./mux";
 
 /** Image-edit request body bound; matches tunneled media HTTP max. */
@@ -26,7 +27,7 @@ const { model: _imageGenerationModel, ...imageGenerationInputFields } =
   ImageGenerationRequest.fields;
 export const ImageGenerationInput = S.Struct({
   ...imageGenerationInputFields,
-  model: S.optional(S.String),
+  model: OptionalMediaModel,
 });
 export type TImageGenerationInput = S.Schema.Type<typeof ImageGenerationInput>;
 
@@ -69,7 +70,7 @@ const { model: _imageEditModel, ...imageEditInputFields } =
   ImageEditRequest.fields;
 export const ImageEditInput = S.Struct({
   ...imageEditInputFields,
-  model: S.optional(S.String),
+  model: OptionalMediaModel,
 });
 export type TImageEditInput = S.Schema.Type<typeof ImageEditInput>;
 

@@ -89,6 +89,23 @@ export const ModelAudioSupport = S.Struct({
 });
 export type TModelAudioSupport = S.Schema.Type<typeof ModelAudioSupport>;
 
+/** Exact combinations, not independently composable capability flags. */
+export const VideoInputMode = S.Literal(
+  "text",
+  "starting_image",
+  "subject_images",
+  "voices",
+  "starting_image+subject_images",
+  "starting_image+voices",
+  "subject_images+voices",
+  "starting_image+subject_images+voices",
+);
+export type TVideoInputMode = S.Schema.Type<typeof VideoInputMode>;
+export const ModelVideoSupport = S.Struct({
+  input_modes: S.Array(VideoInputMode),
+});
+export type TModelVideoSupport = S.Schema.Type<typeof ModelVideoSupport>;
+
 // Built-in default-chain tiers. When a user has no fallback group with
 // one of these names, the gateway derives a virtual chain from catalog
 // entries flagged `default_tiers`, filtered to the user's available
@@ -150,6 +167,7 @@ export const ExtendedModelCard = S.extend(
      * capability is access, not billing inclusion.
      */
     audio_support: S.optional(ModelAudioSupport),
+    video_support: S.optional(ModelVideoSupport),
     // Curated list of dim presets to show in the endpoint picker on
     // `/config`. Catalog-defined so the UI doesn't have to know which
     // values are "interesting" — `text-embedding-3-large` could
@@ -277,6 +295,7 @@ export const ExtendedModel = S.Struct({
   // Embedding-only metadata — see ExtendedModelCard for semantics.
   dimension_presets: S.optional(S.Array(S.Number)),
   audio_support: S.optional(ModelAudioSupport),
+  video_support: S.optional(ModelVideoSupport),
   // Membership in derived default chains (`DEFAULT_CHAIN_CLASSES`).
   // Chat uses ultra/plus/lite; media uses the single `media` class.
   // ARRAY ORDER is priority — index 0 is primary. `tier_rank` breaks

@@ -1,4 +1,9 @@
 import { Schema as S } from "effect";
+import {
+  parseVideoGenerationInput,
+  VideoInputReceipt,
+  videoInputRequirements,
+} from "./videos";
 
 /**
  * Metadata-only media-default selection contract. Used by the cloud
@@ -40,6 +45,7 @@ const BoundedConstraintString = S.String.pipe(
 );
 
 export const MediaDefaultConstraints = S.Struct({
+  video_input: S.optional(VideoInputReceipt),
   input_format: S.optional(MediaAudioInputFormat),
   voice: S.optional(BoundedConstraintString),
   response_format: S.optional(BoundedConstraintString),
@@ -291,6 +297,22 @@ export const mediaDefaultRequestFromBody = (
   body: unknown,
   audio?: TMediaAudioInspectInput,
 ): TMediaDefaultRequest | null => {
+  if (surface === "video") {
+    try {
+      const input = parseVideoGenerationInput(body);
+      const constraints = pickConstraints(input);
+      if (constraints === "invalid") return null;
+      return {
+        surface,
+        constraints: {
+          ...constraints,
+          video_input: videoInputRequirements(input),
+        },
+      };
+    } catch {
+      return null;
+    }
+  }
   const audioForSurface = surface === "transcription" ? audio : undefined;
   if (body !== null && typeof body === "object" && !Array.isArray(body)) {
     const constraints = pickConstraints(

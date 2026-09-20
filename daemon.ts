@@ -8,7 +8,12 @@ import {
 } from "./config";
 import { CooldownReason } from "./cooldown-reason";
 import { DaemonReportingPolicy } from "./doctor-report-policy";
-import { ModelCaps, ProviderModelList, SubscriptionMeter } from "./models";
+import {
+  ModelCaps,
+  ModelVideoSupport,
+  ProviderModelList,
+  SubscriptionMeter,
+} from "./models";
 import {
   DaemonProviderObservation,
   DaemonProviderReasonCode,
@@ -46,6 +51,8 @@ export const DaemonCatalogEntry = S.Struct({
    * replaced.
    */
   capabilities: S.optional(S.Array(S.String)),
+  /** Missing metadata is text-only for video inputs. */
+  video_support: S.optional(ModelVideoSupport),
   /** Catalog-declared final outbound-body constraints for this model. */
   caps: S.optional(ModelCaps),
   /** Optional so older clouds keep bootstrapping newer daemons. */

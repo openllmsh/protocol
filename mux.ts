@@ -308,6 +308,38 @@ export const MEDIA_PERSISTENCE_BROWSER = "browser";
 export const MEDIA_URL_RESPONSE_HEADER = "x-openllm-media-url";
 export const TUNNEL_MEDIA_URL_MAX_LENGTH = 2048;
 
+/**
+ * Why a durable media URL is ABSENT from an otherwise successful media
+ * response. Presence of {@link MEDIA_URL_RESPONSE_HEADER} is the ONLY proof
+ * that the cloud library row exists; this header is what separates a serving
+ * daemon that tried to persist and failed from one that never advertises
+ * durability at all (an older daemon, or a surface that hands persistence to
+ * the browser). Without it a consumer cannot tell a dead promise apart from
+ * an unsupported one.
+ *
+ * Deliberately a CLOSED set of coarse categories: no URLs, no credentials,
+ * no provider payloads, no byte counts — the value crosses the relay and is
+ * shown to a model, so it carries a reason and nothing else.
+ */
+export const MEDIA_ERROR_RESPONSE_HEADER = "x-openllm-media-error";
+export const MEDIA_PERSIST_ERRORS = [
+  /** The cloud ingest answered, but not with success. */
+  "ingest_rejected",
+  /** Transport never reached a usable ingest response. */
+  "ingest_unreachable",
+  /** Ingest exceeded the daemon's upload budget. */
+  "ingest_timeout",
+  /** Ingest answered 2xx with a body the daemon could not trust. */
+  "ingest_invalid_response",
+  /** Persistence failed for an uncategorized reason. */
+  "ingest_failed",
+] as const;
+export type TMediaPersistError = (typeof MEDIA_PERSIST_ERRORS)[number];
+export const MediaPersistError = S.Literal(...MEDIA_PERSIST_ERRORS);
+
+const isMediaPersistError = (value: string): value is TMediaPersistError =>
+  (MEDIA_PERSIST_ERRORS as ReadonlyArray<string>).includes(value);
+
 /** The ONLY request headers a consumer may forward — a closed struct, not a
  * free map, per the relay's reviewable-vocabulary posture. Everything else
  * (auth, plan params) is the serving daemon's own business.
@@ -342,6 +374,8 @@ export const TunnelResponseHeaders = S.Struct({
     S.String.pipe(S.maxLength(TUNNEL_MEDIA_URL_MAX_LENGTH)),
   ),
   media_persistence: S.optional(S.Literal(MEDIA_PERSISTENCE_BROWSER)),
+  /** Why `media_url` is absent — see {@link MEDIA_ERROR_RESPONSE_HEADER}. */
+  media_error: S.optional(MediaPersistError),
   content_type: S.optional(S.String.pipe(S.maxLength(128))),
   is_sse: S.optional(S.Boolean),
   /** Winning hop id — maps to {@link OPENLLM_RESOLVED_MODEL_HEADER}. */
@@ -375,6 +409,9 @@ export const applyTunnelResponseHeadersToHttp = (
   if (res.media_persistence === MEDIA_PERSISTENCE_BROWSER) {
     headers.set(MEDIA_PERSISTENCE_RESPONSE_HEADER, MEDIA_PERSISTENCE_BROWSER);
   }
+  if (res.media_error !== undefined) {
+    headers.set(MEDIA_ERROR_RESPONSE_HEADER, res.media_error);
+  }
   if (res.content_type !== undefined) {
     headers.set("content-type", res.content_type);
   }
@@ -403,8 +440,12 @@ export const tunnelResponseHeadersFromHttp = (
     headers.get(OPENLLM_CHAIN_HEADER),
     TUNNEL_CHAIN_MAX,
   );
+  const mediaError = headers.get(MEDIA_ERROR_RESPONSE_HEADER);
   return {
     ...(mediaUrl === undefined ? {} : { media_url: mediaUrl }),
+    ...(mediaError !== null && isMediaPersistError(mediaError)
+      ? { media_error: mediaError }
+      : {}),
     ...(headers.get(MEDIA_PERSISTENCE_RESPONSE_HEADER) ===
     MEDIA_PERSISTENCE_BROWSER
       ? { media_persistence: MEDIA_PERSISTENCE_BROWSER }

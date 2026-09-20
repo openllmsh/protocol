@@ -166,6 +166,12 @@ export const ExtendedModelCard = S.extend(
      * not necessarily usage-billed.
      */
     provider_type: S.optional(ModelProviderType),
+    /**
+     * Catalog default-chain membership + rank, so clients can apply the
+     * same ordering policy as the server without importing the catalog.
+     */
+    default_tiers: S.optional(S.Array(DefaultChainClass)),
+    tier_rank: S.optional(S.Number),
     /** Prompt/context budget; equals `max_input_tokens` when present. */
     context_window: S.optional(S.Number),
     // llama.cpp/Ollama-style context hint mirrored under `meta.n_ctx`.

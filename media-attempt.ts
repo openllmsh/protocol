@@ -8,6 +8,8 @@ export const MEDIA_ADVANCE_ERROR_CODES = [
   "auth_error",
   "quota_exhausted",
   "rate_limited",
+  "adapter_input_unmapped",
+  "provider_validation",
 ] as const;
 export type TMediaAdvanceErrorCode = (typeof MEDIA_ADVANCE_ERROR_CODES)[number];
 
@@ -78,6 +80,16 @@ export const decideMediaChainAdvance = (
   ) {
     return { action: "terminal", reason: "uncertain_server_failure" };
   }
+  if (facts.errorCode === "adapter_input_unmapped" && facts.dispatched)
+    return { action: "terminal", reason: "caller_error" };
+  if (
+    facts.errorCode === "provider_validation" &&
+    !(
+      facts.accepted === false &&
+      (facts.httpStatus === 400 || facts.httpStatus === 422)
+    )
+  )
+    return { action: "terminal", reason: "caller_error" };
   if (isAdvanceCode(facts.errorCode)) {
     if (facts.errorCode === "missing_credential" && facts.dispatched) {
       return { action: "terminal", reason: "caller_error" };

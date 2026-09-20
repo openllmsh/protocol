@@ -89,7 +89,28 @@ export const ModelAudioSupport = S.Struct({
 });
 export type TModelAudioSupport = S.Schema.Type<typeof ModelAudioSupport>;
 
-/** Exact combinations, not independently composable capability flags. */
+/** Canonical reference fields shared by request schemas. */
+export const VideoReferenceInputs = S.Struct({
+  input_image: S.optional(
+    S.String.pipe(S.minLength(1)).annotations({
+      description:
+        "Starting-frame image as an HTTPS URL or base64 image data URL (for example data:image/png;base64,...). Not subject guidance. MIME is detected from PNG, JPEG, GIF, or WebP bytes; the provider validates its accepted formats.",
+    }),
+  ),
+  reference_images: S.optional(
+    S.Array(S.String.pipe(S.minLength(1))).annotations({
+      description:
+        "Ordered subject-reference images as HTTPS URLs or base64 image data URLs. References guide identity/appearance, not the first frame. Every input is preserved; the provider validates format and count limits.",
+    }),
+  ),
+  reference_voices: S.optional(
+    S.Array(S.String.pipe(S.minLength(1))).annotations({
+      description: "Provider voice IDs for reference guidance.",
+    }),
+  ),
+});
+
+/** Finite receipt vocabulary; not an author-maintained model allowlist. */
 export const VideoInputMode = S.Literal(
   "text",
   "starting_image",
@@ -101,10 +122,6 @@ export const VideoInputMode = S.Literal(
   "starting_image+subject_images+voices",
 );
 export type TVideoInputMode = S.Schema.Type<typeof VideoInputMode>;
-export const ModelVideoSupport = S.Struct({
-  input_modes: S.Array(VideoInputMode),
-});
-export type TModelVideoSupport = S.Schema.Type<typeof ModelVideoSupport>;
 
 // Built-in default-chain tiers. When a user has no fallback group with
 // one of these names, the gateway derives a virtual chain from catalog
@@ -167,7 +184,6 @@ export const ExtendedModelCard = S.extend(
      * capability is access, not billing inclusion.
      */
     audio_support: S.optional(ModelAudioSupport),
-    video_support: S.optional(ModelVideoSupport),
     // Curated list of dim presets to show in the endpoint picker on
     // `/config`. Catalog-defined so the UI doesn't have to know which
     // values are "interesting" — `text-embedding-3-large` could
@@ -295,7 +311,6 @@ export const ExtendedModel = S.Struct({
   // Embedding-only metadata — see ExtendedModelCard for semantics.
   dimension_presets: S.optional(S.Array(S.Number)),
   audio_support: S.optional(ModelAudioSupport),
-  video_support: S.optional(ModelVideoSupport),
   // Membership in derived default chains (`DEFAULT_CHAIN_CLASSES`).
   // Chat uses ultra/plus/lite; media uses the single `media` class.
   // ARRAY ORDER is priority — index 0 is primary. `tier_rank` breaks

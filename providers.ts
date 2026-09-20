@@ -571,10 +571,24 @@ export type TOpenAIVideoProviderOptions = S.Schema.Type<
 
 // ─── Google AI Studio — video generation (Veo, predictLongRunning) ──────────
 
+export const GoogleVideoImage = S.Struct({
+  inlineData: S.Struct({ mimeType: S.String, data: S.String }),
+});
+export type TGoogleVideoImage = S.Schema.Type<typeof GoogleVideoImage>;
+
 export const GoogleVideoCreateRequest = S.Struct({
   instances: S.Array(
     S.Struct({
       prompt: S.String,
+      image: S.optional(GoogleVideoImage),
+      referenceImages: S.optional(
+        S.Array(
+          S.Struct({
+            image: GoogleVideoImage,
+            referenceType: S.Literal("asset"),
+          }),
+        ),
+      ),
     }),
   ),
   parameters: S.Struct({

@@ -1,9 +1,5 @@
 import { Schema as S } from "effect";
-import {
-  parseVideoGenerationInput,
-  VideoInputReceipt,
-  videoInputRequirements,
-} from "./videos";
+import { parseVideoGenerationInput } from "./videos";
 
 /**
  * Metadata-only media-default selection contract. Used by the cloud
@@ -45,7 +41,6 @@ const BoundedConstraintString = S.String.pipe(
 );
 
 export const MediaDefaultConstraints = S.Struct({
-  video_input: S.optional(VideoInputReceipt),
   input_format: S.optional(MediaAudioInputFormat),
   voice: S.optional(BoundedConstraintString),
   response_format: S.optional(BoundedConstraintString),
@@ -304,10 +299,7 @@ export const mediaDefaultRequestFromBody = (
       if (constraints === "invalid") return null;
       return {
         surface,
-        constraints: {
-          ...constraints,
-          video_input: videoInputRequirements(input),
-        },
+        ...(constraints === undefined ? {} : { constraints }),
       };
     } catch {
       return null;

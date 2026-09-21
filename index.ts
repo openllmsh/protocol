@@ -25,6 +25,7 @@ export * from "./media-input";
 export * from "./model-match";
 export * from "./models";
 export * from "./mux";
+export * from "./plan-surface";
 export * from "./provider-status";
 export * from "./provider-tier";
 export * from "./provider-usage";

@@ -50,10 +50,19 @@ there are no provider-specific token lists or model-family regex tables to updat
 - `selectRequestModel` filters eligibility before choosing the newest matching
   release, then applies caller-supplied provider preference and alphabetical ties.
   Exact IDs and named suffixes take precedence over shorthand.
-- `selectMetadataDonor` chooses an exact identity or compatible predecessor,
-  preferring the target provider and staying within the same major generation.
+- `selectMetadataDonor` chooses an exact identity or family/variant-compatible
+  predecessor, preferring the target provider. Generation increments can inherit
+  metadata too; media successors frequently increment a single integer rather
+  than a minor version. Successor donors and empty-family matches are rejected.
   It returns a donor, not a merged model: field precedence and provenance belong
   to the consuming catalog layer.
+- Numbered builds such as `-001` and `-002` remain snapshots rather than family
+  names. At equal version/provider preference, stable aliases precede builds,
+  then newer builds precede older ones; explicit pins are unchanged.
+
+`plan-surface.ts` carries an explicit media request's surface to daemon plan
+resolution. Missing surface retains chat semantics; general model-detail lookup
+can resolve across surfaces without applying a chat-only filter.
 
 The caller supplies catalog entries and availability; these utilities do not
 fetch model lists, inspect credentials, or perform provider authentication.

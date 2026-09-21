@@ -133,6 +133,19 @@ const SNAPSHOT_PATTERNS: ReadonlyArray<RegExp> = [
   /[-_@](\d{4}-\d{2}-\d{2})$/,
   /[-_@](\d{4}\.\d{2}\.\d{2})$/,
   /[-_@](\d{8})$/,
+  // A ZERO-PADDED build number — Google's `-001` / `-002`, OpenAI's
+  // `-0125`. Listed last so a date always wins.
+  //
+  // The leading zero is the whole discriminator, and it is why this is
+  // not simply "three or four digits". A release number is written the
+  // way the vendor says it (`4`, `4.0`, `4-8`, and one day `999` or
+  // `1000`) and is never padded to a fixed width, so a padded run can
+  // only be a build id, while an unpadded one is left alone to be read
+  // as the version or family text it is. `imagen-4.0-generate-001`
+  // therefore keeps `[4, 0]` as its version and carries `001` as its
+  // snapshot, which is what makes the `-002` rebuild the SAME model
+  // rather than a family of its own.
+  /[-_@](0\d{2,3})$/,
 ];
 
 /**
@@ -301,8 +314,6 @@ const parseIdentity = (
   const span = findVersionSpan(allTokens, compiled.versionStems);
   const version: TModelVersion | null = span === null ? null : span.version;
   const versionText: string | null = span === null ? null : span.versionText;
-  const nonVersionTokens =
-    span === null ? allTokens : [...span.stem, ...span.rest];
 
   // Variant vocabulary stays a SET rather than "whatever followed the
   // version", because a query is parsed by the same code as a catalog
@@ -311,11 +322,28 @@ const parseIdentity = (
   // therefore family text, and the boundary tier can still prefix-match
   // it. The set itself is derived, never authored — see
   // `deriveModelIdentityRules`.
+  //
+  // POSITION decides first, though. A variant MODIFIES a family, so it
+  // can only appear after the version the family is a version OF: the
+  // `tts` of `gemini-2.5-flash-preview-tts` is a modifier, while the
+  // `tts` of `tts-1` IS the family. Classifying by vocabulary alone let
+  // the second one evaporate into a variant, leaving an EMPTY family
+  // that compared equal to every other empty one — which is how
+  // `openai/tts-2` came to inherit another vendor's voices.
   const variants: string[] = [];
-  const familyTokens: string[] = [];
-  for (const token of nonVersionTokens) {
-    if (compiled.variantTokens.has(token)) variants.push(token);
-    else familyTokens.push(token);
+  let familyTokens: string[];
+  if (span === null) {
+    // No version means nothing to modify, so there is no variant to
+    // read: the whole name is the identity. This is also what keeps a
+    // versionless id and a versionless QUERY parsing alike, so the
+    // shorthand `grok-code` still reaches `grok-code-1.2`.
+    familyTokens = [...allTokens];
+  } else {
+    familyTokens = [...span.stem];
+    for (const token of span.rest) {
+      if (compiled.variantTokens.has(token)) variants.push(token);
+      else familyTokens.push(token);
+    }
   }
 
   return {
@@ -437,7 +465,27 @@ export const deriveModelIdentityRules = (
     [...stemNumbers].filter(([, seen]) => seen.size > 1).map(([stem]) => stem),
   );
 
-  // Pass 2 — vocabulary. With the evidence in hand the spans are final,
+  // Pass 2 — the same evidence read from the OTHER spelling. A word the
+  // corpus shows immediately before a separated version token is
+  // carrying that release just as plainly as a welded one does
+  // (`imagen-4.0-…`, `veo-3.1-…`), and here the number's role is not in
+  // doubt — it was already read as a version — so one sighting is
+  // enough. That is what lets a compressed `imagen5`/`veo4` land in its
+  // own family instead of becoming a family nobody has ever seen.
+  //
+  // Collected into a SEPARATE set and merged only once the pass is over:
+  // feeding a stem back into the set mid-loop would let a row parsed
+  // early change how a later row parses, so the rules would depend on
+  // the order the catalog happens to list its providers in.
+  const precedingStems = new Set<string>();
+  for (const tokens of tokenised) {
+    const span = findVersionSpan(tokens, versionStems);
+    const last = span?.stem[span.stem.length - 1];
+    if (last !== undefined && /^[a-z]+$/.test(last)) precedingStems.add(last);
+  }
+  for (const stem of precedingStems) versionStems.add(stem);
+
+  // Pass 3 — vocabulary. With the evidence in hand the spans are final,
   // so whatever trails one is a variant.
   for (const tokens of tokenised) {
     const span = findVersionSpan(tokens, versionStems);
@@ -447,6 +495,17 @@ export const deriveModelIdentityRules = (
     }
   }
 
+  // Variant matching stays STRICT on purpose. An earlier pass derived
+  // "family-inherent" variants — tokens every member of a family
+  // happens to carry — and dropped them from the comparison, so that a
+  // compressed `veo4` could reach `veo-3.1-generate-preview`. It is not
+  // worth it: in a sparse corner of the catalog (one family with two
+  // rows, or a subscription twin pair) a genuinely meaningful `flash` /
+  // `mini` / `pro` is "always present" by accident, and erasing it
+  // donates a specialised model's facts to a new BASE model. The real
+  // successors — `imagen-5.0-generate-001`, `veo-4.0-generate-preview`
+  // — carry the same post-version variants as their predecessors
+  // anyway, so relaxing the version range already covers them.
   const derived: TModelIdentityRules = Object.freeze({
     namespaces: Object.freeze([...namespaces].sort()),
     variantTokens: Object.freeze([...variantTokens].sort()),
@@ -487,7 +546,7 @@ export const compareModelVersion = (
 export const isComparableFamily = (
   a: TModelIdentity,
   b: TModelIdentity,
-): boolean => a.family === b.family;
+): boolean => a.family.length > 0 && a.family === b.family;
 
 /** Identical meaningful variants — never a cross-variant match. */
 export const isSameVariant = (a: TModelIdentity, b: TModelIdentity): boolean =>
@@ -577,11 +636,53 @@ const compareStrings = (a: string, b: string): number =>
   a === b ? 0 : a < b ? -1 : 1;
 
 /**
+ * Snapshot precedence at an equal version, as a TOTAL order.
+ *
+ * Two rules, both unconditional, because a comparator that only
+ * sometimes consults a key can produce a cycle (A beats B on snapshot,
+ * B beats C on provider, C beats A on snapshot):
+ *
+ *   1. A STABLE ALIAS outranks any pinned build. The alias is the id
+ *      the vendor keeps pointing at its current build, so it is what a
+ *      family shorthand means; this also preserves the pre-existing
+ *      behaviour for every family that has one.
+ *   2. Between two builds the NEWER wins — `-002` over `-001`, the
+ *      later date over the earlier — instead of whichever id happened
+ *      to sort first alphabetically.
+ *
+ * Builds are compared by their digits as a number, so dates and short
+ * build ids each order correctly among themselves and the mixed case
+ * (which no real family produces) is still deterministic.
+ */
+const snapshotOrdinal = (snapshot: string | null): number =>
+  snapshot === null
+    ? Number.NEGATIVE_INFINITY
+    : Number(snapshot.replace(/\D/g, ""));
+
+const compareSnapshots = (a: TModelIdentity, b: TModelIdentity): number => {
+  const aliasA = a.snapshot === null;
+  const aliasB = b.snapshot === null;
+  if (aliasA !== aliasB) return aliasA ? -1 : 1;
+  if (aliasA) return 0;
+  const left = snapshotOrdinal(a.snapshot);
+  const right = snapshotOrdinal(b.snapshot);
+  if (left !== right && Number.isFinite(left) && Number.isFinite(right))
+    return left < right ? 1 : -1;
+  return compareStrings(a.snapshot ?? "", b.snapshot ?? "");
+};
+
+/**
  * Total order for EQUIVALENT request candidates, best first: newest
  * version, then preferred class, then authored provider rank, then
- * provider slug, then full id. Version leads deliberately — an older
- * subscription model must not beat a newer available one on provider
- * preference alone.
+ * snapshot precedence, then provider slug, then full id. Version leads
+ * deliberately — an older subscription model must not beat a newer
+ * available one on provider preference alone — and snapshot precedence
+ * sits ahead of the provider/id tie so a rebuild is chosen for being
+ * newer rather than for sorting later.
+ *
+ * Every component is a total order on a key and they are composed
+ * lexicographically, so the result is total, transitive and free of
+ * cycles regardless of which fields the candidates happen to carry.
  */
 export const compareRequestCandidates = <TValue>(
   a: TModelCandidate<TValue>,
@@ -594,6 +695,8 @@ export const compareRequestCandidates = <TValue>(
   const byProviderRank =
     (a.providerRank ?? MAX_RANK) - (b.providerRank ?? MAX_RANK);
   if (byProviderRank !== 0) return byProviderRank;
+  const bySnapshot = compareSnapshots(a.identity, b.identity);
+  if (bySnapshot !== 0) return bySnapshot;
   const byProvider = compareStrings(
     a.provider.toLowerCase(),
     b.provider.toLowerCase(),
@@ -862,14 +965,28 @@ export const selectMetadataDonor = <TValue>(
     if (donor !== undefined) return { kind: "donor", donor, relation: "exact" };
   }
 
-  // A major bump is where a vendor changes the facts a donor would
-  // supply, so inheritance stays inside one major generation. This is a
-  // generic rule, not a per-family toggle: nothing has to be authored to
-  // switch it on or off.
+  // A donor must not be a SUCCESSOR: borrowing from a version that does
+  // not exist yet presents a guess as a fact. That is the only version
+  // constraint.
+  //
+  // There was also a same-MAJOR gate here, on the theory that a major
+  // bump is where a vendor changes the facts. In practice it fenced off
+  // almost every media line the catalog actually has — `gpt-image-3`,
+  // `whisper-2`, `text-embedding-4-small`, the next Imagen and Veo —
+  // because those families number their generations in the major
+  // position, so EVERY successor was a major bump and inherited
+  // nothing. The gate is removed deliberately: what a donor may
+  // contribute is already constrained by category (identity, lifecycle,
+  // routing, repair flags and rates never cross; a cross-provider donor
+  // additionally contributes no provider-serving fact), everything it
+  // does contribute fills only fields the target left UNKNOWN, and the
+  // result is reported as inherited. A nearest known predecessor is
+  // better information than nothing, and the ordering below still
+  // prefers the closest one — so a same-major predecessor, when one
+  // exists, is the one chosen.
   const withinInheritableRange = (donor: TModelIdentity): boolean => {
     if (target.version === null || donor.version === null) return true;
-    if (compareModelVersion(donor.version, target.version) > 0) return false;
-    return donor.version[0] === target.version[0];
+    return compareModelVersion(donor.version, target.version) <= 0;
   };
 
   const predecessors = pool.filter(

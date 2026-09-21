@@ -1,4 +1,5 @@
 import { Schema as S } from "effect";
+import { ModelCaps } from "./models";
 
 // ─── OpenAI provider options ─────────────────────────────────────────────────
 
@@ -116,6 +117,17 @@ export type TAnthropicSearchResultBlock = S.Schema.Type<
   typeof AnthropicSearchResultBlock
 >;
 
+/**
+ * Tool-search reference to a tool definition the model may call. Declared
+ * ahead of `AnthropicToolResultBlock` because it is one of the block types
+ * a `tool_result` may legally carry.
+ */
+const AnthropicToolReferenceBlock = S.Struct({
+  type: S.Literal("tool_reference"),
+  tool_name: S.String,
+  cache_control: S.optional(S.NullOr(AnthropicCacheControl)),
+});
+
 /** Code-execution container file reference (Files API upload). */
 const AnthropicContainerUploadBlock = S.Struct({
   type: S.Literal("container_upload"),
@@ -145,6 +157,7 @@ const AnthropicToolResultBlock = S.Struct({
         AnthropicImageBlock,
         AnthropicDocumentBlock,
         AnthropicSearchResultBlock,
+        AnthropicToolReferenceBlock,
       ),
     ),
   ),
@@ -189,6 +202,77 @@ const AnthropicWebSearchToolResultBlock = S.Struct({
   cache_control: S.optional(S.NullOr(AnthropicCacheControl)),
 });
 
+/**
+ * Result of a native server-side tool OTHER than web search. Each of these
+ * is a block Anthropic RETURNS, which means an Anthropic-format client
+ * replays it verbatim as assistant history on the next turn — so the
+ * inbound decoder must accept every one or the gateway 400s its own
+ * upstream's output (the `server_tool_use` regression, #181, again).
+ *
+ * `content` stays OPAQUE (`S.Unknown`) exactly like
+ * `AnthropicWebSearchToolResultBlock`: the gateway never re-parses a
+ * server-tool result, and the passthrough forwards the raw body, so
+ * modelling the payload would buy nothing and could only go stale.
+ */
+const AnthropicWebFetchToolResultBlock = S.Struct({
+  type: S.Literal("web_fetch_tool_result"),
+  tool_use_id: S.String,
+  content: S.Unknown,
+  cache_control: S.optional(S.NullOr(AnthropicCacheControl)),
+});
+
+const AnthropicCodeExecutionToolResultBlock = S.Struct({
+  type: S.Literal("code_execution_tool_result"),
+  tool_use_id: S.String,
+  content: S.Unknown,
+  cache_control: S.optional(S.NullOr(AnthropicCacheControl)),
+});
+
+const AnthropicBashCodeExecutionToolResultBlock = S.Struct({
+  type: S.Literal("bash_code_execution_tool_result"),
+  tool_use_id: S.String,
+  content: S.Unknown,
+  cache_control: S.optional(S.NullOr(AnthropicCacheControl)),
+});
+
+const AnthropicTextEditorCodeExecutionToolResultBlock = S.Struct({
+  type: S.Literal("text_editor_code_execution_tool_result"),
+  tool_use_id: S.String,
+  content: S.Unknown,
+  cache_control: S.optional(S.NullOr(AnthropicCacheControl)),
+});
+
+const AnthropicToolSearchToolResultBlock = S.Struct({
+  type: S.Literal("tool_search_tool_result"),
+  tool_use_id: S.String,
+  content: S.Unknown,
+  cache_control: S.optional(S.NullOr(AnthropicCacheControl)),
+});
+
+const AnthropicMcpToolResultBlock = S.Struct({
+  type: S.Literal("mcp_tool_result"),
+  tool_use_id: S.String,
+  content: S.Unknown,
+  cache_control: S.optional(S.NullOr(AnthropicCacheControl)),
+});
+
+/** MCP-connector tool invocation (beta). Shaped like `tool_use` + a server name. */
+const AnthropicMcpToolUseBlock = S.Struct({
+  type: S.Literal("mcp_tool_use"),
+  id: S.String,
+  name: S.String,
+  server_name: S.optional(S.String),
+  input: S.Unknown,
+  cache_control: S.optional(S.NullOr(AnthropicCacheControl)),
+});
+
+/** Browser tab/state snapshot emitted by the browser-use server tool. */
+const AnthropicBrowserStateBlock = S.Struct({
+  type: S.Literal("browser_state"),
+  content: S.optional(S.Unknown),
+  cache_control: S.optional(S.NullOr(AnthropicCacheControl)),
+});
+
 /** Encrypted thinking returned by native Anthropic passthrough. */
 const AnthropicRedactedThinkingBlock = S.Struct({
   type: S.Literal("redacted_thinking"),
@@ -207,6 +291,15 @@ export const AnthropicContentBlock = S.Union(
   AnthropicCompactionBlock,
   AnthropicServerToolUseBlock,
   AnthropicWebSearchToolResultBlock,
+  AnthropicWebFetchToolResultBlock,
+  AnthropicCodeExecutionToolResultBlock,
+  AnthropicBashCodeExecutionToolResultBlock,
+  AnthropicTextEditorCodeExecutionToolResultBlock,
+  AnthropicToolSearchToolResultBlock,
+  AnthropicMcpToolUseBlock,
+  AnthropicMcpToolResultBlock,
+  AnthropicToolReferenceBlock,
+  AnthropicBrowserStateBlock,
   AnthropicRedactedThinkingBlock,
 );
 export type TAnthropicContentBlock = S.Schema.Type<
@@ -234,10 +327,25 @@ export type TAnthropicMessage = S.Schema.Type<typeof AnthropicMessage>;
 
 const AnthropicSystemBlock = S.Union(S.String, S.Array(AnthropicTextBlock));
 
+// `disable_parallel_tool_use` is documented on auto / any / tool (never on
+// `none`). Modelled rather than merely tolerated because it is the one
+// tool_choice field with a canonical counterpart — OpenAI's
+// `parallel_tool_calls` — so the adapters map it in both directions
+// instead of silently discarding the client's intent on a cross-wire hop.
 const AnthropicToolChoice = S.Union(
-  S.Struct({ type: S.Literal("auto") }),
-  S.Struct({ type: S.Literal("any") }),
-  S.Struct({ type: S.Literal("tool"), name: S.String }),
+  S.Struct({
+    type: S.Literal("auto"),
+    disable_parallel_tool_use: S.optional(S.Boolean),
+  }),
+  S.Struct({
+    type: S.Literal("any"),
+    disable_parallel_tool_use: S.optional(S.Boolean),
+  }),
+  S.Struct({
+    type: S.Literal("tool"),
+    name: S.String,
+    disable_parallel_tool_use: S.optional(S.Boolean),
+  }),
   S.Struct({ type: S.Literal("none") }),
 );
 
@@ -252,6 +360,12 @@ export const AnthropicThinking = S.Union(
     budget_tokens: S.Number,
   }),
   S.Struct({ type: S.Literal("adaptive") }),
+  // `disabled` is accepted by every model that is not "always on"
+  // (Opus 4.8 / Opus 5 / Sonnet 5 / the 4.6 and 4.5 generations). Omitting
+  // it from this union did not make the gateway lenient — it made the
+  // gateway 400 a supported configuration before dispatch, on both the
+  // cloud handler and the daemon listener.
+  S.Struct({ type: S.Literal("disabled") }),
 );
 export type TAnthropicThinking = S.Schema.Type<typeof AnthropicThinking>;
 
@@ -318,6 +432,12 @@ export const AnthropicStopReason = S.Literal(
   "tool_use",
   "pause_turn",
   "refusal",
+  // The response filled the model's context window. Absent from this
+  // union, the terminal `message_delta` carrying it failed decode and was
+  // DROPPED by `decodeProviderEventStream` — taking the finish reason and
+  // the whole usage trailer with it, so a cross-wire stream ended with no
+  // stop reason and zero tokens.
+  "model_context_window_exceeded",
 );
 export type TAnthropicStopReason = S.Schema.Type<typeof AnthropicStopReason>;
 
@@ -468,6 +588,12 @@ export const AnthropicProviderOptions = S.Struct({
   providerModelId: S.String,
   apiVersion: S.optional(S.String),
   defaultMaxTokens: S.optional(S.Number),
+  /**
+   * The resolved model card's caps. Carries `thinkingModes`, which is how
+   * the encoder learns which thinking mode this model accepts WITHOUT the
+   * wire package knowing any model names. Absent = unknown = permissive.
+   */
+  caps: S.optional(ModelCaps),
 });
 export type TAnthropicProviderOptions = S.Schema.Type<
   typeof AnthropicProviderOptions
@@ -533,6 +659,11 @@ export type TGoogleImageResponse = S.Schema.Type<typeof GoogleImageResponse>;
 
 export const GoogleImageProviderOptions = S.Struct({
   providerModelId: S.String,
+  /**
+   * Catalog-resolved facts for THIS model. Absent means unknown, and an
+   * unknown limit never manufactures a refusal.
+   */
+  caps: S.optional(ModelCaps),
 });
 export type TGoogleImageProviderOptions = S.Schema.Type<
   typeof GoogleImageProviderOptions
@@ -571,8 +702,23 @@ export type TOpenAIVideoProviderOptions = S.Schema.Type<
 
 // ─── Google AI Studio — video generation (Veo, predictLongRunning) ──────────
 
+/**
+ * Veo's `predictLongRunning` image shape on the Gemini DEVELOPER API.
+ *
+ * Source of truth is Google's own client, not the REST snippets in the
+ * Veo guide (which show `inlineData` and are contradicted by the live
+ * surface — it answers 400 INVALID_ARGUMENT "`inlineData` isn't
+ * supported by this model"). `googleapis/python-genai` v2.24.0,
+ * `google/genai/models.py::_Image_to_mldev`, serializes
+ * `Image.image_bytes` → `bytesBase64Encoded` and `Image.mime_type` →
+ * `mimeType` for Developer-API mode (`gcs_uri` raises there), and
+ * `_GenerateVideosParameters_to_mldev` places that object at
+ * `instances[0].image`, with `_VideoGenerationReferenceImage_to_mldev`
+ * reusing it for `instances[0].referenceImages[].image`.
+ */
 export const GoogleVideoImage = S.Struct({
-  inlineData: S.Struct({ mimeType: S.String, data: S.String }),
+  bytesBase64Encoded: S.String,
+  mimeType: S.String,
 });
 export type TGoogleVideoImage = S.Schema.Type<typeof GoogleVideoImage>;
 
@@ -628,6 +774,12 @@ export type TGoogleVideoOperation = S.Schema.Type<typeof GoogleVideoOperation>;
 
 export const GoogleVideoProviderOptions = S.Struct({
   providerModelId: S.String,
+  /**
+   * Catalog-resolved facts for THIS model (accepted durations, ratios,
+   * resolutions, reference limits). Absent means unknown, and an
+   * unknown limit never manufactures a refusal.
+   */
+  caps: S.optional(ModelCaps),
 });
 export type TGoogleVideoProviderOptions = S.Schema.Type<
   typeof GoogleVideoProviderOptions
@@ -698,6 +850,13 @@ export const ChatGptProviderOptions = S.Struct({
    * Responses-wire providers.
    */
   codexInstructions: S.optional(S.Boolean),
+  /**
+   * The resolved model card's caps. Carries `reasoningContexts`, which is how
+   * the encoder learns that a model rejects `reasoning.context: "all_turns"`
+   * — a fact it used to derive from a `spark` suffix on the model id. Absent
+   * = unknown = permissive.
+   */
+  caps: S.optional(ModelCaps),
 });
 export type TChatGptProviderOptions = S.Schema.Type<
   typeof ChatGptProviderOptions

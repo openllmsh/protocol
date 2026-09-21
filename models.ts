@@ -254,12 +254,266 @@ export const SubscriptionMeter = S.Struct({
 });
 export type TSubscriptionMeter = S.Schema.Type<typeof SubscriptionMeter>;
 
+/**
+ * Per-model / per-family facts an adapter cannot derive from the wire.
+ *
+ * This is the ONE carrier: it already rides `ExtendedModel.caps` to chat
+ * (`TBuildUpstreamRequestInput.caps`, `TResolvedHop.caps`) AND to media
+ * (`TResolvedModel.caps`), so adapters consume resolved traits instead
+ * of matching model ids themselves. Do not add a parallel structure.
+ *
+ * EVERY field is optional and absent means UNKNOWN, which must behave as
+ * ALLOW/ATTEMPT — never inferred-unsupported. A model we do not
+ * recognise (a custom endpoint, a passthrough vendor, something the
+ * provider ships tomorrow) is forwarded untouched. Populate only from a
+ * vendor's published contract, never from an observed upstream error: a
+ * rejection can mean a malformed body rather than a missing capability.
+ *
+ * Provider-WIDE request domains (enums, integer ranges, array bounds)
+ * belong in the shared schema layer, not here. This struct carries only
+ * facts that genuinely vary BY MODEL within a provider.
+ */
 export const ModelCaps = S.Struct({
   deniedParams: S.optional(S.Array(S.String)),
   maxTokensField: S.optional(S.Literal("max_tokens", "max_completion_tokens")),
   temperature: S.optional(S.Literal("only-1", "clamp-0-1", "drop")),
+
+  // ─── Chat ──────────────────────────────────────────────────────────
+  /**
+   * Thinking modes this model accepts. Support is non-monotonic within a
+   * family (4.5 extended-only → 4.6 both → 4.7+ adaptive-only), so a
+   * boolean or a name prefix cannot encode it.
+   *
+   * `supportsAdaptiveThinking` = includes("adaptive");
+   * `rejectsExtendedThinking` = present AND !includes("enabled").
+   * Absent/empty stays permissive on BOTH, so an unknown model never
+   * manufactures a local validation error the upstream might accept.
+   */
+  thinkingModes: S.optional(
+    S.Array(S.Literal("enabled", "adaptive", "disabled")),
+  ),
+
+  /**
+   * Values this model accepts for the Responses `reasoning.context` knob.
+   *
+   * The Codex `spark` family 400s on `all_turns` and accepts only `auto` /
+   * `current_turn`; every other Codex model REQUIRES `all_turns`. The knob is
+   * nested under `reasoning`, so `deniedParams` (which addresses top-level
+   * keys) cannot express it — hence a trait of its own.
+   *
+   * An accepted-VALUE LIST rather than a boolean, matching `thinkingModes` /
+   * `videoResolutions`: absent = unknown = PERMISSIVE, so an un-catalogued id
+   * keeps the `all_turns` every non-spark Codex model needs and no adapter
+   * invents a restriction the upstream might not have.
+   */
+  reasoningContexts: S.optional(
+    S.Array(S.Literal("auto", "current_turn", "all_turns")),
+  ),
+
+  // ─── Image ─────────────────────────────────────────────────────────
+  /**
+   * Whether `response_format` is a real knob on this model's upstream.
+   * When false the adapter OMITS the field — this is NOT a refusal: the
+   * gateway persists every image and builds `data[]` itself, so the
+   * caller's choice is still honoured.
+   */
+  upstreamAcceptsResponseFormat: S.optional(S.Boolean),
+  /** `style` (vivid|natural). False is a genuine pre-dispatch refusal. */
+  supportsStyle: S.optional(S.Boolean),
+  /** GPT-image output group: output_format, output_compression, moderation, background. */
+  supportsGptImageOutputOptions: S.optional(S.Boolean),
+  /** Upstream always returns base64, which is what makes omitting `response_format` safe. */
+  alwaysReturnsBase64: S.optional(S.Boolean),
+  /**
+   * Whether the model emits genuinely PROGRESSIVE image bytes upstream.
+   *
+   * This does NOT gate whether the gateway will stream: the gateway
+   * always supports an honest SSE response and emits a single real
+   * completion event for a final-only provider. This trait only says
+   * whether real partial frames can be forwarded — so a provider that
+   * cannot produce them degrades honestly instead of us fabricating
+   * partials from a buffered final image.
+   */
+  nativeProgressiveImages: S.optional(S.Boolean),
+  /** Upper bound on genuine partial frames, when the model emits them. */
+  maxNativePartialImages: S.optional(S.Number),
+
+  // ─── Native wire / media ───────────────────────────────────────────
+  /**
+   * Which upstream wire serves this model, when one provider exposes
+   * more than one. Lets an adapter refuse a model it structurally
+   * cannot carry (a `predict`-family id handed to a `generateContent`
+   * adapter) WITHOUT any claim about that model's availability.
+   */
+  nativeWire: S.optional(S.Literal("generateContent", "predict")),
+  /**
+   * Output resolutions this specific model serves.
+   */
+  videoResolutions: S.optional(S.Array(S.String)),
+
+  // ─── Media accepted-value sets (catalog-owned FACT DATA) ───────────
+  //
+  // The provider's own declared domain for a media request: which
+  // durations, ratios, tiers and counts it accepts. These are DATA, not
+  // code — they drift with a vendor's fleet — so they live on the card
+  // (or a provider default) and never as constants in an adapter.
+  //
+  // Every one is optional and ABSENT MEANS UNKNOWN, never "unsupported":
+  // a model with no metadata is forwarded untouched and the provider's
+  // own error is the authority. An adapter may only refuse a value when
+  // a set is PRESENT and the value is outside it.
+  //
+  // The request SHAPE (field names, JSON layout, which key carries image
+  // bytes) stays in the protocol wire schemas — that is structure, not a
+  // per-model fact.
+
+  /** Exact clip lengths accepted, e.g. Veo's [4, 6, 8]. */
+  mediaVideoDurationsSeconds: S.optional(S.Array(S.Number)),
+  /** Inclusive duration bounds, for a surface that takes a range. */
+  mediaVideoDurationRange: S.optional(
+    S.Struct({ min: S.Number, max: S.Number }),
+  ),
+  /**
+   * Duration this model REQUIRES when the request carries reference
+   * images or a high resolution. Applies only to a duration the caller
+   * actually sent: an omitted duration stays omitted so the provider's
+   * own default applies.
+   */
+  mediaVideoDurationWithReferences: S.optional(S.Number),
+  /** Accepted output aspect ratios, in the provider's own spelling. */
+  mediaVideoAspectRatios: S.optional(S.Array(S.String)),
+  /** Upper bound on subject-reference images. */
+  mediaVideoMaxReferenceImages: S.optional(S.Number),
+  /** Upper bound on voice/audio references. */
+  mediaVideoMaxReferenceVoices: S.optional(S.Number),
+  /** Reference-type discriminator this surface accepts (e.g. "asset"). */
+  mediaVideoReferenceType: S.optional(S.String),
+  /** True when a starting frame and subject references are exclusive. */
+  mediaVideoStartingImageExclusiveWithReferences: S.optional(S.Boolean),
+
+  /** Accepted image aspect ratios, in the provider's own spelling. */
+  mediaImageAspectRatios: S.optional(S.Array(S.String)),
+  /** Accepted image resolution tier names, e.g. ["1k", "2k", "1.5k"]. */
+  mediaImageResolutions: S.optional(S.Array(S.String)),
+  /**
+   * Published pixel meaning of a tier, e.g. 1k = ~1024 long edge. Only
+   * tiers with a DOCUMENTED size belong here: a tier the vendor names
+   * without defining is left out so no caller size maps onto it.
+   */
+  mediaImageResolutionTiers: S.optional(
+    S.Array(S.Struct({ resolution: S.String, longEdge: S.Number })),
+  ),
+  /** Tier applied when the caller sends no size. */
+  mediaImageDefaultResolution: S.optional(S.String),
+  /**
+   * Canonical `WIDTHxHEIGHT` → provider aspect-ratio map, for a surface
+   * that takes a ratio rather than pixels.
+   */
+  mediaImageSizeAspectRatios: S.optional(
+    S.Record({ key: S.String, value: S.String }),
+  ),
+  /** Inclusive bounds on the image count per request. */
+  mediaImageCountRange: S.optional(S.Struct({ min: S.Number, max: S.Number })),
+
+  // ─── Tokenization ──────────────────────────────────────────────────
+  /**
+   * Which ruler counts this model's tokens. One model fact that is
+   * currently re-derived three different ways — by client surface
+   * (`canonical/encoding-select`), by upstream wire (the daemon walker),
+   * and by `provider === "anthropic"` (`handlers/count-tokens`). That
+   * last one misses subscription twins: a `claude_code/*` hop is a
+   * Claude model with provider `claude_code`, so it is counted with
+   * o200k against a Claude ruler.
+   *
+   * Absent keeps each consumer's existing default, so adopting this is
+   * incremental and never changes a count until a card declares one.
+   */
+  tokenizer: S.optional(S.Literal("claude", "o200k")),
 });
 export type TModelCaps = S.Schema.Type<typeof ModelCaps>;
+
+/**
+ * A catalog-owned DEFAULT for models that have no card.
+ *
+ * The un-catalogued set is open-ended — every dated snapshot, every id a
+ * user pins, everything a vendor ships next — so it cannot be covered by
+ * cards without becoming the exhaustive allowlist we deliberately do not
+ * keep. These rules close that gap without one: the catalog owns the
+ * DATA (which family, which caps) and every consumer runs the same
+ * generic matcher, so no adapter matches a model id itself.
+ *
+ * `pattern` is a regular-expression SOURCE matched case-insensitively
+ * against the bare `provider_model_id`. Rules are consulted in order and
+ * the FIRST match wins; a card, when one exists, always outranks them.
+ * Absent/no-match stays UNKNOWN, preserving default-allow.
+ */
+export const ModelCapsDefaultRule = S.Struct({
+  provider: S.String,
+  pattern: S.String,
+  caps: ModelCaps,
+});
+export type TModelCapsDefaultRule = S.Schema.Type<typeof ModelCapsDefaultRule>;
+
+/**
+ * Resolve family defaults for an un-catalogued `provider/model`.
+ *
+ * Pure and total: an invalid pattern is skipped rather than thrown, so a
+ * bad rule can never take down resolution for every model. Shared by the
+ * cloud resolver and the daemon walker so the two cannot drift.
+ */
+export const resolveDefaultModelCaps = (
+  rules: ReadonlyArray<TModelCapsDefaultRule>,
+  provider: string,
+  providerModelId: string,
+): TModelCaps | undefined => {
+  for (const rule of rules) {
+    if (rule.provider !== provider) continue;
+    let re: RegExp;
+    try {
+      re = new RegExp(rule.pattern, "i");
+    } catch {
+      continue;
+    }
+    if (re.test(providerModelId)) return rule.caps;
+  }
+  return undefined;
+};
+
+/**
+ * Fold a LIVE OBSERVATION into authored caps.
+ *
+ * Some facts are only knowable from a vendor's own live model list (an
+ * xAI row that omits `supports_reasoning_effort`). They are expressed in
+ * this same vocabulary so a consumer never learns a second policy shape,
+ * and they may only NARROW: `deniedParams` is a union (deduped, authored
+ * order first), so an observation can add a denial and can never clear
+ * one the catalog authored. Every other field takes the observation only
+ * where the authored caps said nothing.
+ *
+ * Pure, and the caller re-derives it per request — an observation is a
+ * snapshot, never accumulated state.
+ */
+export const mergeObservedModelCaps = (
+  authored: TModelCaps | undefined,
+  observed: TModelCaps | null | undefined,
+): TModelCaps | undefined => {
+  if (observed === null || observed === undefined) return authored;
+  if (authored === undefined) return observed;
+  const denied =
+    authored.deniedParams === undefined && observed.deniedParams === undefined
+      ? undefined
+      : [
+          ...new Set([
+            ...(authored.deniedParams ?? []),
+            ...(observed.deniedParams ?? []),
+          ]),
+        ];
+  return {
+    ...observed,
+    ...authored,
+    ...(denied === undefined ? {} : { deniedParams: denied }),
+  };
+};
 
 export const ExtendedModel = S.Struct({
   id: S.String,

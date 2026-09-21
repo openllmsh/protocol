@@ -9,6 +9,22 @@ export const MEDIA_ADVANCE_ERROR_CODES = [
   "quota_exhausted",
   "rate_limited",
   "adapter_input_unmapped",
+  /**
+   * A DECLARED adapter refusal raised while building the request body,
+   * i.e. strictly BEFORE dispatch: the caller's exact options cannot be
+   * expressed on THIS provider's wire. Nothing was submitted and nothing
+   * is billable, so the chain may try a provider whose wire does accept
+   * them — with the body unchanged.
+   *
+   * Advance-eligible ONLY while `dispatched === false` (enforced below).
+   * The same code after submission stays terminal, because a request
+   * that reached a provider may have been accepted and retrying it
+   * risks a duplicate generation. An internal adapter BUG is NOT this
+   * code — it is an `adapter_fault`, which is never advance-eligible,
+   * so a defect in our own code surfaces instead of silently walking
+   * the whole chain.
+   */
+  "adapter_input_rejected",
   "provider_validation",
 ] as const;
 export type TMediaAdvanceErrorCode = (typeof MEDIA_ADVANCE_ERROR_CODES)[number];
@@ -80,7 +96,15 @@ export const decideMediaChainAdvance = (
   ) {
     return { action: "terminal", reason: "uncertain_server_failure" };
   }
-  if (facts.errorCode === "adapter_input_unmapped" && facts.dispatched)
+  // Pre-dispatch-only advance codes. Once a request has been dispatched
+  // these are terminal: the provider may have accepted it, and a retry
+  // could duplicate a generation. This guard is what keeps the new
+  // `adapter_input_rejected` bounded to the safe, non-billable case.
+  if (
+    (facts.errorCode === "adapter_input_unmapped" ||
+      facts.errorCode === "adapter_input_rejected") &&
+    facts.dispatched
+  )
     return { action: "terminal", reason: "caller_error" };
   if (
     facts.errorCode === "provider_validation" &&

@@ -20,6 +20,7 @@ export * from "./inference-headers";
 export * from "./media-attempt";
 export * from "./media-bytes";
 export * from "./media-default";
+export * from "./media-dimensions";
 export * from "./media-input";
 export * from "./models";
 export * from "./mux";

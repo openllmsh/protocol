@@ -21,6 +21,7 @@
  */
 import { Either, Schema as S } from "effect";
 import { GROK_TTS_VOICES } from "./audio";
+import { REALTIME_MODEL_IDS } from "./realtime-generated";
 
 /**
  * Hard per-session lifetime. The daemon (and the consumer-side helper) both
@@ -67,8 +68,19 @@ export const REALTIME_MAX_INPUT_TEXT_LENGTH = 4_000;
 export const RealtimeProvider = S.Literal("grok");
 export type TRealtimeProvider = S.Schema.Type<typeof RealtimeProvider>;
 
-/** The realtime model verified against `wss://api.x.ai/v1/realtime`. */
-export const RealtimeModel = S.Literal("grok-voice-latest");
+/**
+ * The realtime model verified against `wss://api.x.ai/v1/realtime`.
+ *
+ * The id set is CATALOG-OWNED: it comes from `./realtime-generated`, a tiny
+ * artifact derived from the catalog rows declaring `capabilities:
+ * ["realtime"]`. It stays a generated literal rather than a runtime lookup
+ * because the SHIPPED daemon binary decodes this schema at mux admission —
+ * `protocol` cannot import `packages/api`, and a runtime read would add a
+ * daemon -> API dependency and break decode compat with deployed binaries.
+ * `bun run check:realtime-generated` fails on drift. Widening the set is a
+ * catalog change, not a client toggle.
+ */
+export const RealtimeModel = S.Literal(...REALTIME_MODEL_IDS);
 export type TRealtimeModel = S.Schema.Type<typeof RealtimeModel>;
 
 /** Reuses the verified Grok TTS voice list — never duplicate that literal. */

@@ -123,12 +123,28 @@ export const ServerSearchCall = S.Struct({
 });
 export type TServerSearchCall = S.Schema.Type<typeof ServerSearchCall>;
 
+/**
+ * Response-only assistant fields the decoder used to discard: `annotations`
+ * (web-search URL citations) and `audio` (the audio output object, or on a
+ * replayed turn the `{id}` reference to it).
+ *
+ * Typed as `S.Unknown` ON PURPOSE. Modelling their exact shapes would make the
+ * decoder STRICTER than the baseline it replaces: today an unknown value in
+ * either field is stripped and the request is served, whereas a literal/struct
+ * schema would turn the same body into a 400. Preserving the value is the
+ * whole fix — validating it is not this gateway's job, and a new rejection on
+ * a previously-served request is a regression whatever the spec says.
+ */
 const AssistantMessage = S.Struct({
   role: S.Literal("assistant"),
   content: S.optional(S.NullOr(MessageContent)),
   name: S.optional(S.String),
   tool_calls: S.optional(S.Array(ToolCall)),
   refusal: S.optional(S.NullOr(S.String)),
+  /** Hosted web-search citations — carried, never validated (see above). */
+  annotations: S.optional(S.Unknown),
+  /** Audio output / audio history reference — carried, never validated. */
+  audio: S.optional(S.Unknown),
   /** LiteLLM / OpenAI Responses → chat stream (`reasoning_content` deltas). */
   reasoning_content: S.optional(S.NullishOr(S.String)),
   /** Terminal `response.completed` reasoning round-trip (LiteLLM `Delta.reasoning_items`). */
@@ -242,9 +258,44 @@ export const ChatCompletionRequest = S.Struct({
   stream_options: S.optional(
     S.Struct({
       include_usage: S.optional(S.Boolean),
+      /**
+       * Stream obfuscation (pinned spec). Padding characters on each delta to
+       * normalise payload sizes against a size side-channel. Modelled so a
+       * caller that DISABLES it keeps that choice — silently dropping it
+       * re-enabled a mitigation the caller explicitly turned off.
+       */
+      include_obfuscation: S.optional(S.Unknown),
     }),
   ),
   response_format: S.optional(ResponseFormat),
+  /**
+   * Documented Chat Completions parameters the decoder previously dropped, so
+   * an explicit caller choice never reached the upstream that honours it. Each
+   * is verified present on the pinned `openai/openai-openapi` surface
+   * (`tests/helpers/fixtures/openai-chat-surface.json`); the conformance suite
+   * `tests/protocol/openai-chat-surface.test.ts` records a disposition for
+   * every one and fails when the spec grows a field with no entry.
+   *
+   * ALL typed `S.Unknown`, deliberately. The gap being fixed is that these
+   * values were DISCARDED, not that they were unvalidated — and a literal or
+   * struct schema would make the decoder stricter than the baseline it
+   * replaces, turning bodies that are served today into 400s. Carrying the
+   * value verbatim fixes the loss without moving the acceptance boundary; the
+   * upstream that owns each parameter remains the one that validates it.
+   *
+   * They are carried, not interpreted: `finalizeUpstreamBody`'s per-wire deny
+   * decides which survive a given hop, and `droppedSignalParams` reports the
+   * rest on `x-openllm-dropped-params` rather than letting them vanish.
+   */
+  service_tier: S.optional(S.Unknown),
+  store: S.optional(S.Unknown),
+  verbosity: S.optional(S.Unknown),
+  safety_identifier: S.optional(S.Unknown),
+  prompt_cache_retention: S.optional(S.Unknown),
+  web_search_options: S.optional(S.Unknown),
+  modalities: S.optional(S.Unknown),
+  audio: S.optional(S.Unknown),
+  prediction: S.optional(S.Unknown),
   // Full OpenAI-compatible enum (matches LiteLLM's accepted set so we
   // can translate the same range of efforts that `gpt-5` / Claude
   // canonical clients ship). `none` explicitly disables thinking.
@@ -310,6 +361,18 @@ export const ChatCompletionResponse = S.Struct({
   choices: S.Array(ChatChoice),
   usage: Usage,
   system_fingerprint: S.optional(S.NullOr(S.String)),
+  /**
+   * Response metadata the decoder previously discarded. `service_tier` is the
+   * tier that ACTUALLY served the request (it can differ from the requested
+   * one, which is the only way a caller learns their `priority` request was
+   * served on `default`); `moderation` carries moderated-completion results;
+   * `metadata` echoes the request's key/value map. Opaque `moderation` on
+   * purpose — it is OpenAI's own result object and the gateway re-emits it
+   * verbatim rather than modelling a surface it does not interpret.
+   */
+  service_tier: S.optional(S.Unknown),
+  metadata: S.optional(S.Unknown),
+  moderation: S.optional(S.Unknown),
 });
 export type TChatCompletionResponse = S.Schema.Type<
   typeof ChatCompletionResponse
@@ -380,5 +443,16 @@ export const ChatCompletionChunk = S.Struct({
   choices: S.Array(ChatChunkChoice),
   usage: S.optional(S.NullOr(Usage)),
   system_fingerprint: S.optional(S.NullOr(S.String)),
+  /**
+   * Per-chunk metadata the decoder previously discarded. `obfuscation` is the
+   * side-channel padding string the caller opted into via
+   * `stream_options.include_obfuscation` — re-emitting it is what makes that
+   * opt-in real end to end, since a mitigation the gateway strips is no
+   * mitigation. `service_tier` / `moderation` mirror the non-streaming
+   * response.
+   */
+  obfuscation: S.optional(S.Unknown),
+  service_tier: S.optional(S.Unknown),
+  moderation: S.optional(S.Unknown),
 });
 export type TChatCompletionChunk = S.Schema.Type<typeof ChatCompletionChunk>;

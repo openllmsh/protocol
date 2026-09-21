@@ -8,7 +8,13 @@ import {
 } from "./config";
 import { CooldownReason } from "./cooldown-reason";
 import { DaemonReportingPolicy } from "./doctor-report-policy";
-import { ModelCaps, ProviderModelList, SubscriptionMeter } from "./models";
+import {
+  ModelAudioSupport,
+  ModelCaps,
+  ModelCapsDefaultRule,
+  ProviderModelList,
+  SubscriptionMeter,
+} from "./models";
 import {
   DaemonProviderObservation,
   DaemonProviderReasonCode,
@@ -48,6 +54,19 @@ export const DaemonCatalogEntry = S.Struct({
   capabilities: S.optional(S.Array(S.String)),
   /** Catalog-declared final outbound-body constraints for this model. */
   caps: S.optional(ModelCaps),
+  /**
+   * Catalog-declared audio support (input/output formats, voices,
+   * realtime ops). The daemon's audio walker currently re-derives these
+   * from the provider slug while the catalog already declares them per
+   * model, so the card is the correction channel.
+   *
+   * Optional, like `caps`: an older cloud omits it and a newer daemon
+   * reads absent as UNKNOWN, keeping today's provider-derived defaults.
+   * Delivered over the AUTHENTICATED bootstrap, never the signed 307 —
+   * that payload covers only plan/pmids/origin, so anything appended
+   * there would be caller-controllable and unsigned.
+   */
+  audio_support: S.optional(ModelAudioSupport),
   /** Optional so older clouds keep bootstrapping newer daemons. */
   strip_subagent_isolation: S.optional(S.Boolean),
 });
@@ -67,6 +86,17 @@ export type TSubMethod = S.Schema.Type<typeof SubMethod>;
 export const DaemonBootstrap = S.Struct({
   catalog: S.Array(DaemonCatalogEntry),
   provider_prefixes: S.Array(S.String),
+  /**
+   * Catalog-owned caps DEFAULTS for models with no catalog row. The
+   * daemon runs the SAME `resolveDefaultModelCaps` matcher the cloud
+   * does, so an un-catalogued id resolves identically on both paths and
+   * the two cannot drift.
+   *
+   * Optional: an older cloud omits it and the daemon simply resolves no
+   * defaults (absent = unknown = permissive, today's behaviour). Rules
+   * are DATA on the authenticated bootstrap — never the signed 307.
+   */
+  caps_defaults: S.optional(S.Array(ModelCapsDefaultRule)),
   user_fallback_groups: S.Array(FallbackGroup),
   user_model_fallback_bindings: S.Array(ModelFallbackBinding),
   /** Per-user context-window overflow routing preference. Absent means the

@@ -334,6 +334,14 @@ export const DaemonQuotaStatusReached = S.Struct({
    * omit it; cloud then falls back to account:status + 24h cooldown.
    */
   reset_at_ms: S.optional(S.Number),
+  /**
+   * The quota snapshot that produced this transition — display-only, it lets
+   * the email list every limit with its usage and reset. Optional so older
+   * daemons omit it. The cloud decodes it apart from the fields above and
+   * falls back to the plain notice when it is missing, undecodable, not a
+   * quota snapshot, or disagrees with `status`.
+   */
+  usage: S.optional(ProviderUsageSnapshot),
 });
 export type TDaemonQuotaStatusReached = S.Schema.Type<
   typeof DaemonQuotaStatusReached

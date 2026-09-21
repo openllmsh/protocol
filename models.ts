@@ -318,6 +318,20 @@ export const ModelCaps = S.Struct({
    * caller's choice is still honoured.
    */
   upstreamAcceptsResponseFormat: S.optional(S.Boolean),
+  /**
+   * Whether `stream` is a real knob on this model's upstream image request.
+   * When false the adapter OMITS the field — NOT a refusal: the gateway wraps
+   * the final JSON in one genuine SSE completion event itself, so a streaming
+   * caller is still served.
+   *
+   * DISTINCT from `nativeProgressiveImages`, deliberately. That trait says
+   * whether real partial frames exist; this one says whether the request field
+   * is accepted at all. A vendor can accept `stream` and answer with a single
+   * final frame, and a model can emit partials on a wire that spells the knob
+   * differently — so conflating them would either leak an unknown param into a
+   * guaranteed 400 or silently stop streaming for a provider that streams.
+   */
+  upstreamAcceptsStream: S.optional(S.Boolean),
   /** `style` (vivid|natural). False is a genuine pre-dispatch refusal. */
   supportsStyle: S.optional(S.Boolean),
   /** GPT-image output group: output_format, output_compression, moderation, background. */

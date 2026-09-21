@@ -138,6 +138,7 @@ export const ExtraConfig = S.Struct({
     S.Struct({
       auth_loss_email: S.optional(S.Boolean),
       quota_email: S.optional(S.Boolean),
+      daemon_idle_email: S.optional(S.Boolean),
     }),
   ),
   /**

@@ -22,8 +22,8 @@ validators **and** inferred TypeScript types from a single source):
 - provider request/response shapes · cost & model catalog
 - request-status · daemon & relay control frames
 
-No HTTP, no providers, no `fetch` — just the shapes. Build a third-party
-OpenLLM client against this and nothing else.
+No HTTP, no provider implementations, no `fetch` — contracts and pure helpers.
+Build a third-party OpenLLM client against this and nothing else.
 
 ## Install
 
@@ -37,6 +37,26 @@ import { Schema } from "effect";
 
 const req = Schema.decodeUnknownSync(ChatCompletionRequest)(body);
 ```
+
+## Model identity matching
+
+`model-match.ts` provides pure matching primitives shared by request resolution
+and catalog metadata inheritance. `deriveModelIdentityRules` derives namespaces,
+variant tokens, and attached-version evidence from existing catalog model IDs;
+there are no provider-specific token lists or model-family regex tables to update.
+
+- `buildModelCandidates` preserves raw upstream IDs while parsing comparable
+  family/version structure.
+- `selectRequestModel` filters eligibility before choosing the newest matching
+  release, then applies caller-supplied provider preference and alphabetical ties.
+  Exact IDs and named suffixes take precedence over shorthand.
+- `selectMetadataDonor` chooses an exact identity or compatible predecessor,
+  preferring the target provider and staying within the same major generation.
+  It returns a donor, not a merged model: field precedence and provenance belong
+  to the consuming catalog layer.
+
+The caller supplies catalog entries and availability; these utilities do not
+fetch model lists, inspect credentials, or perform provider authentication.
 
 ## License
 

@@ -22,6 +22,7 @@ export * from "./media-bytes";
 export * from "./media-default";
 export * from "./media-dimensions";
 export * from "./media-input";
+export * from "./model-match";
 export * from "./models";
 export * from "./mux";
 export * from "./provider-status";

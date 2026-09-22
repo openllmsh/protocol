@@ -766,14 +766,44 @@ const groupByFamily = <TValue>(
   return groups;
 };
 
+const variantKey = (identity: TModelIdentity): string =>
+  identity.variants.join("\u0000");
+
+/**
+ * True when the NEWEST generation among `ordered` offers more than one
+ * distinct variant set. Used only for tiers where the query names fewer
+ * variants than the candidates carry (`gpt-5.6` vs `gpt-5.6-luna` /
+ * `-sol` / `-terra`): the caller did not say which sibling, so picking
+ * one by slug order would be a guess. Rows sharing a variant set across
+ * providers are ONE choice (provider preference still decides between
+ * them), and an older generation's extra variants never cause ambiguity.
+ */
+const hasCompetingVariantsAtNewest = <TValue>(
+  ordered: ReadonlyArray<TModelCandidate<TValue>>,
+): boolean => {
+  const best = ordered[0];
+  if (best === undefined) return false;
+  const keys = new Set<string>();
+  for (const c of ordered) {
+    if (compareModelVersion(c.identity.version, best.identity.version) !== 0)
+      continue;
+    keys.add(variantKey(c.identity));
+    if (keys.size > 1) return true;
+  }
+  return false;
+};
+
 const decide = <TValue>(
   matches: ReadonlyArray<TModelCandidate<TValue>>,
   reason: TModelMatchReason,
+  variantOpen = false,
 ): TModelSelection<TValue> => {
   const ordered = [...matches].sort(compareRequestCandidates);
   const best = ordered[0];
   if (best === undefined) return { kind: "none" };
   if (groupByFamily(ordered).length > 1)
+    return { kind: "ambiguous", reason, candidates: ordered };
+  if (variantOpen && hasCompetingVariantsAtNewest(ordered))
     return { kind: "ambiguous", reason, candidates: ordered };
   return { kind: "selected", candidate: best, reason, considered: ordered };
 };
@@ -868,6 +898,8 @@ export const selectRequestModel = <TValue>(
   const tiers: ReadonlyArray<{
     readonly matches: (c: TModelCandidate<TValue>) => boolean;
     readonly reason: TModelMatchReason;
+    /** Query leaves some candidate variants unspecified. */
+    readonly variantOpen?: boolean;
   }> = [
     {
       matches: (c) =>
@@ -882,6 +914,7 @@ export const selectRequestModel = <TValue>(
     {
       matches: (c) => familyExact(c) && hasAllVariants(intent, c.identity),
       reason: versionReason,
+      variantOpen: true,
     },
     {
       matches: (c) => familyBoundary(c) && isSameVariant(intent, c.identity),
@@ -890,13 +923,14 @@ export const selectRequestModel = <TValue>(
     {
       matches: (c) => familyBoundary(c) && hasAllVariants(intent, c.identity),
       reason: "prefix",
+      variantOpen: true,
     },
   ];
 
   for (const tier of tiers) {
     const matches = pool.filter(tier.matches);
     if (matches.length === 0) continue;
-    return decide(matches, tier.reason);
+    return decide(matches, tier.reason, tier.variantOpen === true);
   }
   return { kind: "none" };
 };

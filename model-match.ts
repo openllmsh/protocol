@@ -906,6 +906,7 @@ export const selectRequestModel = <TValue>(
         c.identity.providerModelId.toLowerCase().endsWith(terminalSuffix) &&
         hasAllVariants(intent, c.identity),
       reason: "terminal_suffix",
+      variantOpen: true,
     },
     {
       matches: (c) => familyExact(c) && isSameVariant(intent, c.identity),

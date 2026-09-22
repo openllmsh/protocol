@@ -170,7 +170,7 @@ export type TImageEditMultipartFile = {
 // a safe spread, and the chunk strings are joined once at the end.
 const BASE64_CHUNK_BYTES = 8192;
 
-const bytesToDataUrl = (
+export const bytesToDataUrl = (
   bytes: Uint8Array,
   contentType: string | undefined,
 ): string => {

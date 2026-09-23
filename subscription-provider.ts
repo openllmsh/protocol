@@ -13,6 +13,9 @@ export const SubscriptionProviderSlug = S.Literal(
   "grok",
   // Cursor subscription, delegated to the official `cursor-agent` CLI.
   "cursor",
+  // Meta Muse Code subscription — daemon bridge to the official `muse`
+  // CLI / SDK only. No direct Meta Model API-key fallback on this slug.
+  "muse",
 );
 export type TSubscriptionProviderSlug = S.Schema.Type<
   typeof SubscriptionProviderSlug

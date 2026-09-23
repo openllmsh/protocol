@@ -22,7 +22,9 @@ export type TSubscriptionProviderSlug = S.Schema.Type<
 >;
 
 /** Catalog tagging only — execution still uses registry `authKind`. */
-export const isSubscriptionProviderSlug = (provider: string): boolean =>
+export const isSubscriptionProviderSlug = (
+  provider: string,
+): provider is TSubscriptionProviderSlug =>
   (SubscriptionProviderSlug.literals as ReadonlyArray<string>).includes(
     provider,
   );

@@ -161,8 +161,21 @@ export const PublicModelPopularity = S.Struct({
   users: S.Number,
   user_days: S.Number,
   requests: S.Number,
-  /** Percent change in distinct users vs the previous window; null if no prior. */
+  /**
+   * Percent change in distinct users vs the previous window; null when there
+   * is no prior period, or when the prior is too small to divide by — see
+   * `is_new` for the third state and the reader's floors for the threshold.
+   */
   pct_change: S.NullOr(S.Number),
+  /**
+   * The row arrived this period: it carries real activity now and the prior
+   * window had none worth comparing against. Only ever true while
+   * `pct_change` is null — the two together are a tri-state, since a percent
+   * off a negligible base is a number, not a measurement.
+   *
+   * Decoded with a default — see the note on cross-deployment merging below.
+   */
+  is_new: S.optionalWith(S.Boolean, { default: () => false }),
 });
 export type TPublicModelPopularity = S.Schema.Type<
   typeof PublicModelPopularity
@@ -185,6 +198,8 @@ export const PublicProviderPopularity = S.Struct({
   user_days: S.Number,
   requests: S.Number,
   pct_change: S.NullOr(S.Number),
+  /** See `PublicModelPopularity.is_new`. */
+  is_new: S.optionalWith(S.Boolean, { default: () => false }),
 });
 export type TPublicProviderPopularity = S.Schema.Type<
   typeof PublicProviderPopularity
@@ -241,7 +256,16 @@ export const PublicValueByTier = S.Struct({
   pair_count: S.Number,
   /** Ratio clustering quality for the selected account's estimate. */
   tightness: S.Number,
+  /**
+   * Percent change vs the previous window; null when there is no prior, or
+   * when the prior is a negligible fraction of the period's leading tier. A
+   * tier worth a few dollars swings by thousands of percent on one account's
+   * ordinary week, which says nothing about the tier and crowds out the
+   * figures that do. See `is_new` for the third state.
+   */
   pct_change: S.NullOr(S.Number),
+  /** See `PublicModelPopularity.is_new`. */
+  is_new: S.optionalWith(S.Boolean, { default: () => false }),
   /**
    * Every retained period for this tier, oldest first, INCLUDING the current
    * one — so a consumer plots `history` alone rather than stitching it to the

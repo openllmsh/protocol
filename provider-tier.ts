@@ -8,7 +8,20 @@
  * not: callers reject null before using this as a cache key.
  */
 
-export const PROVIDER_TIER_METHODOLOGY_VERSION = "account-owned-v1";
+/**
+ * Single source for subscription-index cache rows and public value buckets.
+ *
+ * - `account-owned-v1` — projected 30-day value from the selected window scaled
+ *   by the observed reset-to-reset span (could treat a one-off early reset as a
+ *   recurring shorter cadence).
+ * - `account-owned-v2` — same single-window forecast, but scaled by the resolved
+ *   nominal window duration (stated vendor duration / known label / conservative
+ *   fallback). One early reset no longer shortens the recurring projection.
+ *
+ * Historical v1 cache/public rows remain stored; readers treat only the current
+ * string as live. No DB rewrite.
+ */
+export const PROVIDER_TIER_METHODOLOGY_VERSION = "account-owned-v2";
 
 export const normalizeProviderTier = (raw: unknown): string | null => {
   if (typeof raw !== "string") return null;

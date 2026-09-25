@@ -139,6 +139,8 @@ export const ExtraConfig = S.Struct({
       auth_loss_email: S.optional(S.Boolean),
       quota_email: S.optional(S.Boolean),
       daemon_idle_email: S.optional(S.Boolean),
+      /** Onboarding tips and Pro trial nudges (lifecycle cron). */
+      lifecycle_email: S.optional(S.Boolean),
     }),
   ),
   /**

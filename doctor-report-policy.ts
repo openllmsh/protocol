@@ -117,3 +117,16 @@ export const DOCTOR_REPORT_MAX_IN_FLIGHT = 1;
 export const DOCTOR_REPORT_LEASE_MS = 30_000;
 /** Cloud should stamp `reporting_policy.expires_at_ms` ≈ now + this. */
 export const DOCTOR_REPORTING_POLICY_TTL_MS = 5 * 60 * 1000;
+/**
+ * Daemon-side validity window for a reporting policy, measured from the LOCAL
+ * time the daemon first saw it — NOT from the cloud-stamped `expires_at_ms`,
+ * which embeds the cloud's clock. Comparing that absolute stamp with the
+ * local clock fails closed on any daemon/cloud skew beyond the TTL (>5 min
+ * ahead → every upload `expired_policy`, silently), and lets a revoked policy
+ * live over-long when the local clock is behind (TCB-7). Two TTLs = one full
+ * bootstrap refresh cycle plus margin, so a correct clock no longer sees a
+ * small expired gap each cycle. Revocation still propagates on the next
+ * successful fetch because the new policy replaces the anchored one.
+ */
+export const DOCTOR_REPORT_POLICY_RECEIVED_TTL_MS =
+  2 * DOCTOR_REPORTING_POLICY_TTL_MS;

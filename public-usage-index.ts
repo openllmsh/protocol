@@ -1,4 +1,5 @@
 import { Schema as S } from "effect";
+import { PROVIDER_TIER_METHODOLOGY_VERSION } from "./provider-tier";
 
 /**
  * Public usage index — OpenLLM's own aggregate projection of gateway activity,
@@ -7,6 +8,15 @@ import { Schema as S } from "effect";
  * period change, with no suppression, bucketing, floors, or noise. Rows are
  * recomputed and OVERWRITTEN each rollup run (live, never frozen).
  */
+
+/**
+ * Explicit value-methodology id on the public response. Same string as
+ * {@link PROVIDER_TIER_METHODOLOGY_VERSION} / public value `metric_version`.
+ * Cross-deployment merge MUST compare this literally — never default a peer
+ * that omits it to the local current version.
+ */
+export const PUBLIC_USAGE_VALUE_METHODOLOGY_VERSION =
+  PROVIDER_TIER_METHODOLOGY_VERSION;
 
 export const PublicUsageMetric = S.Literal(
   "model_popularity",
@@ -290,6 +300,13 @@ export type TPeriodWindow = S.Schema.Type<typeof PeriodWindow>;
  * Public usage artifact: exact aggregate figures grouped for display. The
  * top-level period is the min/max envelope across metric-specific windows,
  * retained for backward compatibility.
+ *
+ * `value_methodology_version` identifies the recurring-value economics behind
+ * `value_by_tier`. Unlike fields decoded with defaults for mixed-version peers,
+ * this one is required on every response we emit, and a configured mandatory
+ * merge rejects a peer that omits it or reports a different string — never
+ * assume an old peer shares the local methodology, and never fall back to
+ * local-only value figures when the merge URL is set.
  */
 export const PublicUsageIndexResponse = S.Struct({
   period_start: S.NullOr(S.String),
@@ -300,6 +317,11 @@ export const PublicUsageIndexResponse = S.Struct({
     value: PeriodWindow,
   }),
   caption: S.Literal(PUBLIC_USAGE_INDEX_CAPTION),
+  /**
+   * Shared with {@link PUBLIC_USAGE_VALUE_METHODOLOGY_VERSION}. Emit the
+   * constant; merge compares it literally before combining `value_by_tier`.
+   */
+  value_methodology_version: S.String,
   model_popularity: S.Array(PublicModelPopularity),
   provider_popularity: S.Array(PublicProviderPopularity),
   value_by_tier: S.Array(PublicValueByTier),

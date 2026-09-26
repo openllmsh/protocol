@@ -76,21 +76,25 @@ export type TInferredWindowUsage = S.Schema.Type<typeof InferredWindowUsage>;
  * weekly, Kimi's daily, Grok's monthly). It is scoped to ONE window chunk
  * — the most recent POPULATED window of the largest live calibrated series
  * (the closest earlier populated window stands in when the current one is
- * still empty) — and never an integral over past windows:
+ * still empty) — and never an integral over past windows or a sum of
+ * exceptional grants:
  *
  *   - `used_usd`     — that window's own API-eq usage, scaled to 30 days by
- *                      30d / its ACTUAL observed span, across all devices.
- *   - `bracket_usd`  — that window's bracket, scaled by the same factor. The
- *                      span is the real reset-to-reset duration, so a
- *                      promotional early reset (a shorter cycle) lifts the
- *                      forecast WITHOUT summing past windows. Guarantees
- *                      used ≤ bracket (same positive scale on both).
+ *                      30d / the resolved NOMINAL window duration, across all
+ *                      devices.
+ *   - `bracket_usd`  — that window's bracket, scaled by the same factor.
+ *                      Nominal duration is stated vendor duration first, then
+ *                      a known window label, otherwise the conservative
+ *                      maximum of 30 days and observed remaining horizons —
+ *                      never an adjacent reset-deadline difference alone.
+ *                      Guarantees used ≤ bracket (same positive scale on both).
  *   - `headroom_usd` — max(0, bracket − used).
  *
- * Because it is scaled by the window's own observed span, the forecast is
- * immune to vendor window reshapes: when a window changes, only the
- * calibration behind it resets (the index disappears until a new window
- * pairs, then catches up) — its MEANING never changes.
+ * Methodology `account-owned-v2` (see `PROVIDER_TIER_METHODOLOGY_VERSION`):
+ * recurring capacity estimated from the selected window. A one-off early
+ * reset is still detected for epoch continuity, but does not shorten the
+ * recurring 30-day projection. Historical `account-owned-v1` cache/public
+ * rows stay stored and are unread as current until on-demand regeneration.
  */
 export const InferredMonthlyIndex = S.Struct({
   used_usd: S.Number,

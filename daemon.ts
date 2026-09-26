@@ -893,10 +893,15 @@ export const DaemonStatus = S.Struct({
    * closed independently of this list.
    */
   control_caps: S.optional(S.Array(S.String)),
-  /** Whether this daemon can host device chat sessions (PTY — POSIX only;
-   *  false on win32). Absent on daemons too old to report it — the
-   *  dashboard then hides the device variant for this box. */
+  /** Whether this daemon can host device chat sessions (PTY via the
+   *  in-process native backend: POSIX C shim, Windows ConPTY). Absent on
+   *  daemons too old to report it — the dashboard then hides the device
+   *  variant for this box. */
   pty_supported: S.optional(S.Boolean),
+  /** Which host PTY backend this daemon will use for new session spawns.
+   *  `native` = in-daemon C PTY shim (v2.8); `conpty` = Windows ConPTY;
+   *  `bun` = legacy in-process `Bun.Terminal`. Absent on daemons too old. */
+  pty_backend: S.optional(S.Literal("native", "conpty", "bun")),
   /** Live/dormant device sessions hosted on this box (feature §2.2) —
    *  lets the dashboard mark which sessions can `attach` vs `continue`. */
   sessions: S.optional(

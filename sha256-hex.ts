@@ -46,7 +46,7 @@ export const sha256Hex = (utf8: string): string => {
       const wt2 = w[t - 2] as number;
       const s0 = rotr(wt15, 7) ^ rotr(wt15, 18) ^ (wt15 >>> 3);
       const s1 = rotr(wt2, 17) ^ rotr(wt2, 19) ^ (wt2 >>> 10);
-      w[t] = (((w[t - 16] as number) + s0 + (w[t - 7] as number) + s1) | 0);
+      w[t] = ((w[t - 16] as number) + s0 + (w[t - 7] as number) + s1) | 0;
     }
     let a = h0;
     let b = h1;

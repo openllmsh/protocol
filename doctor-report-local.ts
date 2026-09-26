@@ -201,6 +201,32 @@ export const DOCTOR_REPORT_CLI_CONSTANTS = {
 
 export type TDoctorReportCliConstants = typeof DOCTOR_REPORT_CLI_CONSTANTS;
 
+const BIOME_LINE_WIDTH = 80;
+
+/** Serialise the flat constants object the way Biome formats it (bare
+ *  identifier keys, trailing commas, arrays inline when they fit), so the
+ *  generated artifact is already `biome check`-clean and the drift test can
+ *  compare committed bytes without a formatter pass. */
+const renderCliConstantsLiteral = (
+  constants: Readonly<Record<string, string | number | readonly string[]>>,
+): string => {
+  const lines = Object.entries(constants).map(([key, value]) => {
+    if (!Array.isArray(value)) return `  ${key}: ${JSON.stringify(value)},`;
+    const inline = `  ${key}: ${`[${value.map((v) => JSON.stringify(v)).join(", ")}]`},`;
+    if (inline.length <= BIOME_LINE_WIDTH) return inline;
+    const items = value.map((v) => `    ${JSON.stringify(v)},`);
+    return [`  ${key}: [`, ...items, "  ],"].join("\n");
+  });
+  return ["{", ...lines, "}"].join("\n");
+};
+
+const renderCliStringArray = (values: readonly string[]): string => {
+  const inline = `[${values.map((v) => JSON.stringify(v)).join(", ")}]`;
+  if (`const UNAVAILABLE = ${inline} as const;`.length <= BIOME_LINE_WIDTH)
+    return inline;
+  return ["[", ...values.map((v) => `  ${JSON.stringify(v)},`), "]"].join("\n");
+};
+
 /** Render the committed CLI artifact. Generator-only; CLI runtime stays
  *  workspace-free by checking in the output later. */
 export const renderDoctorReportCliArtifact = (): string =>
@@ -210,10 +236,8 @@ export const renderDoctorReportCliArtifact = (): string =>
 
 import { createHash } from ${JSON.stringify("node:crypto")};
 
-export const DOCTOR_REPORT_CLI_CONSTANTS = ${JSON.stringify(
+export const DOCTOR_REPORT_CLI_CONSTANTS = ${renderCliConstantsLiteral(
     DOCTOR_REPORT_CLI_CONSTANTS,
-    null,
-    2,
   )} as const;
 
 export type TDoctorReportCliConstants = typeof DOCTOR_REPORT_CLI_CONSTANTS;
@@ -227,10 +251,12 @@ export const opaqueDoctorScope = (
     .digest("hex")
     .slice(0, 32);
 
-export const DOCTOR_OPAQUE_ID_PATTERN = /${DOCTOR_OPAQUE_ID_PATTERN.source}/;
+export const DOCTOR_OPAQUE_ID_PATTERN =
+  /${DOCTOR_OPAQUE_ID_PATTERN.source}/;
 const OPAQUE_ID = DOCTOR_OPAQUE_ID_PATTERN;
-const VERSION_STAMP = /${DOCTOR_VERSION_STAMP_PATTERN.source}/;
-const UNAVAILABLE = ${JSON.stringify(DOCTOR_LOCAL_UNAVAILABLE_REASONS)} as const;
+const VERSION_STAMP =
+  /${DOCTOR_VERSION_STAMP_PATTERN.source}/;
+const UNAVAILABLE = ${renderCliStringArray(DOCTOR_LOCAL_UNAVAILABLE_REASONS)} as const;
 
 export type TDoctorLocalUnavailableReason = (typeof UNAVAILABLE)[number];
 
@@ -350,7 +376,8 @@ const optionalLiteral = <T extends string>(
 ): T | undefined => {
   const value = input[key];
   if (value === undefined) return undefined;
-  return typeof value === "string" && (allowed as readonly string[]).includes(value)
+  return typeof value === "string" &&
+    (allowed as readonly string[]).includes(value)
     ? (value as T)
     : fail(\`invalid \${key}\`);
 };
@@ -406,11 +433,7 @@ export const parseDoctorReportingStatus = (
     daemon_version: optionalVersion(record, "daemon_version"),
     unavailable_reason: optionalUnavailable(record),
     upload_eligible: optionalBool(record, "upload_eligible"),
-    upload_blocker: optionalLiteral(
-      record,
-      "upload_blocker",
-      UPLOAD_BLOCKERS,
-    ),
+    upload_blocker: optionalLiteral(record, "upload_blocker", UPLOAD_BLOCKERS),
     pending_report_upload: optionalBool(record, "pending_report_upload"),
     last_attempt_at_ms: optionalEpoch(record, "last_attempt_at_ms"),
     last_attempt_outcome: optionalLiteral(

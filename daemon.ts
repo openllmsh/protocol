@@ -75,13 +75,60 @@ export type TDaemonCatalogEntry = S.Schema.Type<typeof DaemonCatalogEntry>;
 /**
  * How a subscription hop EXECUTES after the cloud selected + signed it:
  * `bridge` = the native vendor-runtime path (Claude Code stream-json /
- * Codex app-server); `handrolled` = the manual upstream-HTTP transport.
- * A cloud-controlled preference, published in the bootstrap payload —
- * never a daemon-local env. See
- * `docs/proposals/active-sub-method.md` + `sub-method-simplified-execution.md`.
+ * Codex app-server); `bridge-capture` = the same native path with
+ * vendor-built request capture (daemon owns the one upstream exchange);
+ * `handrolled` = the manual upstream-HTTP transport. A cloud-controlled
+ * preference, published in the bootstrap payload — never a daemon-local
+ * env. See `docs/proposals/active-sub-method.md` +
+ * `sub-method-simplified-execution.md` and
+ * `docs/plan/bridge-request-capture/`.
  */
-export const SubMethod = S.Literal("bridge", "handrolled");
+export const SubMethod = S.Literal("bridge", "bridge-capture", "handrolled");
 export type TSubMethod = S.Schema.Type<typeof SubMethod>;
+
+/**
+ * Advertises that this daemon's bootstrap decoder accepts `bridge-capture` in
+ * `active_sub_method` / `active_sub_methods`. Old binaries compiled against the
+ * pre-capture `SubMethod` literal reject that token — the cloud MUST project
+ * `bridge-capture` → `bridge` when this cap is absent. Never inferred from a
+ * version string.
+ */
+export const SUB_METHOD_BRIDGE_CAPTURE_CAP = "sub-method-bridge-capture1";
+
+export const hasSubMethodBridgeCaptureCap = (
+  caps: readonly string[] | undefined,
+): boolean => caps?.includes(SUB_METHOD_BRIDGE_CAPTURE_CAP) ?? false;
+
+/** Project a sub-method for an old daemon that cannot decode `bridge-capture`. */
+export const projectSubMethodForBootstrap = (
+  method: TSubMethod | null,
+  negotiatedCaps: readonly string[],
+): TSubMethod | null => {
+  if (method === null) return null;
+  if (
+    method === "bridge-capture" &&
+    !hasSubMethodBridgeCaptureCap(negotiatedCaps)
+  ) {
+    return "bridge";
+  }
+  return method;
+};
+
+/** Project per-provider overrides the same way as {@link projectSubMethodForBootstrap}. */
+export const projectSubMethodOverridesForBootstrap = (
+  overrides: Readonly<Record<string, TSubMethod>> | null,
+  negotiatedCaps: readonly string[],
+): Record<string, TSubMethod> | null => {
+  if (overrides === null) return null;
+  const entries = Object.entries(overrides);
+  if (entries.length === 0) return null;
+  const out: Record<string, TSubMethod> = {};
+  for (const [provider, method] of entries) {
+    const projected = projectSubMethodForBootstrap(method, negotiatedCaps);
+    if (projected !== null) out[provider] = projected;
+  }
+  return Object.keys(out).length > 0 ? out : null;
+};
 
 export const DaemonBootstrap = S.Struct({
   catalog: S.Array(DaemonCatalogEntry),
@@ -133,12 +180,12 @@ export const DaemonBootstrap = S.Struct({
   latest_cli_version: S.optional(S.NullOr(S.String)),
   /**
    * The cloud's resolved `ACTIVE_SUB_METHOD` preference (server process env,
-   * parsed cloud-side: only lowercase `bridge`/`handrolled`; unset/invalid →
-   * null = no preference). The daemon samples it from its cached bootstrap
-   * snapshot once per hop at selection time; an unsupported preference for a
-   * provider resolves to that provider's default method (`methods[0]` in the
-   * daemon's capability table). Optional so older clouds keep bootstrapping
-   * older daemons.
+   * parsed cloud-side: only lowercase `bridge` / `bridge-capture` /
+   * `handrolled`; unset/invalid → null = no preference). The daemon samples
+   * it from its cached bootstrap snapshot once per hop at selection time; an
+   * unsupported preference for a provider resolves to that provider's default
+   * method (`methods[0]` in the daemon's capability table). Optional so older
+   * clouds keep bootstrapping older daemons.
    */
   active_sub_method: S.optional(S.NullOr(SubMethod)),
   /**

@@ -838,6 +838,33 @@ export const DaemonCliState = S.Struct({
 });
 export type TDaemonCliState = S.Schema.Type<typeof DaemonCliState>;
 
+/** Detailed Linux confinement probe results. Optional for older daemons. */
+export const DaemonSandboxDetails = S.Struct({
+  backend: S.Literal("linux-bubblewrap"),
+  bubblewrapVersion: S.NullOr(S.String),
+  landlockAbi: S.NullOr(S.Number),
+  helperAvailable: S.Boolean,
+  guardian: S.Literal("passed", "failed", "not_run"),
+  userNamespace: S.Literal("available", "unavailable", "not_run"),
+  selfTest: S.Literal("passed", "failed", "not_run"),
+  lastRejection: S.NullOr(S.String),
+  reason: S.Literal(
+    "READY",
+    "DISABLED",
+    "SOURCE_RUN_OPT_IN_REQUIRED",
+    "BWRAP_UNAVAILABLE",
+    "BWRAP_PRIVILEGED_INSTALL_UNSUPPORTED",
+    "USERNS_UNAVAILABLE",
+    "LANDLOCK_UNAVAILABLE",
+    "HELPER_RUNTIME_UNAVAILABLE",
+    "GUARDIAN_UNAVAILABLE",
+    "POLICY_INVALID",
+    "SETUP_FAILED",
+    "SELF_TEST_FAILED",
+  ),
+});
+export type TDaemonSandboxDetails = S.Schema.Type<typeof DaemonSandboxDetails>;
+
 // GET /status
 export const DaemonStatus = S.Struct({
   daemon_version: S.String,
@@ -872,13 +899,16 @@ export const DaemonStatus = S.Struct({
    *  it; the probe falls back to the default port. See
    *  `docs/proposals/this-machine-detection-audit.md`. */
   port: S.optional(S.Number),
-  /** The OS-sandbox posture this daemon booted with (`sandbox/landlock.ts`):
-   *  `enforced` (Landlock active), `off` (kill switch / dev opt-out),
+  /** The OS-sandbox posture (`sandbox/landlock.ts`): `enforced` means the
+   *  complete Linux self-test passed; `off` means an explicit exemption,
    *  `unsupported` (non-Linux, or a kernel without Landlock — the systemd
    *  unit hardening may still confine the service), `error` (setup failed —
-   *  fail-open, surfaced so an unconfined daemon is visible, not silent).
+   *  reported so failed confinement is visible). Linux details are in
+   *  `sandboxDetails`.
    *  Absent on daemons too old to report it. */
   sandbox: S.optional(S.Literal("enforced", "off", "unsupported", "error")),
+  /** Detailed Linux confinement checks. Absent on non-Linux and older daemons. */
+  sandboxDetails: S.optional(DaemonSandboxDetails),
   connections: S.Array(DaemonProviderConnection),
   /** The openllm CLI on this box. Absent on daemons too old to report it. */
   cli: S.optional(DaemonCliState),

@@ -14,6 +14,7 @@ export * from "./doctor-report";
 export * from "./doctor-report-local";
 export * from "./doctor-report-policy";
 export * from "./errors";
+export * from "./execution-selection";
 export * from "./image-edit-parse";
 export * from "./images";
 export * from "./inference-headers";

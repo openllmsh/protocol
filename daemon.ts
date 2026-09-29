@@ -8,6 +8,7 @@ import {
 } from "./config";
 import { CooldownReason } from "./cooldown-reason";
 import { DaemonReportingPolicy } from "./doctor-report-policy";
+import { ExecutionSelection } from "./execution-selection";
 import {
   ModelAudioSupport,
   ModelCaps,
@@ -201,6 +202,34 @@ export const DaemonBootstrap = S.Struct({
    */
   active_sub_methods: S.optional(
     S.NullOr(S.Record({ key: S.String, value: SubMethod })),
+  ),
+  /**
+   * Versioned sibling of `active_sub_method` for the named execution
+   * variants + composable capture (`stream-json`, `sdk-facade`, `acp`,
+   * `app-server`, `msp`, `agent-sdk`; see `./execution-selection`). Purely
+   * additive — an old compiled daemon simply never reads this field, no
+   * closed-literal decode risk. Sent ONLY when the requesting daemon
+   * negotiated {@link EXECUTION_SELECTION2_CAP} on
+   * {@link DAEMON_BOOTSTRAP_CAPS_HEADER}: a schema capable of decoding
+   * `sdk-facade` does not imply a daemon that can execute it, so the cloud
+   * gates on the daemon's own advertised understanding, never on a version
+   * string. Carries only a CONCRETE selection (never `legacy-bridge` —
+   * that compatibility selector is resolved per-provider/request-shape,
+   * never at bootstrap-encode time). Absent = no explicit new-vocabulary
+   * global preference; the daemon then falls back to its existing
+   * `active_sub_method` resolution for every provider, unchanged. See
+   * `packages/api/lib/sub-method.ts#resolveSubMethodBootstrapFields` and
+   * `docs/plan/bridge-variants-and-capture-adapters/09-implementation-plan.md` §8.
+   */
+  execution_selection: S.optional(S.NullOr(ExecutionSelection)),
+  /**
+   * Per-provider overrides layered on top of `execution_selection`, same
+   * shape/negotiation rule as `active_sub_methods`. String-keyed so a newer
+   * cloud advertising a slug this daemon predates never fails bootstrap
+   * decode.
+   */
+  execution_selections: S.optional(
+    S.NullOr(S.Record({ key: S.String, value: ExecutionSelection })),
   ),
   /**
    * Cloud-controlled toggle for the daemon's SIGNED-PLAN CACHE

@@ -865,11 +865,13 @@ export const DaemonStatus = S.Struct({
    * connect; absent on daemons that have not observed this conflict. */
   identity_conflict: S.optional(S.Boolean),
   /** The loopback port this daemon's `/v1/*` + `/whoami` surface listens on
-   *  (`OPENLLM_DAEMON_PORT`, default 8787). The dashboard probes
-   *  `http://127.0.0.1:<port>/whoami` to learn which key's daemon is on THIS
-   *  host — the single authoritative locality signal (answering your own
-   *  loopback proves your own machine). Absent on daemons too old to publish
-   *  it; the probe falls back to the default port. See
+   *  (`OPENLLM_DAEMON_PORT`, default 8787). Reported in `daemon_status_json`
+   *  so the cloud's same-machine 307 redirect (`buildDaemonRedirect`,
+   *  `packages/api/lib/daemon-redirect.ts`) can target THIS device's own
+   *  port instead of the global default when the authenticated key's
+   *  session-matched presence row carries one. Absent on daemons too old to
+   *  publish it; callers fall back to the default port. A port is never, by
+   *  itself, evidence of locality or identity. See
    *  `docs/proposals/this-machine-detection-audit.md`. */
   port: S.optional(S.Number),
   /** The OS-sandbox posture this daemon booted with (`sandbox/landlock.ts`):

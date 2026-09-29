@@ -184,9 +184,9 @@ export const DaemonBootstrap = S.Struct({
    * parsed cloud-side: only lowercase `bridge` / `bridge-capture` /
    * `handrolled`; unset/invalid → null = no preference). The daemon samples
    * it from its cached bootstrap snapshot once per hop at selection time; an
-   * unsupported preference for a provider resolves to that provider's default
-   * method (`methods[0]` in the daemon's capability table). Optional so older
-   * clouds keep bootstrapping older daemons.
+   * unsupported preference resolves through that provider's explicit
+   * `defaultSelection` in the daemon's execution registry, subject to caller
+   * policy. Optional so older clouds keep bootstrapping older daemons.
    */
   active_sub_method: S.optional(S.NullOr(SubMethod)),
   /**

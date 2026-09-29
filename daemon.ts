@@ -840,7 +840,7 @@ export type TDaemonCliState = S.Schema.Type<typeof DaemonCliState>;
 
 /** Detailed Linux confinement probe results. Optional for older daemons. */
 export const DaemonSandboxDetails = S.Struct({
-  backend: S.Literal("linux-bubblewrap"),
+  backend: S.Literal("linux-bubblewrap", "linux-landlock"),
   bubblewrapVersion: S.NullOr(S.String),
   landlockAbi: S.NullOr(S.Number),
   helperAvailable: S.Boolean,
@@ -899,14 +899,14 @@ export const DaemonStatus = S.Struct({
    *  it; the probe falls back to the default port. See
    *  `docs/proposals/this-machine-detection-audit.md`. */
   port: S.optional(S.Number),
-  /** The OS-sandbox posture (`sandbox/landlock.ts`): `enforced` means the
-   *  complete Linux self-test passed; `off` means an explicit exemption,
-   *  `unsupported` (non-Linux, or a kernel without Landlock — the systemd
-   *  unit hardening may still confine the service), `error` (setup failed —
-   *  reported so failed confinement is visible). Linux details are in
-   *  `sandboxDetails`.
-   *  Absent on daemons too old to report it. */
-  sandbox: S.optional(S.Literal("enforced", "off", "unsupported", "error")),
+  /** The OS sandbox posture. On Linux, `enforced` requires the namespace test.
+   *  `landlock-only` means Landlock works but namespaces are unavailable.
+   *  `off` means an explicit exemption. `unsupported` means no supported sandbox.
+   *  `error` means sandbox setup failed. Linux details are in `sandboxDetails`.
+   *  Older daemons can omit this field. */
+  sandbox: S.optional(
+    S.Literal("enforced", "landlock-only", "off", "unsupported", "error"),
+  ),
   /** Detailed Linux confinement checks. Absent on non-Linux and older daemons. */
   sandboxDetails: S.optional(DaemonSandboxDetails),
   connections: S.Array(DaemonProviderConnection),

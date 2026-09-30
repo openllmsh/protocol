@@ -1,6 +1,7 @@
 export * from "./api-key-syntax";
 export * from "./audio";
 export * from "./auth";
+export * from "./changelog";
 export * from "./chat";
 export * from "./config";
 export * from "./control-channel";

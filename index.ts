@@ -17,6 +17,7 @@ export * from "./errors";
 export * from "./image-edit-parse";
 export * from "./images";
 export * from "./inference-headers";
+export * from "./local-auth";
 export * from "./media-attempt";
 export * from "./media-bytes";
 export * from "./media-default";

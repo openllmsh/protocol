@@ -28,8 +28,19 @@ Build a third-party OpenLLM client against this and nothing else.
 ## Install
 
 ```sh
-bun install github:openllmsh/protocol # latest
+bun install github:openllmsh/protocol # latest (main tracks stable)
 ```
+
+The current preview is `v2.8.0-beta.3`. Pin the tag for a fixed version —
+tags are immutable:
+
+```sh
+bun install github:openllmsh/protocol#v2.8.0-beta.3
+```
+
+Each prerelease also pushes a durable branch named after the bare version
+(`github:openllmsh/protocol#2.8.0-beta.3`). A later prerelease never moves
+an earlier one's branch or tag, and no prerelease touches `main`.
 
 ```ts
 import { ChatCompletionRequest } from "@openllmsh/protocol";

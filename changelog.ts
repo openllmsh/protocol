@@ -52,12 +52,12 @@ export const CHANGELOG_ACTION_MAX = 180;
  * Editor-written text: one line, non-empty, at most `max` characters, and no
  * stray whitespace at either end. Every changelog field is shown on a single
  * line somewhere (the CLI's `whats_new`, an email subject, a card), so a line
- * break or control character is always a mistake, and in a subject header
+ * break (including U+2028 / U+2029) or control character is always a mistake, and in a subject header
  * it is a hazard.
  */
 export const changelogText = (max: number): S.Schema<string> =>
   S.String.pipe(
-    S.filter((value) => !/\p{Cc}/u.test(value), {
+    S.filter((value) => !/[\p{Cc}\p{Zl}\p{Zp}]/u.test(value), {
       message: () => "must be a single line without control characters",
     }),
     S.filter((value) => value.trim() === value, {

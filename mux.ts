@@ -352,7 +352,8 @@ export const TunnelForwardHeaders = S.Struct({
   content_type: S.optional(TunnelRequestContentType),
   accept: S.optional(TunnelAccept),
   anthropic_version: S.optional(S.String.pipe(S.maxLength(32))),
-  anthropic_beta: S.optional(S.String.pipe(S.maxLength(256))),
+  // Preserve whole flags; the mux codec bounds the complete OPEN payload.
+  anthropic_beta: S.optional(S.String),
   user_agent: S.optional(S.String.pipe(S.maxLength(512))),
   /** Opaque video job id for GET retrieve/content mux follow-up. */
   video_id: S.optional(

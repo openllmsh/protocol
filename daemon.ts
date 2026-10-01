@@ -24,6 +24,7 @@ import { ProviderUsageSnapshot } from "./provider-usage";
 import { ReplaySessionId } from "./replay-session";
 import { RequestStatus } from "./stats";
 import { SubscriptionProviderSlug } from "./subscription-provider";
+import { VendorCliInstall } from "./vendor-cli-install";
 
 // ─── GET /api/daemon/bootstrap (daemon → cloud) ──────────────────────
 //
@@ -725,6 +726,10 @@ export const DaemonProviderConnection = S.Struct({
    *  probe failed before it could determine installation state; consumers must
    *  not treat absence as not installed. */
   cli_installed: S.optional(S.Boolean),
+  /** Progress of an OpenLLM-started background vendor installer. Independent
+   *  of authentication and CLI presence; absent on older daemons or externally
+   *  managed installations. Contains no logs, process identity or host paths. */
+  cli_install: S.optional(VendorCliInstall),
   /** Version of the isolated CLI, when installed + readable. */
   cli_version: S.optional(S.String),
   detail: S.optional(S.String),

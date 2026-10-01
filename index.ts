@@ -50,5 +50,6 @@ export * from "./transcription-encoding";
 export * from "./update-policy";
 export * from "./usage-error";
 export * from "./usage-snapshots";
+export * from "./vendor-cli-install";
 export * from "./video-job-plan";
 export * from "./videos";

@@ -194,6 +194,53 @@ const DoctorStatusSeq = S.Number.pipe(
   S.lessThanOrEqualTo(1_000_000_000),
 );
 
+/**
+ * Closed credential-store operation ledger. Optional on schema 3; strict old
+ * origins reject these keys (`onExcessProperty: error`) so uploaders strip on
+ * 422 alongside the auth outcome ledger. Never raw stderr/path/meta.
+ */
+export const DoctorStoreOperation = S.Literal(
+  "create",
+  "settings",
+  "unlock",
+  "install",
+  "restore",
+  "grant",
+  "recreate",
+);
+export type TDoctorStoreOperation = S.Schema.Type<typeof DoctorStoreOperation>;
+
+export const DoctorStoreStage = S.Literal("staging", "final", "recovery");
+export type TDoctorStoreStage = S.Schema.Type<typeof DoctorStoreStage>;
+
+export const DoctorStoreResult = S.Literal(
+  "succeeded",
+  "failed",
+  "timed_out",
+  "aborted",
+  "peer_won",
+  "skipped",
+);
+export type TDoctorStoreResult = S.Schema.Type<typeof DoctorStoreResult>;
+
+export const DoctorStoreExitCode = S.Number.pipe(
+  S.finite(),
+  S.int(),
+  S.greaterThanOrEqualTo(0),
+  S.lessThanOrEqualTo(255),
+);
+export type TDoctorStoreExitCode = S.Schema.Type<typeof DoctorStoreExitCode>;
+
+/** Mapped from local classifier tokens (`-25293`, `-25295`, passphrase). */
+export const DoctorStoreClassifier = S.Literal(
+  "auth_failed",
+  "invalid_keychain",
+  "passphrase_refused",
+);
+export type TDoctorStoreClassifier = S.Schema.Type<
+  typeof DoctorStoreClassifier
+>;
+
 export const DOCTOR_OUTCOME_LEDGER_KEYS = [
   "provider",
   "operation_kind",
@@ -202,6 +249,14 @@ export const DOCTOR_OUTCOME_LEDGER_KEYS = [
   "observation",
   "reason_code",
   "status_seq",
+  "store_operation",
+  "store_stage",
+  "store_result",
+  "store_exit_code",
+  "store_classifier",
+  "recovery_created",
+  "recovery_unlocked",
+  "recovery_replaced",
 ] as const;
 
 export type TDoctorOutcomeLedger = {
@@ -212,6 +267,14 @@ export type TDoctorOutcomeLedger = {
   readonly observation?: TDaemonProviderObservation;
   readonly reason_code?: TDaemonProviderReasonCode;
   readonly status_seq?: number;
+  readonly store_operation?: TDoctorStoreOperation;
+  readonly store_stage?: TDoctorStoreStage;
+  readonly store_result?: TDoctorStoreResult;
+  readonly store_exit_code?: TDoctorStoreExitCode;
+  readonly store_classifier?: TDoctorStoreClassifier;
+  readonly recovery_created?: boolean;
+  readonly recovery_unlocked?: boolean;
+  readonly recovery_replaced?: boolean;
 };
 
 const decodeOptionalLiteral = <A>(
@@ -235,13 +298,7 @@ export const projectDoctorOutcomeLedger = (
   }
   const raw = input as Record<string, unknown>;
   const ledger: {
-    provider?: TSubscriptionProviderSlug;
-    operation_kind?: TDoctorAuthOperationKind;
-    phase?: TDoctorAuthPhase;
-    outcome?: TDoctorAuthOutcome;
-    observation?: TDaemonProviderObservation;
-    reason_code?: TDaemonProviderReasonCode;
-    status_seq?: number;
+    -readonly [K in keyof TDoctorOutcomeLedger]?: TDoctorOutcomeLedger[K];
   } = {};
   const provider = decodeOptionalLiteral(
     SubscriptionProviderSlug,
@@ -276,6 +333,43 @@ export const projectDoctorOutcomeLedger = (
     } catch {
       /* omit */
     }
+  }
+  const store_operation = decodeOptionalLiteral(
+    DoctorStoreOperation,
+    raw.store_operation,
+  );
+  if (store_operation !== undefined) ledger.store_operation = store_operation;
+  const store_stage = decodeOptionalLiteral(DoctorStoreStage, raw.store_stage);
+  if (store_stage !== undefined) ledger.store_stage = store_stage;
+  const store_result = decodeOptionalLiteral(
+    DoctorStoreResult,
+    raw.store_result,
+  );
+  if (store_result !== undefined) ledger.store_result = store_result;
+  if (raw.store_exit_code !== undefined) {
+    try {
+      ledger.store_exit_code = S.decodeUnknownSync(DoctorStoreExitCode)(
+        raw.store_exit_code,
+        STRICT_DOCTOR_PARSE,
+      );
+    } catch {
+      /* omit */
+    }
+  }
+  const store_classifier = decodeOptionalLiteral(
+    DoctorStoreClassifier,
+    raw.store_classifier,
+  );
+  if (store_classifier !== undefined)
+    ledger.store_classifier = store_classifier;
+  if (typeof raw.recovery_created === "boolean") {
+    ledger.recovery_created = raw.recovery_created;
+  }
+  if (typeof raw.recovery_unlocked === "boolean") {
+    ledger.recovery_unlocked = raw.recovery_unlocked;
+  }
+  if (typeof raw.recovery_replaced === "boolean") {
+    ledger.recovery_replaced = raw.recovery_replaced;
   }
   return ledger;
 };
@@ -338,6 +432,14 @@ export const DoctorReportEvent = S.Struct({
   observation: S.optional(DaemonProviderObservation),
   reason_code: S.optional(DaemonProviderReasonCode),
   status_seq: S.optional(DoctorStatusSeq),
+  store_operation: S.optional(DoctorStoreOperation),
+  store_stage: S.optional(DoctorStoreStage),
+  store_result: S.optional(DoctorStoreResult),
+  store_exit_code: S.optional(DoctorStoreExitCode),
+  store_classifier: S.optional(DoctorStoreClassifier),
+  recovery_created: S.optional(S.Boolean),
+  recovery_unlocked: S.optional(S.Boolean),
+  recovery_replaced: S.optional(S.Boolean),
 });
 export type TDoctorReportEvent = S.Schema.Type<typeof DoctorReportEvent>;
 

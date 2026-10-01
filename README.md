@@ -67,6 +67,20 @@ can resolve across surfaces without applying a chat-only filter.
 The caller supplies catalog entries and availability; these utilities do not
 fetch model lists, inspect credentials, or perform provider authentication.
 
+## Vendor CLI installation status
+
+`DaemonProviderConnection.cli_install` is optional metadata for background vendor
+installers started by OpenLLM's first-run installer. It is separate from
+`cli_installed` (binary presence) and provider authentication. External installs
+and older daemons have no progress record; absence must not be interpreted as an
+active installation.
+
+`VendorCliInstall` carries an attempt ID, `installing` / `awaiting_detection` /
+`failed` / `interrupted` stage, timestamps, and an optional safe failure reason.
+A successful installer exit still awaits binary detection. No percentages, raw
+installer output, process IDs, credentials, or host paths belong in this wire
+metadata. The cloud relays and persists it with the device's existing status.
+
 ## License
 
 [MIT](./LICENSE) © OpenLLM, INC.

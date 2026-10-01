@@ -95,6 +95,8 @@ export const AuthLoginFailed = S.Struct({
   code: AuthLoginFailedCode,
   message: S.String,
   retryable: S.Boolean,
+  /** Closed prep/terminal cause when known (e.g. `keychain_unavailable`). */
+  reason_code: S.optional(DaemonProviderReasonCode),
 });
 export type TAuthLoginFailed = S.Schema.Type<typeof AuthLoginFailed>;
 

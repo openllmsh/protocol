@@ -31,15 +31,15 @@ Build a third-party OpenLLM client against this and nothing else.
 bun install github:openllmsh/protocol # latest (main tracks stable)
 ```
 
-The current preview is `v2.8.0-beta.3`. Pin the tag for a fixed version —
+The current preview is `v2.8.0-beta.4`. Pin the tag for a fixed version —
 tags are immutable:
 
 ```sh
-bun install github:openllmsh/protocol#v2.8.0-beta.3
+bun install github:openllmsh/protocol#v2.8.0-beta.4
 ```
 
 Each prerelease also pushes a durable branch named after the bare version
-(`github:openllmsh/protocol#2.8.0-beta.3`). A later prerelease never moves
+(`github:openllmsh/protocol#2.8.0-beta.4`). A later prerelease never moves
 an earlier one's branch or tag, and no prerelease touches `main`.
 
 ```ts

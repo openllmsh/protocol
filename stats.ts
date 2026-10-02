@@ -202,8 +202,13 @@ export type TInferredProviderUsage = S.Schema.Type<
 
 export const UserStats = S.Struct({
   total_requests: S.Number,
+  /** Inclusive input: uncached prompt + cache read + cache write. */
   total_tokens_in: S.Number,
   total_tokens_out: S.Number,
+  /** Reported cache-read subset of total_tokens_in; legacy rows carry 0. */
+  total_cached_tokens: S.Number,
+  /** Reported cache-write subset of total_tokens_in; legacy rows carry 0. */
+  total_cache_creation_tokens: S.Number,
   total_cost_usd: S.Number,
   /**
    * What the same window's usage would have cost at pure metered API

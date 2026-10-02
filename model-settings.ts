@@ -32,6 +32,8 @@ export const ServiceTierSetting = S.Struct({
   description: S.String,
   options: S.Array(S.Struct({ value: ServiceTier, label: S.String })),
   default: S.optional(ServiceTier),
+  /** Catalog opt-in: matched same-provider successor models may borrow this control. */
+  inherit_to_successors: S.optional(S.Boolean),
 });
 
 export const InputTokenLimitSetting = S.Struct({
@@ -184,7 +186,7 @@ export const dedupeTokenLimits = (
 };
 
 export const formatTokenLimitLabel = (value: number): string => {
-  if (value >= 1_000_000 && value % 1_000_000 === 0) {
+  if (value >= 1_000_000 && value % 1_000 === 0) {
     return `${value / 1_000_000}M tokens`;
   }
   if (value >= 1_000 && value % 1_000 === 0) {

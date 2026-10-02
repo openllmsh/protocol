@@ -544,13 +544,15 @@ export const ExtendedModel = S.Struct({
   max_output_tokens: S.optional(S.Number),
   caps: S.optional(ModelCaps),
   /**
-   * Catalog-internal: when true, a smaller live `context_window` must not
-   * cap this entry's declared input budget. Codex `/models` under-reports
-   * `gpt-5.6-sol` (~272k) after the backend enabled the metered sibling's
-   * 1.05M window. Omitted (the default) keeps live-wins-both-directions.
-   * Not part of the public `/v1/models` card.
+   * Catalog-internal: optional alternate input budgets a model can be
+   * configured to use (e.g. Codex dual-window Sol/Astra at 272k / 1.05M).
+   * Own list wins; absent inherits from the appropriate same-family donor;
+   * explicit `[]` blocks inheritance. Not a live observation and not part of
+   * the public `/v1/models` card — the card projects the effective window.
    */
-  prefer_catalog_window: S.optional(S.Boolean),
+  alternative_input_limits: S.optional(
+    S.Array(S.Number.pipe(S.int(), S.positive())),
+  ),
   /**
    * Codex v2 multi-agent models (gpt-5.6 sol/terra) emit a hierarchical
    * subagent-spawn shape that Claude Code materializes into isolated git

@@ -10,6 +10,10 @@ import { CooldownReason } from "./cooldown-reason";
 import { DaemonReportingPolicy } from "./doctor-report-policy";
 import { ExecutionSelection } from "./execution-selection";
 import {
+  ModelSettingDefinitions,
+  ModelSettingsOverrides,
+} from "./model-settings";
+import {
   ModelAudioSupport,
   ModelCaps,
   ModelCapsDefaultRule,
@@ -36,6 +40,7 @@ import { VendorCliInstall } from "./vendor-cli-install";
 // without recompiling.
 
 export const DaemonCatalogEntry = S.Struct({
+  settings: S.optional(ModelSettingDefinitions),
   model_id: S.String,
   provider: S.String,
   provider_model_id: S.String,
@@ -148,6 +153,7 @@ export const DaemonBootstrap = S.Struct({
   caps_defaults: S.optional(S.Array(ModelCapsDefaultRule)),
   user_fallback_groups: S.Array(FallbackGroup),
   user_model_fallback_bindings: S.Array(ModelFallbackBinding),
+  model_settings: S.optional(ModelSettingsOverrides),
   /** Per-user context-window overflow routing preference. Absent means the
    * historical hop-to-larger-context behaviour. */
   context_overflow_strategy: S.optional(ContextOverflowStrategy),

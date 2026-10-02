@@ -1,5 +1,6 @@
 import { Schema as S } from "effect";
 import { OpaqueId } from "./doctor-report";
+import { ModelSettingsOverrides } from "./model-settings";
 import { DefaultTier, ExtendedModel } from "./models";
 
 /**
@@ -131,6 +132,7 @@ export type TContextOverflowStrategy = S.Schema.Type<
 >;
 
 export const ExtraConfig = S.Struct({
+  model_settings: S.optional(ModelSettingsOverrides),
   search_provider: S.optional(S.String),
   context_overflow_strategy: S.optional(ContextOverflowStrategy),
   custom_apis: S.optional(S.Array(CustomApiCatalogEntry)),

@@ -1,5 +1,6 @@
 import { Schema as S } from "effect";
 import { OptionalVideoReferences } from "./media-input";
+import { ModelSettingDefinitions } from "./model-settings";
 
 export const ModelCapability = S.Literal(
   "chat",
@@ -176,6 +177,7 @@ export const ExtendedModelCard = S.extend(
     provider: S.String,
     provider_model_id: S.String,
     display_name: S.String,
+    settings: S.optional(ModelSettingDefinitions),
     capabilities: S.Array(ModelCapability),
     /**
      * Optional audio/realtime support advertised on `/v1/models`. Catalog
@@ -530,6 +532,7 @@ export const mergeObservedModelCaps = (
 };
 
 export const ExtendedModel = S.Struct({
+  settings: S.optional(ModelSettingDefinitions),
   id: S.String,
   provider: S.String,
   provider_model_id: S.String,

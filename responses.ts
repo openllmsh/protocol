@@ -125,6 +125,7 @@ const ResponsesToolChoice = S.Union(
 
 export const ResponsesRequest = S.Struct({
   model: S.String,
+  service_tier: S.optional(S.Unknown),
   // `input` is either a bare prompt string or the ordered item array.
   input: S.Union(S.String, S.Array(ResponsesInputItem)),
   instructions: S.optional(S.NullishOr(S.String)),

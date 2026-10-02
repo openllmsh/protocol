@@ -27,6 +27,7 @@ export * from "./media-dimensions";
 export * from "./media-input";
 export * from "./media-option-issue";
 export * from "./model-match";
+export * from "./model-settings";
 export * from "./models";
 export * from "./mux";
 export * from "./plan-surface";

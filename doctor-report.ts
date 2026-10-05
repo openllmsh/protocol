@@ -1,6 +1,8 @@
 import type { Either } from "effect";
 import { Schema as S } from "effect";
 import type { ParseError } from "effect/ParseResult";
+import type { TAuthLoginFailedCode } from "./auth";
+import { AuthLoginFailedCode } from "./auth";
 import type {
   TDaemonProviderObservation,
   TDaemonProviderReasonCode,
@@ -241,6 +243,50 @@ export type TDoctorStoreClassifier = S.Schema.Type<
   typeof DoctorStoreClassifier
 >;
 
+/**
+ * Closed classification of a failed child process's output (vendor CLI login,
+ * version probe, version-manager resolution). Computed LOCALLY from the
+ * captured stdout/stderr by `classifyFailureOutput`; the text itself never
+ * leaves the machine. Lets a remote diagnosis separate "the sandbox denied a read
+ * of the user's mise config" and "the CLI crashed" without raw stderr.
+ */
+export const DoctorFailureSignature = S.Literal(
+  "mise_permission_denied",
+  "mise_error",
+  "permission_denied",
+  "sandbox_denied",
+  "not_found",
+  "network",
+  "manager_unresolved",
+  "no_output",
+  "unclassified",
+);
+export type TDoctorFailureSignature = S.Schema.Type<
+  typeof DoctorFailureSignature
+>;
+
+/** Map captured child output onto a {@link DoctorFailureSignature}. Pure;
+ *  order matters (most specific first). */
+export const classifyFailureOutput = (
+  captured: string,
+): TDoctorFailureSignature => {
+  const text = captured.toLowerCase();
+  if (text.trim().length === 0) return "no_output";
+  const denied = /permission denied|os error 13|eacces/.test(text);
+  if (/\bmise\b/.test(text)) {
+    return denied ? "mise_permission_denied" : "mise_error";
+  }
+  if (denied) return "permission_denied";
+  if (/eperm|operation not permitted|posix_spawn/.test(text)) {
+    return "sandbox_denied";
+  }
+  if (/enotfound|econnrefused|econnreset|etimedout|network/.test(text)) {
+    return "network";
+  }
+  if (/enoent|no such file|not found/.test(text)) return "not_found";
+  return "unclassified";
+};
+
 export const DOCTOR_OUTCOME_LEDGER_KEYS = [
   "provider",
   "operation_kind",
@@ -254,6 +300,8 @@ export const DOCTOR_OUTCOME_LEDGER_KEYS = [
   "store_result",
   "store_exit_code",
   "store_classifier",
+  "login_failure_code",
+  "failure_signature",
   "recovery_created",
   "recovery_unlocked",
   "recovery_replaced",
@@ -272,6 +320,8 @@ export type TDoctorOutcomeLedger = {
   readonly store_result?: TDoctorStoreResult;
   readonly store_exit_code?: TDoctorStoreExitCode;
   readonly store_classifier?: TDoctorStoreClassifier;
+  readonly login_failure_code?: TAuthLoginFailedCode;
+  readonly failure_signature?: TDoctorFailureSignature;
   readonly recovery_created?: boolean;
   readonly recovery_unlocked?: boolean;
   readonly recovery_replaced?: boolean;
@@ -362,6 +412,18 @@ export const projectDoctorOutcomeLedger = (
   );
   if (store_classifier !== undefined)
     ledger.store_classifier = store_classifier;
+  const login_failure_code = decodeOptionalLiteral(
+    AuthLoginFailedCode,
+    raw.login_failure_code,
+  );
+  if (login_failure_code !== undefined)
+    ledger.login_failure_code = login_failure_code;
+  const failure_signature = decodeOptionalLiteral(
+    DoctorFailureSignature,
+    raw.failure_signature,
+  );
+  if (failure_signature !== undefined)
+    ledger.failure_signature = failure_signature;
   if (typeof raw.recovery_created === "boolean") {
     ledger.recovery_created = raw.recovery_created;
   }
@@ -437,6 +499,8 @@ export const DoctorReportEvent = S.Struct({
   store_result: S.optional(DoctorStoreResult),
   store_exit_code: S.optional(DoctorStoreExitCode),
   store_classifier: S.optional(DoctorStoreClassifier),
+  login_failure_code: S.optional(AuthLoginFailedCode),
+  failure_signature: S.optional(DoctorFailureSignature),
   recovery_created: S.optional(S.Boolean),
   recovery_unlocked: S.optional(S.Boolean),
   recovery_replaced: S.optional(S.Boolean),

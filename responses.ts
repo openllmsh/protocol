@@ -49,6 +49,8 @@ const ResponsesFunctionCallItem = S.Struct({
   type: S.Literal("function_call"),
   call_id: S.String,
   name: S.String,
+  /** Codex namespace-scoped tools (MCP servers, …) name their group here. */
+  namespace: S.optional(S.String),
   arguments: S.String,
   id: S.optional(S.String),
 });
@@ -184,6 +186,8 @@ const ResponsesOutputFunctionCall = S.Struct({
   id: S.String,
   call_id: S.String,
   name: S.String,
+  /** Set for Codex namespace-scoped tools; Codex routes the call by it. */
+  namespace: S.optional(S.String),
   arguments: S.String,
   status: S.optional(S.Literal("completed", "in_progress", "incomplete")),
 });

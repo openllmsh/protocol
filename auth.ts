@@ -20,6 +20,8 @@ import { DaemonProviderReasonCode } from "./provider-status";
 export const AuthLoginFailedCode = S.Literal(
   "not_installed",
   "spawn_denied",
+  /** The isolated credential store wasn't ready; no vendor CLI was spawned. */
+  "store_unavailable",
   "prompt_timeout",
   "cli_crash",
   "poll_expired",

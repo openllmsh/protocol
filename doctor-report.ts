@@ -225,6 +225,13 @@ export const DoctorStoreResult = S.Literal(
 );
 export type TDoctorStoreResult = S.Schema.Type<typeof DoctorStoreResult>;
 
+/** macOS product version (`27.0.1`) / build (`26A434`), read from
+ *  SystemVersion.plist. Platform facts only — same sensitivity as `platform`. */
+export const DoctorOsVersion = S.String.pipe(
+  S.pattern(/^\d{1,3}(?:\.\d{1,3}){0,2}$/),
+);
+export const DoctorOsBuild = S.String.pipe(S.pattern(/^[0-9A-Za-z]{1,16}$/));
+
 export const DoctorStoreExitCode = S.Number.pipe(
   S.finite(),
   S.int(),
@@ -305,6 +312,9 @@ export const DOCTOR_OUTCOME_LEDGER_KEYS = [
   "recovery_created",
   "recovery_unlocked",
   "recovery_replaced",
+  "store_staging_unlocked",
+  "os_version",
+  "os_build",
 ] as const;
 
 export type TDoctorOutcomeLedger = {
@@ -325,6 +335,11 @@ export type TDoctorOutcomeLedger = {
   readonly recovery_created?: boolean;
   readonly recovery_unlocked?: boolean;
   readonly recovery_replaced?: boolean;
+  /** On a final-store failure: the same store unlocked under its staging
+   *  name moments earlier (so the NAME, not the password, is the variable). */
+  readonly store_staging_unlocked?: boolean;
+  readonly os_version?: string;
+  readonly os_build?: string;
 };
 
 const decodeOptionalLiteral = <A>(
@@ -433,6 +448,13 @@ export const projectDoctorOutcomeLedger = (
   if (typeof raw.recovery_replaced === "boolean") {
     ledger.recovery_replaced = raw.recovery_replaced;
   }
+  if (typeof raw.store_staging_unlocked === "boolean") {
+    ledger.store_staging_unlocked = raw.store_staging_unlocked;
+  }
+  const os_version = decodeOptionalLiteral(DoctorOsVersion, raw.os_version);
+  if (os_version !== undefined) ledger.os_version = os_version;
+  const os_build = decodeOptionalLiteral(DoctorOsBuild, raw.os_build);
+  if (os_build !== undefined) ledger.os_build = os_build;
   return ledger;
 };
 
@@ -504,6 +526,9 @@ export const DoctorReportEvent = S.Struct({
   recovery_created: S.optional(S.Boolean),
   recovery_unlocked: S.optional(S.Boolean),
   recovery_replaced: S.optional(S.Boolean),
+  store_staging_unlocked: S.optional(S.Boolean),
+  os_version: S.optional(DoctorOsVersion),
+  os_build: S.optional(DoctorOsBuild),
 });
 export type TDoctorReportEvent = S.Schema.Type<typeof DoctorReportEvent>;
 

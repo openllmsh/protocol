@@ -127,6 +127,10 @@ export const DoctorEventTimings = S.Struct({
   stdout_closed: S.optional(S.Boolean),
   stderr_closed: S.optional(S.Boolean),
   root_exited: S.optional(S.Boolean),
+  /** Login-start: host CLI is a shebang script (vs native binary). */
+  cli_is_script: S.optional(S.Boolean),
+  /** Login-start: shebang interpreter resolves on the daemon spawn PATH. */
+  interpreter_resolved: S.optional(S.Boolean),
 });
 export type TDoctorEventTimings = S.Schema.Type<typeof DoctorEventTimings>;
 

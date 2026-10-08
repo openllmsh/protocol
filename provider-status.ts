@@ -24,6 +24,8 @@ export const DaemonProviderReasonCode = S.Literal(
   "keychain_unavailable",
   "store_unreadable",
   "cli_unavailable",
+  /** Host CLI is a shebang script whose interpreter is missing on the spawn PATH. */
+  "cli_runtime_missing",
   "credential_absent",
 );
 export type TDaemonProviderReasonCode = S.Schema.Type<
@@ -113,6 +115,12 @@ const inferReason = (
   ) {
     return "probe_timeout";
   }
+  if (
+    detail.includes("runtime") &&
+    (detail.includes("missing") || detail.includes("not on the daemon path"))
+  ) {
+    return "cli_runtime_missing";
+  }
   if (detail.includes("not installed") || conn.cli_installed === false) {
     return "cli_unavailable";
   }
@@ -146,7 +154,8 @@ const inferObservation = (
       reason === "probe_failed" ||
       reason === "keychain_unavailable" ||
       reason === "store_unreadable" ||
-      reason === "cli_unavailable"
+      reason === "cli_unavailable" ||
+      reason === "cli_runtime_missing"
     ) {
       return "unknown";
     }
@@ -160,7 +169,8 @@ const inferObservation = (
       reason === "probe_failed" ||
       reason === "keychain_unavailable" ||
       reason === "store_unreadable" ||
-      reason === "cli_unavailable"
+      reason === "cli_unavailable" ||
+      reason === "cli_runtime_missing"
     ) {
       return "unknown";
     }

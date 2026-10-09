@@ -164,6 +164,8 @@ export const DoctorAuthPhase = S.Literal(
   "start",
   "child_wait",
   "child",
+  /** A sign-in URL/code was surfaced to the user (stream/device logins). */
+  "prompt",
   "prep_wait",
   "prep",
   "verify_wait",

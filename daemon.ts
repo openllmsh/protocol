@@ -929,7 +929,13 @@ export type TDaemonCliState = S.Schema.Type<typeof DaemonCliState>;
 
 // GET /status
 export const DaemonStatus = S.Struct({
+  /** The RUNNING daemon's version. The dashboard shows this. */
   daemon_version: S.String,
+  /** The installed binary's version on disk. One binary is both CLI and
+   *  daemon, and a swap whose daemon code is unchanged does not restart the
+   *  daemon, so this can be ahead of `daemon_version` until the next restart.
+   *  Absent on daemons too old to report it. */
+  installed_version: S.optional(S.NullOr(S.String)),
   /** Whether an sk-llm key is set (the daemon installs keyless). */
   key_configured: S.Boolean,
   /** Whether automatic self-update is enabled (OPT-OUT, default on). Drives the

@@ -29,4 +29,5 @@ export type TSubscriptionDaemonFloors = Readonly<
 
 export const SUBSCRIPTION_DAEMON_FLOORS: TSubscriptionDaemonFloors = {
   muse: { state: "since", version: "2.7.6" },
+  antigravity: { state: "unreleased" },
 };

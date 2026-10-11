@@ -16,6 +16,10 @@ export const SubscriptionProviderSlug = S.Literal(
   // Meta Muse Code subscription — daemon bridge to the official `muse`
   // CLI / SDK only. No direct Meta Model API-key fallback on this slug.
   "muse",
+  // Google Antigravity subscription — daemon bridge to Google's official
+  // `agy_acp_server` ACP agent and its own Google sign-in. Never a metered
+  // Gemini API key; the BYOK `google` provider is a separate slug.
+  "antigravity",
 );
 export type TSubscriptionProviderSlug = S.Schema.Type<
   typeof SubscriptionProviderSlug

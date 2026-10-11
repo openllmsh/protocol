@@ -183,7 +183,9 @@ export const DaemonBootstrap = S.Struct({
    * The daemon never installs the CLI: an absent binary is skipped. Null/
    * absent when no CLI release is published yet (or the cloud is too old to
    * advertise it) — the daemon then never touches the CLI.
-   * See `packages/cli/daemon/src/cli-self-update.ts`.
+   * One binary is both CLI and daemon now, so this is the release the daemon
+   * converges `~/.openllm/bin/openllm` to. See
+   * `packages/cli/daemon/src/updater.ts`.
    */
   latest_cli_version: S.optional(S.NullOr(S.String)),
   /**
@@ -913,7 +915,7 @@ export type TDaemonCloudState = S.Schema.Type<typeof DaemonCloudState>;
 
 /**
  * The openllm CLI's presence on this box, as the daemon already knows it from
- * its auto-update loop (`cli-self-update.ts`) — no probe scripts, no per-client
+ * its device-state probe (`device-state.ts`) — no probe scripts, no per-client
  * walk. This is the ONLY install state the dashboard needs now: clients are
  * configured at RUN time by `openllm <client>`, so there is nothing per-client
  * to install, stamp, or diverge.

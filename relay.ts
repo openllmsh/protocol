@@ -19,7 +19,10 @@ import { ReplaySessionId } from "./replay-session";
  *  commands for its `key_id` and sends acks/status; a `watcher` socket
  *  (a dashboard tab) enqueues commands for keys its `user_id` owns and
  *  receives status/presence pushes. */
-export const RelayRole = S.Literal("daemon", "watcher");
+/** `origin` is the cloud `/v1/*` proxy dialing in as a FLEET consumer
+ *  (origin-side tunneling): it may only open mux channels, and the relay
+ *  stamps its channels `consumer:"daemon"` exactly like a peer daemon's. */
+export const RelayRole = S.Literal("daemon", "watcher", "origin");
 export type TRelayRole = S.Schema.Type<typeof RelayRole>;
 
 /** Bounded, open-vocabulary capability advertisement limits. */
@@ -363,6 +366,18 @@ export const DEVICE_GRANT_B64_MAX = 4 * 1024;
  * re-tunnel (loop guard). Not a client-facing API.
  */
 export const TUNNELED_REQUEST_HEADER = "x-openllm-tunneled";
+
+/** Response header naming the device key that served a tunneled request. */
+export const SERVED_BY_DEVICE_HEADER = "x-openllm-served-by-device";
+
+/**
+ * Request header pinning a follow-up to the device that served an earlier
+ * call (a video job lives on ONE device's vendor account; its id does not
+ * name the device). Any client may echo back {@link SERVED_BY_DEVICE_HEADER}
+ * here. Honoured only if that key is one of the caller's own serving
+ * devices — it reorders the candidates, never widens them.
+ */
+export const TARGET_DEVICE_HEADER = "x-openllm-target-device";
 export const TUNNELED_REQUEST_VALUE = "1";
 
 // ─── Mux channels (consumer ⇄ relay ⇄ serving daemon) ─────────────────

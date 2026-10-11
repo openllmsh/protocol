@@ -173,7 +173,7 @@ export const peerSupportsTunnelSurface = (
 
 const TUNNEL_CONTENT_TYPE_MAX = 256;
 
-const ALLOWED_TUNNEL_ACCEPT = [
+export const ALLOWED_TUNNEL_ACCEPT = [
   "application/json",
   "text/event-stream",
   "audio/mpeg",

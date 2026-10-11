@@ -961,13 +961,8 @@ export const DaemonStatus = S.Struct({
   identity_conflict: S.optional(S.Boolean),
   /** The loopback port this daemon's `/v1/*` + `/whoami` surface listens on
    *  (`OPENLLM_DAEMON_PORT`, default 8787). Reported in `daemon_status_json`
-   *  so the cloud's same-machine 307 redirect (`buildDaemonRedirect`,
-   *  `packages/api/lib/daemon-redirect.ts`) can target THIS device's own
-   *  port instead of the global default when the authenticated key's
-   *  session-matched presence row carries one. Absent on daemons too old to
-   *  publish it; callers fall back to the default port. A port is never, by
-   *  itself, evidence of locality or identity. See
-   *  `docs/proposals/this-machine-detection-audit.md`. */
+   *  for display; routing never uses it (origin reaches devices over the
+   *  relay, not loopback). Absent on daemons too old to publish it. */
   port: S.optional(S.Number),
   /** The OS-sandbox posture this daemon booted with (`sandbox/landlock.ts`):
    *  `enforced` (Landlock active), `off` (kill switch / dev opt-out),
@@ -1069,11 +1064,6 @@ export const DaemonPlanResponse = S.Struct({
 });
 export type TDaemonPlanResponse = S.Schema.Type<typeof DaemonPlanResponse>;
 
-/** Header a managed client sets when it FOLLOWED a 307 to its loopback and
- *  the daemon refused (stopped/crashed): "route me without the daemon", so the
- *  cloud skips subscription hops and serves the API-key fallthrough (§7.1). */
-export const NO_DAEMON_HEADER = "x-openllm-no-daemon";
-
 /** Header that carries the opaque held-tool continuation between client turns. */
 export const TOOL_SESSION_HEADER = "x-openllm-tool-session";
 
@@ -1113,14 +1103,6 @@ export const parseDaemonBootstrapCapsHeader = (
         .split(",")
         .map((c) => c.trim())
         .filter((c) => c.length > 0);
-
-/** Header a BROWSER client (the dashboard "Try" card) sets to ask the cloud to
- *  describe a daemon redirect as a readable `200 { redirect, location }` JSON
- *  instead of a `307`. A browser `fetch` can't read a cross-origin 307 (it
- *  comes back as an opaqueredirect: status 0, no headers), so it can never
- *  follow the daemon hop itself. With this header the card reads `location` and
- *  fetches the daemon directly. Non-browser clients omit it and get the 307. */
-export const REDIRECT_JSON_HEADER = "x-openllm-redirect-json";
 
 // POST /config/api-key — set/update the daemon's sk-llm key after install.
 export const DaemonSetApiKeyRequest = S.Struct({

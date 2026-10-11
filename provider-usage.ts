@@ -171,7 +171,7 @@ export const ProviderUsageSnapshot = S.Union(
      * rate-limited, which is independent of inference). The numbers are
      * still meaningful — just not this-instant — so the UI renders them
      * with a "cached" badge rather than an error. Absent/false on a fresh
-     * read. See `packages/daemon/src/usage-cache.ts`.
+     * read. See `packages/cli/daemon/src/usage-cache.ts`.
      */
     stale: S.optional(S.Boolean),
     /**

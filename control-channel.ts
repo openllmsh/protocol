@@ -11,7 +11,7 @@ import { DaemonCommandKind } from "./daemon";
 // optimistic UI off; `device-state.ts` owns the snapshot the daemon pushes.
 // See `docs/proposals/daemon-owned-state-stateless-relay.md`.
 //
-// NB: distinct from the daemon's local `packages/daemon/src/control-channel.ts`
+// NB: distinct from the daemon's local `packages/cli/daemon/src/control-channel.ts`
 // (the partysocket transport impl). This is the SHARED wire contract both ends
 // and the relay decode against.
 

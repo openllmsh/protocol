@@ -639,7 +639,7 @@ export type TProviderModelList = S.Schema.Type<typeof ProviderModelList>;
 /**
  * Bound on any model-list fetch against a provider's own list endpoint
  * — shared by the cloud refresher (`packages/api`) and the daemon
- * delegates (`packages/daemon`), which can't import each other, so the
+ * delegates (`packages/cli/daemon`), which can't import each other, so the
  * constant lives on the wire package both depend on.
  */
 export const MODEL_LIST_FETCH_TIMEOUT_MS = 10_000;

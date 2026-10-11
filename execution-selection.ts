@@ -60,7 +60,7 @@ export const isBridgeVariant = (value: string): value is TBridgeVariant =>
  * capture form existing here means the NAME is grammatically valid; it is
  * NOT a claim that any given provider's binding is capture-ready (that is
  * the provider execution registry's job — see
- * `packages/daemon/src/execution-registry.ts`).
+ * `packages/cli/daemon/src/execution-registry.ts`).
  */
 export const BRIDGE_VARIANTS_WITH_CAPTURE_FORM: ReadonlySet<TBridgeVariant> =
   new Set(["stream-json", "sdk-facade", "acp", "app-server", "msp"]);

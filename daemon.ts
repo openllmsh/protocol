@@ -172,7 +172,7 @@ export const DaemonBootstrap = S.Struct({
    * published — the cloud is the source of truth, so republishing an older tag
    * rolls daemons back). Null/absent when no release is published yet (or the
    * cloud is too old to advertise it) — the daemon then never self-updates.
-   * See `packages/daemon/src/self-update.ts`.
+   * See `packages/cli/daemon/src/self-update.ts`.
    */
   latest_version: S.optional(S.NullOr(S.String)),
   /**
@@ -183,7 +183,7 @@ export const DaemonBootstrap = S.Struct({
    * The daemon never installs the CLI: an absent binary is skipped. Null/
    * absent when no CLI release is published yet (or the cloud is too old to
    * advertise it) — the daemon then never touches the CLI.
-   * See `packages/daemon/src/cli-self-update.ts`.
+   * See `packages/cli/daemon/src/cli-self-update.ts`.
    */
   latest_cli_version: S.optional(S.NullOr(S.String)),
   /**
@@ -933,12 +933,12 @@ export const DaemonStatus = S.Struct({
   /** Whether automatic self-update is enabled (OPT-OUT, default on). Drives the
    *  dashboard's auto-update switch; toggled via the `set_auto_update` command.
    *  Absent on daemons too old to report it — those always self-updated, so the
-   *  switch then reads as on. See `packages/daemon/src/auto-update-pref.ts`. */
+   *  switch then reads as on. See `packages/cli/daemon/src/auto-update-pref.ts`. */
   auto_update: S.optional(S.Boolean),
   /** Whether remote PTY sessions are enabled (OPT-IN, default off). Local-only
    *  toggle — `openllmd sessions on|off` or the install flag; deliberately NO
    *  relay command can flip it. Absent on daemons too old to gate (those serve
-   *  sessions unconditionally). See `packages/daemon/src/pty-sessions-pref.ts`. */
+   *  sessions unconditionally). See `packages/cli/daemon/src/pty-sessions-pref.ts`. */
   pty_sessions: S.optional(S.Boolean),
   /** Result of the last bootstrap — see `DaemonCloudState`. */
   cloud_state: DaemonCloudState,

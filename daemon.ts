@@ -79,64 +79,6 @@ export const DaemonCatalogEntry = S.Struct({
 });
 export type TDaemonCatalogEntry = S.Schema.Type<typeof DaemonCatalogEntry>;
 
-/**
- * How a subscription hop EXECUTES after the cloud selected + signed it:
- * `bridge` = the native vendor-runtime path (Claude Code stream-json /
- * Codex app-server); `bridge-capture` = the same native path with
- * vendor-built request capture (daemon owns the one upstream exchange);
- * `handrolled` = the manual upstream-HTTP transport. A cloud-controlled
- * preference, published in the bootstrap payload — never a daemon-local
- * env. See `docs/proposals/active-sub-method.md` +
- * `sub-method-simplified-execution.md` and
- * `docs/plan/bridge-request-capture/`.
- */
-export const SubMethod = S.Literal("bridge", "bridge-capture", "handrolled");
-export type TSubMethod = S.Schema.Type<typeof SubMethod>;
-
-/**
- * Advertises that this daemon's bootstrap decoder accepts `bridge-capture` in
- * `active_sub_method` / `active_sub_methods`. Old binaries compiled against the
- * pre-capture `SubMethod` literal reject that token — the cloud MUST project
- * `bridge-capture` → `bridge` when this cap is absent. Never inferred from a
- * version string.
- */
-export const SUB_METHOD_BRIDGE_CAPTURE_CAP = "sub-method-bridge-capture1";
-
-export const hasSubMethodBridgeCaptureCap = (
-  caps: readonly string[] | undefined,
-): boolean => caps?.includes(SUB_METHOD_BRIDGE_CAPTURE_CAP) ?? false;
-
-/** Project a sub-method for an old daemon that cannot decode `bridge-capture`. */
-export const projectSubMethodForBootstrap = (
-  method: TSubMethod | null,
-  negotiatedCaps: readonly string[],
-): TSubMethod | null => {
-  if (method === null) return null;
-  if (
-    method === "bridge-capture" &&
-    !hasSubMethodBridgeCaptureCap(negotiatedCaps)
-  ) {
-    return "bridge";
-  }
-  return method;
-};
-
-/** Project per-provider overrides the same way as {@link projectSubMethodForBootstrap}. */
-export const projectSubMethodOverridesForBootstrap = (
-  overrides: Readonly<Record<string, TSubMethod>> | null,
-  negotiatedCaps: readonly string[],
-): Record<string, TSubMethod> | null => {
-  if (overrides === null) return null;
-  const entries = Object.entries(overrides);
-  if (entries.length === 0) return null;
-  const out: Record<string, TSubMethod> = {};
-  for (const [provider, method] of entries) {
-    const projected = projectSubMethodForBootstrap(method, negotiatedCaps);
-    if (projected !== null) out[provider] = projected;
-  }
-  return Object.keys(out).length > 0 ? out : null;
-};
-
 export const DaemonBootstrap = S.Struct({
   catalog: S.Array(DaemonCatalogEntry),
   provider_prefixes: S.Array(S.String),
@@ -189,51 +131,17 @@ export const DaemonBootstrap = S.Struct({
    */
   latest_cli_version: S.optional(S.NullOr(S.String)),
   /**
-   * The cloud's resolved `ACTIVE_SUB_METHOD` preference (server process env,
-   * parsed cloud-side: only lowercase `bridge` / `bridge-capture` /
-   * `handrolled`; unset/invalid → null = no preference). The daemon samples
-   * it from its cached bootstrap snapshot once per hop at selection time; an
-   * unsupported preference resolves through that provider's explicit
-   * `defaultSelection` in the daemon's execution registry, subject to caller
-   * policy. Optional so older clouds keep bootstrapping older daemons.
-   */
-  active_sub_method: S.optional(S.NullOr(SubMethod)),
-  /**
-   * Per-provider overrides layered on top of `active_sub_method` — parsed
-   * cloud-side from the same `ACTIVE_SUB_METHOD` env (`provider:method`
-   * entries, e.g. `bridge,kimi_code:handrolled`). For a hop the daemon
-   * resolves `overrides[provider] ?? active_sub_method` before the
-   * capability check; an override for an unsupported method still falls
-   * back to the provider default. String-keyed (not the closed slug
-   * literal) so a newer cloud advertising a slug this daemon predates
-   * never fails bootstrap decode. Optional/null so older clouds keep
-   * bootstrapping newer daemons and vice versa.
-   */
-  active_sub_methods: S.optional(
-    S.NullOr(S.Record({ key: S.String, value: SubMethod })),
-  ),
-  /**
-   * Versioned sibling of `active_sub_method` for the named execution
-   * variants + composable capture (`stream-json`, `sdk-facade`, `acp`,
-   * `app-server`, `msp`, `agent-sdk`; see `./execution-selection`). Purely
-   * additive — an old compiled daemon simply never reads this field, no
-   * closed-literal decode risk. Sent ONLY when the requesting daemon
-   * negotiated {@link EXECUTION_SELECTION2_CAP} on
-   * {@link DAEMON_BOOTSTRAP_CAPS_HEADER}: a schema capable of decoding
-   * `sdk-facade` does not imply a daemon that can execute it, so the cloud
-   * gates on the daemon's own advertised understanding, never on a version
-   * string. Carries only a CONCRETE selection (never `legacy-bridge` —
-   * that compatibility selector is resolved per-provider/request-shape,
-   * never at bootstrap-encode time). Absent = no explicit new-vocabulary
-   * global preference; the daemon then falls back to its existing
-   * `active_sub_method` resolution for every provider, unchanged. See
-   * `packages/api/lib/sub-method.ts#resolveSubMethodBootstrapFields` and
-   * `docs/plan/bridge-variants-and-capture-adapters/09-implementation-plan.md` §8.
+   * The cloud's resolved `ACTIVE_SUB_METHOD` global preference — a named
+   * execution variant (`stream-json` / `sdk-facade` / `acp` / `app-server` /
+   * `msp` / `agent-sdk`, optionally `-capture`) or `handrolled`; see
+   * `./execution-selection`. Null = no preference: each hop uses its
+   * provider's registry default. Sampled once per request from the cached
+   * bootstrap snapshot.
    */
   execution_selection: S.optional(S.NullOr(ExecutionSelection)),
   /**
-   * Per-provider overrides layered on top of `execution_selection`, same
-   * shape/negotiation rule as `active_sub_methods`. String-keyed so a newer
+   * Per-provider overrides layered on top of `execution_selection`
+   * (`provider:method` entries of the same env). String-keyed so a newer
    * cloud advertising a slug this daemon predates never fails bootstrap
    * decode.
    */

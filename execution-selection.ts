@@ -1,12 +1,9 @@
 /**
  * Named execution variants and composable capture — public wire vocabulary.
  *
- * Replaces the single broad `bridge` concept with distinct, provider-
- * unprefixed integration ids. `ACTIVE_SUB_METHOD` stays the ONLY selector
- * (same global + `provider:method` override grammar); this module defines
- * the richer token vocabulary and typed wire shapes it can now carry
- * alongside the legacy `bridge` / `bridge-capture` / `handrolled` tokens
- * (see {@link SubMethod} in `./daemon`).
+ * Distinct, provider-unprefixed integration ids. `ACTIVE_SUB_METHOD` is the
+ * ONLY selector (global + `provider:method` override grammar); this module
+ * defines its token vocabulary and the typed wire shapes it carries.
  *
  * See `docs/plan/bridge-variants-and-capture-adapters/00-requirements.md`
  * and `09-implementation-plan.md` §4 for the approved naming baseline and
@@ -73,10 +70,7 @@ export const bridgeVariantSupportsCaptureForm = (
  * A concrete, resolved execution selection: either `handrolled` (never
  * vendor-controlled, so it structurally has no `variant`/`capture` fields
  * and `handrolled-capture` cannot be represented) or a bridge variant with
- * its capture flag. This is the NEW-vocabulary domain — distinct from the
- * legacy `TSubMethod` literal (`bridge` | `bridge-capture` | `handrolled`),
- * which stays the compatibility selector (see {@link TLegacyBridgeSelector}
- * below and `./daemon`'s `SubMethod`).
+ * its capture flag.
  */
 export const ExecutionSelectionHandrolled = S.Struct({
   kind: S.Literal("handrolled"),
@@ -101,36 +95,11 @@ export const executionSelectionBridge = (
   capture: boolean,
 ): TExecutionSelection => ({ kind: "bridge", variant, capture });
 
-/**
- * A configured `bridge` / `bridge-capture` token — request-shape- and
- * provider-dependent, so it is deliberately NOT a concrete
- * {@link TExecutionSelection}. It is resolved to one only where both the
- * provider and (for Claude) the request shape are known — never at
- * bootstrap-encode time. See 09-implementation-plan.md §4.1/§8.1.
- */
-export const LegacyBridgeSelector = S.Struct({
-  kind: S.Literal("legacy-bridge"),
-  capture: S.Boolean,
-});
-export type TLegacyBridgeSelector = S.Schema.Type<typeof LegacyBridgeSelector>;
-
-/**
- * One parsed `ACTIVE_SUB_METHOD` token, in the FULL grammar (legacy +
- * new-vocabulary). `parseActiveExecutionToken` is the one canonical parser
- * for this union — nothing else should re-implement token recognition.
- */
-export const ActiveExecutionToken = S.Union(
-  ExecutionSelection,
-  LegacyBridgeSelector,
-);
-export type TActiveExecutionToken = S.Schema.Type<typeof ActiveExecutionToken>;
-
 const CAPTURE_SUFFIX = "-capture";
 
 /**
  * Parse one `ACTIVE_SUB_METHOD` token (a bare method, not a
- * `provider:method` pair — callers split that first) against the FULL
- * grammar: the three legacy tokens plus every new-vocabulary
+ * `provider:method` pair — callers split that first): `handrolled` or any
  * `<variant>`/`<variant>-capture` combination that
  * {@link bridgeVariantSupportsCaptureForm} allows. Returns `null` for
  * anything else, INCLUDING `handrolled-capture` — capture requires
@@ -141,11 +110,7 @@ const CAPTURE_SUFFIX = "-capture";
  */
 export const parseActiveExecutionToken = (
   token: string,
-): TActiveExecutionToken | null => {
-  if (token === "bridge") return { kind: "legacy-bridge", capture: false };
-  if (token === "bridge-capture") {
-    return { kind: "legacy-bridge", capture: true };
-  }
+): TExecutionSelection | null => {
   if (token === "handrolled") return executionSelectionHandrolled();
   const capture = token.endsWith(CAPTURE_SUFFIX);
   const base = capture ? token.slice(0, -CAPTURE_SUFFIX.length) : token;
@@ -156,43 +121,21 @@ export const parseActiveExecutionToken = (
 
 /** Inverse of {@link parseActiveExecutionToken} — for diagnostics/logging. */
 export const formatActiveExecutionToken = (
-  token: TActiveExecutionToken,
+  token: TExecutionSelection,
 ): string => {
   if (token.kind === "handrolled") return "handrolled";
-  if (token.kind === "legacy-bridge") {
-    return token.capture ? "bridge-capture" : "bridge";
-  }
   return token.capture ? `${token.variant}${CAPTURE_SUFFIX}` : token.variant;
 };
 
 /**
- * Every valid public token in the full grammar, for enumeration/tests.
+ * Every valid public token, for enumeration/tests.
  * `handrolled-capture` is deliberately absent — it is never valid.
  */
 export const ACTIVE_EXECUTION_TOKENS: ReadonlyArray<string> = [
   "handrolled",
-  "bridge",
-  "bridge-capture",
   ...BRIDGE_VARIANTS.flatMap((variant) =>
     bridgeVariantSupportsCaptureForm(variant)
       ? [variant, `${variant}${CAPTURE_SUFFIX}`]
       : [variant],
   ),
 ];
-
-/**
- * Advertises that this daemon's bootstrap decoder understands the versioned
- * `execution_selection` / `execution_selections` fields on `DaemonBootstrap`
- * (see `./daemon`). Those fields are purely additive (an old decoder simply
- * never reads them — no closed-literal decode failure is possible), so this
- * cap is NOT about decode safety; it is about BEHAVIOR: the cloud must know
- * whether an explicit new-vocabulary selection will actually be honored
- * before it can decide whether a safe legacy-field projection exists or the
- * selection must be logged as unsupported for that daemon. Never inferred
- * from a version string. See 09-implementation-plan.md §8.1/§8.2.
- */
-export const EXECUTION_SELECTION2_CAP = "execution-selection2";
-
-export const hasExecutionSelection2Cap = (
-  caps: readonly string[] | undefined,
-): boolean => caps?.includes(EXECUTION_SELECTION2_CAP) ?? false;

@@ -531,6 +531,69 @@ export const mergeObservedModelCaps = (
   };
 };
 
+/**
+ * Per-plan-tier monthly allowance for a model OpenLLM serves on its own key,
+ * as ONE budget in input-token units. Output and cache-read tokens are
+ * weighted by their price relative to fresh input — read from the model's
+ * `api_equivalent_pricing` by {@link includedWeights}, never authored
+ * separately — so the budget tracks what the tokens actually cost. Any
+ * input/output mix fits: all-input gets the full budget, all-output gets
+ * `budget / output weight`; output-heavy use can't beat the price ratio and
+ * input-heavy use is never cut early by an unused output cap.
+ * Tier keys mirror the billing tiers (`free` / `trial` / `pro`).
+ */
+export const IncludedUsage = S.Struct({
+  free: S.Number.pipe(S.int(), S.nonNegative()),
+  trial: S.Number.pipe(S.int(), S.nonNegative()),
+  pro: S.Number.pipe(S.int(), S.nonNegative()),
+});
+export type TIncludedUsage = S.Schema.Type<typeof IncludedUsage>;
+
+/** Cost of one output / cache-read token, in fresh-input-token units. */
+export type TIncludedWeights = {
+  readonly output: number;
+  readonly cacheRead: number;
+};
+
+/**
+ * Weights from a price sheet: `output_per_million / input_per_million` and
+ * `cache_read_per_million / input_per_million`. A missing price — or no
+ * positive input price to divide by — weighs 1 (charged like fresh input),
+ * which never under-charges.
+ */
+export const includedWeights = (
+  pricing: TModelPricing | undefined,
+): TIncludedWeights => {
+  const input = pricing?.input_per_million;
+  const ratio = (price: number | undefined): number =>
+    input === undefined || input <= 0 || price === undefined
+      ? 1
+      : price / input;
+  return {
+    output: ratio(pricing?.output_per_million),
+    cacheRead: ratio(pricing?.cache_read_per_million),
+  };
+};
+
+/** Token counts one spend is computed from. */
+export type TIncludedSpendTokens = {
+  /** Fresh (uncached) input tokens. */
+  readonly input: number;
+  readonly cachedInput: number;
+  readonly output: number;
+};
+
+/** Budget units spent, each token class at its price-derived weight. */
+export const includedSpend = (
+  pricing: TModelPricing | undefined,
+  tokens: TIncludedSpendTokens,
+): number => {
+  const w = includedWeights(pricing);
+  return (
+    tokens.input + tokens.cachedInput * w.cacheRead + tokens.output * w.output
+  );
+};
+
 export const ExtendedModel = S.Struct({
   settings: S.optional(ModelSettingDefinitions),
   id: S.String,
@@ -578,6 +641,13 @@ export const ExtendedModel = S.Struct({
    * Omitted for models metered only by the shared window.
    */
   subscription_meter: S.optional(SubscriptionMeter),
+  /**
+   * Host-paid included models only: the monthly token allowance each plan
+   * tier gets on OpenLLM's own key. Catalog-owned so a limit change ships
+   * with a catalog update. An included model also LEADS every default chain
+   * it belongs to (see `compareDefaultChainMembers`).
+   */
+  included_usage: S.optional(IncludedUsage),
   deprecated: S.optional(S.Boolean),
   // Embedding-only metadata — see ExtendedModelCard for semantics.
   dimension_presets: S.optional(S.Array(S.Number)),

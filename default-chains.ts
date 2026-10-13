@@ -7,12 +7,19 @@ import { MEDIA_DEFAULT_CLASS } from "./models";
 
 /**
  * Shared catalog default-chain ranking. Browser-safe (no DB/HTTP).
+ * Lead: host-paid included models (`included_usage`) come first in every
+ * chain they belong to — a fresh user starts on what OpenLLM gives them.
  * Primary: index of `chainClass` in `default_tiers` (lower first).
  * Tie-break: `tier_rank` ascending. Catalog array order is not policy.
  */
 export type TDefaultChainRankable = Pick<
   TExtendedModel,
-  "default_tiers" | "tier_rank" | "capabilities" | "deprecated" | "provider"
+  | "default_tiers"
+  | "tier_rank"
+  | "capabilities"
+  | "deprecated"
+  | "provider"
+  | "included_usage"
 >;
 
 export const compareDefaultChainMembers = (
@@ -20,6 +27,9 @@ export const compareDefaultChainMembers = (
   b: TDefaultChainRankable,
   chainClass: TDefaultChainClass,
 ): number => {
+  const leadA = a.included_usage === undefined ? 1 : 0;
+  const leadB = b.included_usage === undefined ? 1 : 0;
+  if (leadA !== leadB) return leadA - leadB;
   const depthA =
     a.default_tiers?.indexOf(chainClass) ?? Number.MAX_SAFE_INTEGER;
   const depthB =

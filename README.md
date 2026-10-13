@@ -21,9 +21,13 @@ validators **and** inferred TypeScript types from a single source):
 - chat completions · responses · streaming events
 - provider request/response shapes · cost & model catalog
 - request-status · daemon & relay control frames
+- local-provider contracts (`local-provider.ts`) · URL locality helpers
+  (`url-locality.ts`)
 
 No HTTP, no provider implementations, no `fetch` — contracts and pure helpers.
-Build a third-party OpenLLM client against this and nothing else.
+(`isSafeRemoteEndpoint` may lazily import `node:dns/promises` on hosted
+runtimes; browser/edge keep the pure `isLocalEndpoint` classifier.) Build a
+third-party OpenLLM client against this and nothing else.
 
 ## Install
 
@@ -66,6 +70,34 @@ can resolve across surfaces without applying a chat-only filter.
 
 The caller supplies catalog entries and availability; these utilities do not
 fetch model lists, inspect credentials, or perform provider authentication.
+
+## Local providers (oauth + local)
+
+`local-provider.ts` is the daemon-only identity surface shared by cloud
+routing, the daemon walker, and the `/providers` Local tab:
+
+- `LocalProviderVariant` — `"oauth" | "local"`.
+- `OAuthProviderSlug` — closed set of subscription-CLI slugs; historical
+  `SubscriptionProviderSlug` remains a deprecated alias for one release.
+- `LOCAL_SERVER_PRESETS` / `LocalServerPresetSlug` / `local_port_<n>` helpers
+  (`isLocalServerSlug`, `localPortSlug`, …).
+- `isLocalProvider` / `localProviderVariant` — "cloud never serves this hop"
+  (oauth ∪ local server). OAuth-specific sites keep narrowing to the oauth
+  variant / `isOAuthProviderSlug`.
+- Refusal codes: `subscription_requires_daemon` (historical oauth string) and
+  `local_requires_daemon`.
+
+**Wire compatibility.** `/v1/models` keeps `provider_type: "subscription"` for
+oauth cards; local cards use `"local"`. Both may carry
+`provider_variant: "oauth" | "local"`. `ModelProviderType` is
+`"subscription" | "api_key" | "local"`. Daemon status/commands are additive:
+optional `local_servers` on status, `local_entries` on model report, and
+`local_rescan` / `set_local_key` command kinds — older daemons ignore them.
+
+`url-locality.ts` classifies loopback/private URLs without DNS
+(`isLocalEndpoint`) and, for hosted callers, resolves public names before
+connect (`isSafeRemoteEndpoint`) so redirects cannot SSRF into non-public
+space.
 
 ## Vendor CLI installation status
 

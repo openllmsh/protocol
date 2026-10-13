@@ -285,11 +285,43 @@ export type TDaemonModelReportEntry = S.Schema.Type<
 >;
 
 export const DaemonModelReport = S.Struct({
-  // One entry per subscription provider — the closed set is 4 slugs;
+  // One entry per subscription (oauth) provider — the closed set is small;
   // 32 leaves headroom without allowing a bloated report.
   entries: S.Array(DaemonModelReportEntry).pipe(S.maxItems(32)),
+  /**
+   * Device-discovered local model-server lists, keyed by `local_*` /
+   * `local_port_*` provider. Separate from `entries` so an oauth-only
+   * maxItems(32) bound cannot crowd out local rows (and vice versa).
+   * Absent on older daemons.
+   */
+  local_entries: S.optional(
+    S.Array(DaemonModelReportEntry).pipe(S.maxItems(64)),
+  ),
 });
 export type TDaemonModelReport = S.Schema.Type<typeof DaemonModelReport>;
+
+/** Probe outcome for one local model server on the daemon's machine. */
+export const LocalServerStatus = S.Literal("ok", "needs_key", "unreachable");
+export type TLocalServerStatus = S.Schema.Type<typeof LocalServerStatus>;
+
+/**
+ * Live local-server discovery state pushed on `DaemonStatus` (no keys —
+ * only `has_key`). Also the result shape of a `local_rescan` command.
+ */
+export const LocalServerState = S.Struct({
+  /** Preset slug (`local_ollama`, …) or `local_port_<port>` fallback. */
+  slug: S.String.pipe(S.minLength(1), S.maxLength(64)),
+  port: S.Number.pipe(
+    S.int(),
+    S.greaterThanOrEqualTo(1),
+    S.lessThanOrEqualTo(65535),
+  ),
+  base_url: S.String.pipe(S.minLength(1), S.maxLength(512)),
+  status: LocalServerStatus,
+  has_key: S.Boolean,
+  models: ProviderModelList,
+});
+export type TLocalServerState = S.Schema.Type<typeof LocalServerState>;
 
 // ─── Daemon control relay (cloud ⇄ daemon over the WebSocket relay) ──
 //
@@ -488,6 +520,17 @@ const SubmitLoginCodePayload = S.Struct({
   slug: SubscriptionProviderSlug,
   sealed: Base64Blob,
 });
+/** Set or clear a per-port API key for a local model server. `sealed` is an
+ *  X25519 sealed box to the daemon's pubkey (same posture as
+ *  `submit_login_code`); an empty sealed blob clears the stored key. */
+const SetLocalKeyPayload = S.Struct({
+  port: S.Number.pipe(
+    S.int(),
+    S.greaterThanOrEqualTo(1),
+    S.lessThanOrEqualTo(65535),
+  ),
+  sealed: S.Union(Base64Blob, S.Literal("")),
+});
 const SetAutoUpdatePayload = S.Struct({ enabled: S.Boolean });
 /** `refresh` re-reads usage for connected providers. Optional `slug` scopes
  *  that read to one provider; omitted `slug` means every connected provider
@@ -609,6 +652,22 @@ const commandVariants = <F extends S.Struct.Fields>(addressing: F) =>
       kind: S.Literal("list_local_sessions"),
       payload: ListLocalSessionsPayload,
     }),
+    // Re-probe well-known (and user-added) local model-server ports NOW.
+    // Result is the current `TLocalServerState[]` on the command ack.
+    // Payload-less and idempotent; older daemons ignore the unknown kind.
+    S.Struct({
+      ...addressing,
+      kind: S.Literal("local_rescan"),
+      payload: S.optional(EmptyPayload),
+    }),
+    // Set or clear the API key for one local model-server port. The key is
+    // sealed to the daemon's X25519 pubkey in the browser; the relay never
+    // sees plaintext. Empty `sealed` clears. Older daemons ignore the kind.
+    S.Struct({
+      ...addressing,
+      kind: S.Literal("set_local_key"),
+      payload: SetLocalKeyPayload,
+    }),
   ] as const;
 
 /** The bare `{ kind, payload }` vocabulary — what an enqueue boundary (the
@@ -639,6 +698,8 @@ export const DaemonCommandKind = S.Literal(
   "refresh_models",
   "refresh_models_due",
   "list_local_sessions",
+  "local_rescan",
+  "set_local_key",
 );
 type TDaemonCommandKindLiteral = S.Schema.Type<typeof DaemonCommandKind>;
 // Bidirectional assignability assertion: the literal and the union's
@@ -924,6 +985,12 @@ export const DaemonStatus = S.Struct({
       }),
     ).pipe(S.maxItems(32)),
   ),
+  /**
+   * Local model servers discovered on this device (no key material —
+   * `has_key` only). Absent on daemons too old to probe. Bounded so a
+   * noisy scan cannot bloat fleet status.
+   */
+  local_servers: S.optional(S.Array(LocalServerState).pipe(S.maxItems(64))),
 });
 export type TDaemonStatus = S.Schema.Type<typeof DaemonStatus>;
 

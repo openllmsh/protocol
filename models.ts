@@ -1,4 +1,5 @@
 import { Schema as S } from "effect";
+import { LocalProviderVariant } from "./local-provider";
 import { OptionalVideoReferences } from "./media-input";
 import { ModelSettingDefinitions } from "./model-settings";
 
@@ -144,11 +145,13 @@ export type TDefaultChainClass = S.Schema.Type<typeof DefaultChainClass>;
 
 /**
  * Canonical classification of a *direct* catalog/live/custom card.
- * `subscription` still consumes vendor quota. `api_key` is BYOK auth —
- * not a claim that usage is metered. Omit on fallback aliases: mixed
- * chains are neither a subscription guarantee nor API-key-only.
+ * `subscription` still consumes vendor quota (oauth variant). `api_key` is
+ * BYOK auth — not a claim that usage is metered. `local` is a
+ * device-discovered loopback server (cost 0, live-only). Omit on fallback
+ * aliases: mixed chains are neither a subscription guarantee nor
+ * API-key-only.
  */
-export const ModelProviderType = S.Literal("subscription", "api_key");
+export const ModelProviderType = S.Literal("subscription", "api_key", "local");
 export type TModelProviderType = S.Schema.Type<typeof ModelProviderType>;
 
 export const ModelCard = S.Struct({
@@ -200,6 +203,11 @@ export const ExtendedModelCard = S.extend(
      * not necessarily usage-billed.
      */
     provider_type: S.optional(ModelProviderType),
+    /**
+     * Daemon-only variant when `provider_type` is `subscription` (`oauth`)
+     * or `local` (`local`). Absent on API-key cards and mixed aliases.
+     */
+    provider_variant: S.optional(LocalProviderVariant),
     /**
      * Catalog default-chain membership + rank, so clients can apply the
      * same ordering policy as the server without importing the catalog.
@@ -664,6 +672,11 @@ export const ExtendedModel = S.Struct({
    * mixed aliases.
    */
   provider_type: S.optional(ModelProviderType),
+  /**
+   * Daemon-only variant when `provider_type` is `subscription` (`oauth`)
+   * or `local` (`local`). Absent on API-key cards and mixed aliases.
+   */
+  provider_variant: S.optional(LocalProviderVariant),
 });
 export type TExtendedModel = S.Schema.Type<typeof ExtendedModel>;
 

@@ -1,37 +1,29 @@
-import { Schema as S } from "effect";
+import type { TOAuthProviderSlug } from "./local-provider";
+import {
+  isLocalServerSlug,
+  isOAuthProviderSlug,
+  OAuthProviderSlug,
+} from "./local-provider";
 import type { TModelProviderType } from "./models";
 
-/** The closed set of subscription-provider slugs a control command may
- *  address — the ONLY values that can ever reach a daemon delegate or the
- *  isolated-CLI installer. The daemon's `TCliProvider` derives from this. */
-export const SubscriptionProviderSlug = S.Literal(
-  "claude_code",
-  "chatgpt",
-  "kimi_code",
-  // xAI Grok ("Grok Build", x.ai/cli) — SuperGrok / X Premium+ subscription
-  // OAuth, delegated to the official `grok` CLI by the daemon.
-  "grok",
-  // Cursor subscription, delegated to the official `cursor-agent` CLI.
-  "cursor",
-  // Meta Muse Code subscription — daemon bridge to the official `muse`
-  // CLI / SDK only. No direct Meta Model API-key fallback on this slug.
-  "muse",
-  // Google Antigravity subscription — daemon bridge to Google's official
-  // `agy_acp_server` ACP agent and its own Google sign-in. Never a metered
-  // Gemini API key; the BYOK `google` provider is a separate slug.
-  "antigravity",
-);
-export type TSubscriptionProviderSlug = S.Schema.Type<
-  typeof SubscriptionProviderSlug
->;
+/**
+ * @deprecated Prefer {@link OAuthProviderSlug} from `./local-provider`.
+ * Re-exported so existing imports keep compiling for one release.
+ */
+export const SubscriptionProviderSlug = OAuthProviderSlug;
+/**
+ * @deprecated Prefer {@link TOAuthProviderSlug}.
+ */
+export type TSubscriptionProviderSlug = TOAuthProviderSlug;
 
 /** Catalog tagging only — execution still uses registry `authKind`. */
 export const isSubscriptionProviderSlug = (
   provider: string,
-): provider is TSubscriptionProviderSlug =>
-  (SubscriptionProviderSlug.literals as ReadonlyArray<string>).includes(
-    provider,
-  );
+): provider is TSubscriptionProviderSlug => isOAuthProviderSlug(provider);
 
-export const catalogProviderType = (provider: string): TModelProviderType =>
-  isSubscriptionProviderSlug(provider) ? "subscription" : "api_key";
+/** Catalog tagging only — execution still uses registry `authKind`. */
+export const catalogProviderType = (provider: string): TModelProviderType => {
+  if (isLocalServerSlug(provider)) return "local";
+  if (isSubscriptionProviderSlug(provider)) return "subscription";
+  return "api_key";
+};

@@ -246,7 +246,7 @@ export const isLocalEndpoint = (url: string): boolean => {
   return isLocalHostname(parsed.hostname);
 };
 
-const isForbiddenResolvedAddress = (address: string): boolean => {
+export const isForbiddenResolvedAddress = (address: string): boolean => {
   const normalized = normalizeHost(address);
   const v4 = parseIpv4(normalized);
   if (v4 !== null) return isForbiddenIpv4(v4);
@@ -254,47 +254,31 @@ const isForbiddenResolvedAddress = (address: string): boolean => {
 };
 
 /**
- * Resolve a syntactically non-local URL and accept it only when every DNS
- * answer is globally routable. DNS is loaded lazily so browser/edge consumers
- * can keep using the pure classifier; absence of Node DNS fails closed.
- *
- * This validation must be invoked directly before each hosted fetch. Standard
- * Fetch (undici / Bun) does not expose a portable DNS-pin primitive that
- * connects to the resolved address while preserving Host + TLS SNI, so the
- * established defence is: preflight DNS here, then `redirect: "manual"` with
- * revalidation of every Location before the next hop
- * (`fetchSafeUpstream` in `packages/core/runner/base.ts`). A true
- * connect-to-resolved-IP path would require a custom dispatcher and is out of
- * scope for the portable fetch surface this codebase targets.
+ * The DNS-free half of `isSafeRemoteEndpoint` (in `url-locality-dns.ts`):
+ * a verdict when the URL alone decides it, otherwise the hostname to resolve.
+ * Kept here so this module stays importable from edge/browser bundles.
  */
-export const isSafeRemoteEndpoint = async (url: string): Promise<boolean> => {
+export const preflightRemoteEndpoint = (
+  url: string,
+): { readonly safe: boolean } | { readonly resolve: string } => {
   let parsed: URL;
   try {
     parsed = new URL(url);
   } catch {
-    return false;
+    return { safe: false };
   }
-  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return false;
-  if (parsed.username.length > 0 || parsed.password.length > 0) return false;
-  if (isLocalHostname(parsed.hostname)) return false;
-
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+    return { safe: false };
+  }
+  if (parsed.username.length > 0 || parsed.password.length > 0) {
+    return { safe: false };
+  }
+  if (isLocalHostname(parsed.hostname)) return { safe: false };
   const literal = normalizeHost(parsed.hostname);
   if (parseIpv4(literal) !== null || literal.includes(":")) {
-    return !isForbiddenResolvedAddress(literal);
+    return { safe: !isForbiddenResolvedAddress(literal) };
   }
-
-  try {
-    const dns = await import("node:dns/promises");
-    const answers = await dns.lookup(literal, { all: true, verbatim: true });
-    return (
-      answers.length > 0 &&
-      answers.every((answer) => !isForbiddenResolvedAddress(answer.address))
-    );
-  } catch {
-    // Node DNS is unavailable in edge/browser runtimes and a failed lookup
-    // cannot establish that an upstream is safe. Hosted callers fail closed.
-    return false;
-  }
+  return { resolve: literal };
 };
 
 /** Error code every refusal path returns, so clients can branch on it. */

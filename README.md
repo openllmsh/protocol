@@ -25,7 +25,7 @@ validators **and** inferred TypeScript types from a single source):
   (`url-locality.ts`)
 
 No HTTP, no provider implementations, no `fetch` — contracts and pure helpers.
-(`isSafeRemoteEndpoint` may lazily import `node:dns/promises` on hosted
+(`isSafeRemoteEndpoint` lives in the Node-only `url-locality-dns` subpath, outside the index, because it imports `node:dns/promises` on hosted
 runtimes; browser/edge keep the pure `isLocalEndpoint` classifier.) Build a
 third-party OpenLLM client against this and nothing else.
 

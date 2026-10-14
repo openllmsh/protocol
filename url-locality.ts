@@ -101,12 +101,18 @@ const isForbiddenIpv4 = (o: ReadonlyArray<number>): boolean => {
   if (isLocalIpv4(o)) return true;
   // Carrier-grade NAT, benchmark, documentation, multicast, and reserved
   // ranges are not public Internet targets and must not be SSRF destinations.
-  if (a === 100 && b >= 64 && b <= 127) return true;
-  if (a === 192 && (b === 0 || b === 88)) return true;
-  if (a === 192 && b === 0 && c === 2) return true;
-  if (a === 198 && (b === 18 || b === 19 || b === 51)) return true;
-  if (a === 203 && b === 0 && c === 113) return true;
-  return a >= 224;
+  // Match the reserved blocks exactly — do not over-block neighbouring
+  // public space under the same /16 (e.g. 192.0.1.0/24 is public, only
+  // 192.0.0.0/24 and 192.0.2.0/24 are reserved; likewise 198.51.100.0/24,
+  // not 198.51.0.0/16).
+  if (a === 100 && b >= 64 && b <= 127) return true; // 100.64.0.0/10 CGNAT
+  if (a === 192 && b === 0 && c === 0) return true; // 192.0.0.0/24 IETF Protocol Assignments
+  if (a === 192 && b === 0 && c === 2) return true; // 192.0.2.0/24 TEST-NET-1
+  if (a === 192 && b === 88 && c === 99) return true; // 192.88.99.0/24 6to4 anycast (deprecated)
+  if (a === 198 && (b === 18 || b === 19)) return true; // 198.18.0.0/15 benchmark
+  if (a === 198 && b === 51 && c === 100) return true; // 198.51.100.0/24 TEST-NET-2
+  if (a === 203 && b === 0 && c === 113) return true; // 203.0.113.0/24 TEST-NET-3
+  return a >= 224; // multicast + reserved
 };
 
 const isLocalIpv6 = (host: string): boolean => {

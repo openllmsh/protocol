@@ -21,6 +21,7 @@ export * from "./images";
 export * from "./inference-headers";
 export * from "./local-auth";
 export * from "./local-provider";
+export * from "./marketplace";
 export * from "./media-attempt";
 export * from "./media-bytes";
 export * from "./media-default";

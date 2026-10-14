@@ -257,9 +257,10 @@ export type TAdminStats = S.Schema.Type<typeof AdminStats>;
 
 /**
  * A horizontal grouping of recent requests by (provider, model) within a
- * sliding window. The overview table renders one row per group with an
- * `N×` badge; expanding fans out the individual rows via
- * `requestItems`, each carrying its own endpoint.
+ * sliding window. Ephemeral `local_port_<n>` providers are collapsed to the
+ * stable `local_port` bucket with model `local_port/<leaf>`. The overview
+ * table renders one row per group with an `N×` badge; expanding fans out
+ * the individual rows via `requestItems`, each carrying its own endpoint.
  */
 export const GroupedRequest = S.Struct({
   id: S.String,

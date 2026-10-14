@@ -123,6 +123,33 @@ export const parseLocalPortSlug = (slug: string): number | null => {
 export const isLocalPortSlug = (slug: string): boolean =>
   parseLocalPortSlug(slug) !== null;
 
+/**
+ * Stable overview-group provider for ephemeral `local_port_<n>` rows.
+ * Custom-port / test servers each mint a unique slug; collapsing them here
+ * lets Recent requests stack as `tiny N×` instead of one row per port.
+ */
+export const LOCAL_PORT_GROUP_PROVIDER = "local_port" as const;
+
+/** Overview grouping provider: ephemeral ports share {@link LOCAL_PORT_GROUP_PROVIDER}. */
+export const requestGroupProvider = (provider: string): string =>
+  isLocalPortSlug(provider) ? LOCAL_PORT_GROUP_PROVIDER : provider;
+
+/**
+ * Overview grouping model id for a request row. Ephemeral local ports keep the
+ * `local_port/<leaf>` shape so `shortName` still shows the leaf model.
+ */
+export const requestGroupModel = (
+  provider: string,
+  model: string | null,
+): string | null => {
+  if (!isLocalPortSlug(provider)) return model;
+  if (model === null || model.length === 0) return model;
+  const slash = model.lastIndexOf("/");
+  const leaf = slash >= 0 ? model.slice(slash + 1) : model;
+  if (leaf.length === 0) return model;
+  return `${LOCAL_PORT_GROUP_PROVIDER}/${leaf}`;
+};
+
 export const isLocalServerPresetSlug = (
   slug: string,
 ): slug is TLocalServerPresetSlug =>

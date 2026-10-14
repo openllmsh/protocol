@@ -44,6 +44,25 @@ export const MarketplaceMcp = S.Struct({
 });
 export type TMarketplaceMcp = S.Schema.Type<typeof MarketplaceMcp>;
 
+/**
+ * Host-paid usage OpenLLM includes per plan tier, like the included inference
+ * model (`included_usage` on catalog models). Calls go through the gateway's
+ * metering proxy on OpenLLM's own vendor key — the key never reaches a client.
+ * A user who brings their own key bypasses it entirely.
+ */
+export const MarketplaceIncludedUsage = S.Struct({
+  /** What one unit is. Only MCP `tools/call` requests are metered today. */
+  unit: S.Literal("tool_calls"),
+  free: S.Number,
+  trial: S.Number,
+  pro: S.Number,
+  /** Server env var holding the host key. Stripped from API responses. */
+  host_key_env: S.optional(S.String),
+});
+export type TMarketplaceIncludedUsage = S.Schema.Type<
+  typeof MarketplaceIncludedUsage
+>;
+
 export const MarketplaceEntry = S.Struct({
   /** Becomes the client's MCP server name — must not shadow `openllm`. */
   id: S.String.pipe(S.pattern(/^[a-z][a-z0-9-]{1,47}$/)),
@@ -51,10 +70,12 @@ export const MarketplaceEntry = S.Struct({
   name: S.String,
   description: S.String,
   homepage: S.String,
-  icon: S.optional(S.String),
+  /** Optional logo URL, shown on the row tile. */
+  image: S.optional(S.String),
   kind: MarketplaceEntryKind,
   policy: MarketplacePolicy,
   tier: S.optionalWith(MarketplaceTier, { default: () => "free" as const }),
+  included_usage: S.optional(MarketplaceIncludedUsage),
   mcp: MarketplaceMcp,
   config: S.optionalWith(S.Array(MarketplaceConfigField), {
     default: () => [],

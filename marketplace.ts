@@ -41,6 +41,13 @@ export const MarketplaceMcp = S.Struct({
   command: S.optional(S.String),
   args: S.optional(S.Array(S.String)),
   env: S.optional(S.Record({ key: S.String, value: S.String })),
+  /**
+   * Upstream tool names never exposed to users — account-owner operations
+   * (billing, logs, webhooks, account-wide jobs) that a consumer of the
+   * integration must not reach. Hidden from `tools/list` by the CLI and
+   * refused on `tools/call` by the included-usage proxy.
+   */
+  blocked_tools: S.optional(S.Array(S.String)),
 });
 export type TMarketplaceMcp = S.Schema.Type<typeof MarketplaceMcp>;
 
@@ -95,6 +102,8 @@ export const MarketplaceLaunchServer = S.Struct({
   command: S.optional(S.String),
   args: S.optional(S.Array(S.String)),
   env: S.optional(S.Record({ key: S.String, value: S.String })),
+  /** Carried from the entry's `mcp.blocked_tools`; the CLI drops these. */
+  blocked_tools: S.optional(S.Array(S.String)),
 });
 export type TMarketplaceLaunchServer = S.Schema.Type<
   typeof MarketplaceLaunchServer

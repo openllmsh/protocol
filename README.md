@@ -113,6 +113,12 @@ A successful installer exit still awaits binary detection. No percentages, raw
 installer output, process IDs, credentials, or host paths belong in this wire
 metadata. The cloud relays and persists it with the device's existing status.
 
+`DaemonProviderConnection.host_signed_in` is an optional boolean hint that the
+user is already signed in to the vendor's CLI in their own home on the daemon's
+machine. The daemon derives it from a read-only presence check of the vendor's
+host credential file and never copies or uses that credential; absence means
+unknown (older daemon, keychain-backed store, unreadable file), not signed out.
+
 ## License
 
 [MIT](./LICENSE) © OpenLLM, INC.

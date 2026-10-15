@@ -785,6 +785,16 @@ export const DaemonProviderConnection = S.Struct({
   cli_install: S.optional(VendorCliInstall),
   /** Version of the isolated CLI, when installed + readable. */
   cli_version: S.optional(S.String),
+  /** The user appears signed in to this vendor's CLI in their OWN home on the
+   *  daemon's machine (e.g. `~/.codex/auth.json` holds a ChatGPT login). A
+   *  read-only, secret-free presence hint so onboarding can put that provider
+   *  first with a one-tap Connect. It is never a connection: the daemon does
+   *  not copy, import or use that credential, and Connect still runs the
+   *  vendor login inside the daemon's isolated home. Absent = unknown (an
+   *  older daemon, a provider whose host store sits in an OS keychain the
+   *  daemon will not touch, or an unreadable store); consumers must not read
+   *  absence as signed out. */
+  host_signed_in: S.optional(S.Boolean),
   detail: S.optional(S.String),
   last_login_at_ms: S.optional(S.NullOr(S.Number)),
   /** A LIVE device-code flow awaiting the user (codex/kimi on a remote box):

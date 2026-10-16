@@ -549,6 +549,18 @@ export const RelayRtcNackFrame = S.Struct({
 });
 export type TRelayRtcNackFrame = S.Schema.Type<typeof RelayRtcNackFrame>;
 
+/** relay → every client. This box is superseded (a newer relay deploy is
+ *  accepting): move to the box `/api/daemon/channel` now returns. The box
+ *  admits no new work, finishes in-flight channels, then closes each socket
+ *  with {@link RELAY_MOVED_CLOSE_CODE}. Old clients drop the unknown frame and
+ *  move on that close. See `docs/plans/relay-handover.md`. */
+export const RelayMovedFrame = S.Struct({ type: S.Literal("relay_moved") });
+export type TRelayMovedFrame = S.Schema.Type<typeof RelayMovedFrame>;
+
+/** Close code of a retired box's socket: reconnect immediately (no backoff).
+ *  Distinct from 4000 `superseded`, so it never triggers daemon stand-down. */
+export const RELAY_MOVED_CLOSE_CODE = 4010;
+
 /** Keepalive (both directions). The relay pings below Cloudflare's
  *  proxied-WS idle bound; a missed pong is the relay's dead-peer signal. */
 export const RelayPingFrame = S.Struct({ type: S.Literal("ping") });
@@ -610,6 +622,7 @@ export const RelayFrame = S.Union(
   RelayRtcAnswerFrame,
   RelayRtcIceFrame,
   RelayRtcNackFrame,
+  RelayMovedFrame,
   RelayPingFrame,
   RelayPongFrame,
 );

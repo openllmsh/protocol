@@ -272,10 +272,24 @@ export const RelayAckFrame = S.Struct({
 });
 export type TRelayAckFrame = S.Schema.Type<typeof RelayAckFrame>;
 
+/** Planned-downtime reason on a graceful `active:false` status beacon.
+ *  Absent ⇒ real offline / legacy beacon (CERTAIN death). */
+export const RelayStatusRestartReason = S.Literal("restarting");
+export type TRelayStatusRestartReason = S.Schema.Type<
+  typeof RelayStatusRestartReason
+>;
+
 /** daemon → relay. Heartbeat + per-provider snapshot. `active:false` is the
  *  graceful-exit beacon. The relay folds the snapshot into
  *  `api_key_activity.daemon_status_json` (durable, read by the proxy + a cold
- *  HTTP load) and fans it out to the user's watchers (`status_push`). */
+ *  HTTP load) and fans it out to the user's watchers (`status_push`).
+ *
+ *  Planned restarts send `active:false` WITH `reason:"restarting"` (and an
+ *  optional `expect_back_ms` hint) so the relay keeps the row routable —
+ *  `daemon_active` stays true and `last_seen` stays fresh — while origin's
+ *  presence grace absorbs the brief gap. A bare `active:false` remains a
+ *  CERTAIN death (`daemon_active=false`). See
+ *  `docs/audit/2026-10-20-deploy-zero-downtime.md` fix #2. */
 export const RelayStatusFrame = S.Struct({
   type: S.Literal("status"),
   active: S.optional(S.Boolean),
@@ -284,6 +298,10 @@ export const RelayStatusFrame = S.Struct({
   daemon_session_id: S.optional(S.String),
   status_seq: S.optional(S.Number),
   acks: S.optional(S.Array(DaemonCommandAck)),
+  /** Planned downtime; absent ⇒ real offline / legacy beacon. */
+  reason: S.optional(RelayStatusRestartReason),
+  /** Hint for origin grace / UI: ms until this key should be back. */
+  expect_back_ms: S.optional(S.Number),
 });
 export type TRelayStatusFrame = S.Schema.Type<typeof RelayStatusFrame>;
 

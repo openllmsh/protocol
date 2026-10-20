@@ -1064,6 +1064,13 @@ export const DAEMON_DEVICE_ID_HEADER = "x-openllm-device-id";
 export const DAEMON_DEVICE_LABEL_HEADER = "x-openllm-device-label";
 
 /**
+ * Optional OS platform the daemon reports on control-plane calls
+ * (`process.platform`: `darwin` / `linux` / `win32`). Metadata only —
+ * used for `daemon_connected` analytics. Absent on older binaries.
+ */
+export const DAEMON_PLATFORM_HEADER = "x-openllm-platform";
+
+/**
  * Header a daemon sends on control-plane calls (chiefly
  * `GET /api/daemon/bootstrap`) listing the open-vocabulary decode
  * capabilities it supports — e.g. `MODEL_CAPABILITIES_OPEN_CAP` from

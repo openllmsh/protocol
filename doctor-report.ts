@@ -148,16 +148,26 @@ export const DoctorLauncherKind = S.Literal(
 );
 export type TDoctorLauncherKind = S.Schema.Type<typeof DoctorLauncherKind>;
 
-/** Closed adapter ids we may attribute a shim resolution to. */
-export const DoctorLauncherAdapter = S.Literal(
+/**
+ * Closed adapter ids we may attribute a shim resolution to. Single source
+ * for doctor + daemon manager adapters — consumers must reference this
+ * const (not re-list the four ids). NOTE for manager-resolution /
+ * launcher-roots owners: derive shim adapter ids from
+ * {@link DOCTOR_LAUNCHER_ADAPTERS} so doctor + spawn PATH cannot drift.
+ */
+export const DOCTOR_LAUNCHER_ADAPTERS = [
   "mise",
   "asdf",
   "volta",
   "proto",
+] as const;
+export const DoctorLauncherAdapter = S.Literal(
+  DOCTOR_LAUNCHER_ADAPTERS[0],
+  DOCTOR_LAUNCHER_ADAPTERS[1],
+  DOCTOR_LAUNCHER_ADAPTERS[2],
+  DOCTOR_LAUNCHER_ADAPTERS[3],
 );
-export type TDoctorLauncherAdapter = S.Schema.Type<
-  typeof DoctorLauncherAdapter
->;
+export type TDoctorLauncherAdapter = (typeof DOCTOR_LAUNCHER_ADAPTERS)[number];
 
 export const DoctorCachedHealth = S.Struct({
   connected_providers: FiniteCount,

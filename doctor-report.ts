@@ -266,6 +266,9 @@ export type TDoctorStoreClassifier = S.Schema.Type<
 export const DoctorFailureSignature = S.Literal(
   "mise_permission_denied",
   "mise_error",
+  "launcher_write_denied",
+  "launcher_interpreter_missing",
+  "launcher_unresolved",
   "permission_denied",
   "sandbox_denied",
   "not_found",
@@ -279,7 +282,8 @@ export type TDoctorFailureSignature = S.Schema.Type<
 >;
 
 /** Map captured child output onto a {@link DoctorFailureSignature}. Pure;
- *  order matters (most specific first). */
+ *  order matters (most specific first). Manager-specific `mise_*` signatures
+ *  keep precedence over the generic `launcher_*` mechanism classes. */
 export const classifyFailureOutput = (
   captured: string,
 ): TDoctorFailureSignature => {
@@ -288,6 +292,31 @@ export const classifyFailureOutput = (
   const denied = /permission denied|os error 13|eacces/.test(text);
   if (/\bmise\b/.test(text)) {
     return denied ? "mise_permission_denied" : "mise_error";
+  }
+  // `env: node: No such file or directory` / `/usr/bin/env: 'python3': ...`
+  // — shebang interpreter missing on the spawn PATH (npm globals, etc.).
+  if (
+    /(?:^|\n|\/usr\/bin\/)env:\s*['"]?[\w.+-]+['"]?(?::\s*no such file)?/.test(
+      text,
+    )
+  ) {
+    return "launcher_interpreter_missing";
+  }
+  // Write denied by confinement / read-only FS — generic across launchers.
+  if (
+    /erofs|read-only file system/.test(text) ||
+    (denied && /writ|creat|trunc|mkdir|unlink|rename|open\s/.test(text)) ||
+    (/eperm|operation not permitted/.test(text) &&
+      /writ|creat|trunc|mkdir|unlink|rename/.test(text))
+  ) {
+    return "launcher_write_denied";
+  }
+  if (
+    /unresolved|could not resolve|failed to resolve|unable to resolve/.test(
+      text,
+    )
+  ) {
+    return "launcher_unresolved";
   }
   if (denied) return "permission_denied";
   if (/eperm|operation not permitted|posix_spawn/.test(text)) {

@@ -320,8 +320,10 @@ export const classifyFailureOutput = (
   }
   // `env: node: No such file or directory` / `/usr/bin/env: 'python3': ...`
   // — shebang interpreter missing on the spawn PATH (npm globals, etc.).
+  // Require the `: no such file` clause so a CLI status line like
+  // `env: production` is not misclassified.
   if (
-    /(?:^|\n|\/usr\/bin\/)env:\s*['"]?[\w.+-]+['"]?(?::\s*no such file)?/.test(
+    /(?:^|\n|\/usr\/bin\/)env:\s*['"]?[\w.+-]+['"]?:\s*no such file/.test(
       text,
     )
   ) {
@@ -336,6 +338,16 @@ export const classifyFailureOutput = (
   ) {
     return "launcher_write_denied";
   }
+  // DNS / transport failures before the generic "could not resolve" launcher
+  // branch — otherwise curl's `Could not resolve host:` becomes
+  // `launcher_unresolved`.
+  if (
+    /could not resolve host|getaddrinfo|enotfound|econnrefused|econnreset|etimedout|network/.test(
+      text,
+    )
+  ) {
+    return "network";
+  }
   if (
     /unresolved|could not resolve|failed to resolve|unable to resolve/.test(
       text,
@@ -346,9 +358,6 @@ export const classifyFailureOutput = (
   if (denied) return "permission_denied";
   if (/eperm|operation not permitted|posix_spawn/.test(text)) {
     return "sandbox_denied";
-  }
-  if (/enotfound|econnrefused|econnreset|etimedout|network/.test(text)) {
-    return "network";
   }
   if (/enoent|no such file|not found/.test(text)) return "not_found";
   return "unclassified";

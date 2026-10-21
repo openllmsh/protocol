@@ -368,11 +368,13 @@ export const classifyFailureOutput = (
     return denied ? "mise_permission_denied" : "mise_error";
   }
   // `env: node: No such file or directory` / `/usr/bin/env: 'python3': ...`
-  // — shebang interpreter missing on the spawn PATH (npm globals, etc.).
+  // / prefixed `login failed: env: node: …` / nix `…/bin/env:` — shebang
+  // interpreter missing on the spawn PATH (npm globals, etc.).
   // Require the `: no such file` clause so a CLI status line like
-  // `env: production` is not misclassified.
+  // `env: production` is not misclassified. Loosen the start anchor so
+  // `/bin/env:` and any `…/env:` path prefix still match.
   if (
-    /(?:^|\n|\/usr\/bin\/)env:\s*['"]?[\w.+-]+['"]?:\s*no such file/.test(text)
+    /(?:^|[\s/])env:\s*['"]?[\w.+-]+['"]?:\s*no such file/.test(text)
   ) {
     return "launcher_interpreter_missing";
   }

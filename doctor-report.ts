@@ -161,12 +161,7 @@ export const DOCTOR_LAUNCHER_ADAPTERS = [
   "volta",
   "proto",
 ] as const;
-export const DoctorLauncherAdapter = S.Literal(
-  DOCTOR_LAUNCHER_ADAPTERS[0],
-  DOCTOR_LAUNCHER_ADAPTERS[1],
-  DOCTOR_LAUNCHER_ADAPTERS[2],
-  DOCTOR_LAUNCHER_ADAPTERS[3],
-);
+export const DoctorLauncherAdapter = S.Literal(...DOCTOR_LAUNCHER_ADAPTERS);
 export type TDoctorLauncherAdapter = (typeof DOCTOR_LAUNCHER_ADAPTERS)[number];
 
 export const DoctorCachedHealth = S.Struct({

@@ -372,9 +372,7 @@ export const classifyFailureOutput = (
   // Require the `: no such file` clause so a CLI status line like
   // `env: production` is not misclassified.
   if (
-    /(?:^|\n|\/usr\/bin\/)env:\s*['"]?[\w.+-]+['"]?:\s*no such file/.test(
-      text,
-    )
+    /(?:^|\n|\/usr\/bin\/)env:\s*['"]?[\w.+-]+['"]?:\s*no such file/.test(text)
   ) {
     return "launcher_interpreter_missing";
   }
@@ -856,10 +854,7 @@ const prepareEvent = (input: unknown): unknown => {
   } else if (next.timings !== undefined) {
     delete next.timings;
   }
-  if (
-    next.correlation_id !== undefined &&
-    !S.is(OpaqueId)(next.correlation_id)
-  )
+  if (next.correlation_id !== undefined && !S.is(OpaqueId)(next.correlation_id))
     delete next.correlation_id;
   if (
     next.daemon_build_revision !== undefined &&

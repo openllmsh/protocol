@@ -369,11 +369,18 @@ export const classifyFailureOutput = (
     return "launcher_interpreter_missing";
   }
   // Write denied by confinement / read-only FS — generic across launchers.
+  // Require a write verb (word-bounded). Bare `open '/path'` stays
+  // `permission_denied` — `open` alone is not proof of a write
+  // (CodeRabbit 4341596192). Avoid bare `writ` — it matched
+  // `written`/`writable`.
+  const writeVerb =
+    /\b(?:write|writes|writing|wrote|create|creates|creating|created|truncate|truncating|truncated|mkdir|unlink|rename|renames|renaming|renamed)\b/.test(
+      text,
+    );
   if (
     /erofs|read-only file system/.test(text) ||
-    (denied && /writ|creat|trunc|mkdir|unlink|rename|open\s/.test(text)) ||
-    (/eperm|operation not permitted/.test(text) &&
-      /writ|creat|trunc|mkdir|unlink|rename/.test(text))
+    (denied && writeVerb) ||
+    (/eperm|operation not permitted/.test(text) && writeVerb)
   ) {
     return "launcher_write_denied";
   }

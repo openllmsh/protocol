@@ -814,60 +814,54 @@ export const projectDoctorTimings = (
 };
 
 /**
- * Normalize optional measurements and message text, and STRIP unknown
- * optional keys (top-level and timings) so a newer daemon's forward-
- * compatible fields do not 422 a current strict origin. Unknown
- * `failure_signature` values are dropped the same way — a future class
- * must not reject the whole event. Known keys with invalid values still
- * fail under {@link STRICT_DOCTOR_PARSE}.
+ * Normalize only optional measurements and message text. Excess keys still
+ * fail under {@link STRICT_DOCTOR_PARSE} (fail-closed). Launcher wire compat
+ * is narrow: the schema lists launcher_kind / launcher_adapter /
+ * timings.launcher_under_manager_root and the three launcher_* signatures
+ * explicitly; daemons map unknown-to-legacy signatures on the wire and the
+ * 422 retry strips those launcher fields via {@link stripDoctorOutcomeLedger}.
  */
 const prepareEvent = (input: unknown): unknown => {
   if (typeof input !== "object" || input === null || Array.isArray(input))
     return input;
   const event = input as Record<string, unknown>;
-  const knownKeys = DoctorReportEvent.fields;
-  const next: Record<string, unknown> = {};
-  for (const key of Object.keys(knownKeys)) {
-    if (Object.hasOwn(event, key)) next[key] = event[key];
+  const next = { ...event };
+  if (
+    (event.severity === "info" ||
+      event.severity === "warn" ||
+      event.severity === "error") &&
+    typeof event.message === "string"
+  ) {
+    next.message = sanitizeDoctorMessage(event.message, event.severity);
+  }
+  if (Object.hasOwn(event, "scope")) {
+    next.scope = sanitizeDoctorScope(event.scope);
   }
   if (
-    (next.severity === "info" ||
-      next.severity === "warn" ||
-      next.severity === "error") &&
-    typeof next.message === "string"
+    typeof event.timings === "object" &&
+    event.timings !== null &&
+    !Array.isArray(event.timings)
   ) {
-    next.message = sanitizeDoctorMessage(next.message, next.severity);
-  }
-  if (Object.hasOwn(next, "scope")) {
-    next.scope = sanitizeDoctorScope(next.scope);
-  }
-  if (
-    typeof next.timings === "object" &&
-    next.timings !== null &&
-    !Array.isArray(next.timings)
-  ) {
-    // Drop unknown timing keys; projectDoctorTimings already drops malformed
-    // known values individually.
-    const projected = projectDoctorTimings(next.timings);
-    if (projected === undefined) delete next.timings;
-    else next.timings = projected;
-  } else if (next.timings !== undefined) {
+    // Keep excess keys for strict validation, but drop malformed known values individually.
+    const extras = Object.fromEntries(
+      Object.entries(event.timings).filter(
+        ([key]) => !Object.hasOwn(DoctorEventTimings.fields, key),
+      ),
+    );
+    next.timings = { ...extras, ...projectDoctorTimings(event.timings) };
+  } else if (event.timings !== undefined) {
     delete next.timings;
   }
-  if (next.correlation_id !== undefined && !S.is(OpaqueId)(next.correlation_id))
+  if (
+    event.correlation_id !== undefined &&
+    !S.is(OpaqueId)(event.correlation_id)
+  )
     delete next.correlation_id;
   if (
-    next.daemon_build_revision !== undefined &&
-    !S.is(BuildRevision)(next.daemon_build_revision)
+    event.daemon_build_revision !== undefined &&
+    !S.is(BuildRevision)(event.daemon_build_revision)
   )
     delete next.daemon_build_revision;
-  // Future / unknown signature literals → omit (do not 422 the event).
-  if (
-    next.failure_signature !== undefined &&
-    !S.is(DoctorFailureSignature)(next.failure_signature)
-  ) {
-    delete next.failure_signature;
-  }
   return next;
 };
 const prepareReport = (input: unknown): unknown => {

@@ -1065,7 +1065,8 @@ export const DAEMON_DEVICE_LABEL_HEADER = "x-openllm-device-label";
 
 /**
  * Optional OS platform the daemon reports on control-plane calls
- * (`process.platform`: `darwin` / `linux` / `win32`). Metadata only —
+ * (`process.platform`: `darwin` / `linux` / `win32` / `freebsd` /
+ * `openbsd` / `android` / `aix` / `sunos`). Metadata only —
  * used for `daemon_connected` analytics. Absent on older binaries.
  */
 export const DAEMON_PLATFORM_HEADER = "x-openllm-platform";

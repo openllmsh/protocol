@@ -306,6 +306,45 @@ export type TDoctorFailureSignature = S.Schema.Type<
   typeof DoctorFailureSignature
 >;
 
+/**
+ * Signatures a schema-3 origin that pre-dates the launcher_* mechanism
+ * classes already accepts. Used by {@link wireCompatibleFailureSignature}
+ * so a newer daemon can fall back on the wire without waiting for a cloud
+ * capability bit; local classification still uses the full vocabulary.
+ */
+export const DOCTOR_LEGACY_FAILURE_SIGNATURES = [
+  "mise_permission_denied",
+  "mise_error",
+  "permission_denied",
+  "sandbox_denied",
+  "not_found",
+  "network",
+  "manager_unresolved",
+  "no_output",
+  "unclassified",
+] as const satisfies ReadonlyArray<TDoctorFailureSignature>;
+
+export type TDoctorLegacyFailureSignature =
+  (typeof DOCTOR_LEGACY_FAILURE_SIGNATURES)[number];
+
+/** Map a full {@link DoctorFailureSignature} onto the closest legacy value
+ *  an older strict origin will accept on the wire. Identity for already-
+ *  legacy signatures. */
+export const wireCompatibleFailureSignature = (
+  signature: TDoctorFailureSignature,
+): TDoctorLegacyFailureSignature => {
+  switch (signature) {
+    case "launcher_write_denied":
+      return "permission_denied";
+    case "launcher_interpreter_missing":
+      return "not_found";
+    case "launcher_unresolved":
+      return "manager_unresolved";
+    default:
+      return signature;
+  }
+};
+
 /** Map captured child output onto a {@link DoctorFailureSignature}. Pure;
  *  order matters (most specific first). Manager-specific `mise_*` signatures
  *  keep precedence over the generic `launcher_*` mechanism classes. */
@@ -549,6 +588,16 @@ export const doctorEventHasOutcomeLedger = (
 ): boolean =>
   DOCTOR_OUTCOME_LEDGER_KEYS.some((key) => event[key] !== undefined);
 
+/**
+ * Timing keys introduced after the schema-3 baseline that a strict older
+ * origin rejects via `onExcessProperty: error`. Stripped alongside the
+ * outcome ledger on the 422 compat retry — otherwise a report that only
+ * carries `timings.launcher_under_manager_root` still fails the retry.
+ */
+export const DOCTOR_FORWARD_COMPAT_TIMING_KEYS = [
+  "launcher_under_manager_root",
+] as const;
+
 export const stripDoctorOutcomeLedger = (report: {
   readonly events: ReadonlyArray<TDoctorReportEvent>;
   readonly schema_version: TDoctorReportSchemaVersion;
@@ -563,6 +612,20 @@ export const stripDoctorOutcomeLedger = (report: {
     const next: Record<string, unknown> = { ...event };
     for (const key of DOCTOR_OUTCOME_LEDGER_KEYS) {
       delete next[key];
+    }
+    if (
+      typeof next.timings === "object" &&
+      next.timings !== null &&
+      !Array.isArray(next.timings)
+    ) {
+      const timings: Record<string, unknown> = {
+        ...(next.timings as Record<string, unknown>),
+      };
+      for (const key of DOCTOR_FORWARD_COMPAT_TIMING_KEYS) {
+        delete timings[key];
+      }
+      if (Object.keys(timings).length === 0) delete next.timings;
+      else next.timings = timings;
     }
     return next as TDoctorReportEvent;
   });
@@ -735,48 +798,64 @@ export const projectDoctorTimings = (
   return Object.keys(result).length > 0 ? result : undefined;
 };
 
-/** Normalize only optional measurements and message text; excess keys still fail. */
+/**
+ * Normalize optional measurements and message text, and STRIP unknown
+ * optional keys (top-level and timings) so a newer daemon's forward-
+ * compatible fields do not 422 a current strict origin. Unknown
+ * `failure_signature` values are dropped the same way — a future class
+ * must not reject the whole event. Known keys with invalid values still
+ * fail under {@link STRICT_DOCTOR_PARSE}.
+ */
 const prepareEvent = (input: unknown): unknown => {
   if (typeof input !== "object" || input === null || Array.isArray(input))
     return input;
   const event = input as Record<string, unknown>;
-  const next = { ...event };
-  if (
-    (event.severity === "info" ||
-      event.severity === "warn" ||
-      event.severity === "error") &&
-    typeof event.message === "string"
-  ) {
-    next.message = sanitizeDoctorMessage(event.message, event.severity);
-  }
-  if (Object.hasOwn(event, "scope")) {
-    next.scope = sanitizeDoctorScope(event.scope);
+  const knownKeys = DoctorReportEvent.fields;
+  const next: Record<string, unknown> = {};
+  for (const key of Object.keys(knownKeys)) {
+    if (Object.hasOwn(event, key)) next[key] = event[key];
   }
   if (
-    typeof event.timings === "object" &&
-    event.timings !== null &&
-    !Array.isArray(event.timings)
+    (next.severity === "info" ||
+      next.severity === "warn" ||
+      next.severity === "error") &&
+    typeof next.message === "string"
   ) {
-    // Keep excess keys for strict validation, but drop malformed known values individually.
-    const extras = Object.fromEntries(
-      Object.entries(event.timings).filter(
-        ([key]) => !Object.hasOwn(DoctorEventTimings.fields, key),
-      ),
-    );
-    next.timings = { ...extras, ...projectDoctorTimings(event.timings) };
-  } else if (event.timings !== undefined) {
+    next.message = sanitizeDoctorMessage(next.message, next.severity);
+  }
+  if (Object.hasOwn(next, "scope")) {
+    next.scope = sanitizeDoctorScope(next.scope);
+  }
+  if (
+    typeof next.timings === "object" &&
+    next.timings !== null &&
+    !Array.isArray(next.timings)
+  ) {
+    // Drop unknown timing keys; projectDoctorTimings already drops malformed
+    // known values individually.
+    const projected = projectDoctorTimings(next.timings);
+    if (projected === undefined) delete next.timings;
+    else next.timings = projected;
+  } else if (next.timings !== undefined) {
     delete next.timings;
   }
   if (
-    event.correlation_id !== undefined &&
-    !S.is(OpaqueId)(event.correlation_id)
+    next.correlation_id !== undefined &&
+    !S.is(OpaqueId)(next.correlation_id)
   )
     delete next.correlation_id;
   if (
-    event.daemon_build_revision !== undefined &&
-    !S.is(BuildRevision)(event.daemon_build_revision)
+    next.daemon_build_revision !== undefined &&
+    !S.is(BuildRevision)(next.daemon_build_revision)
   )
     delete next.daemon_build_revision;
+  // Future / unknown signature literals → omit (do not 422 the event).
+  if (
+    next.failure_signature !== undefined &&
+    !S.is(DoctorFailureSignature)(next.failure_signature)
+  ) {
+    delete next.failure_signature;
+  }
   return next;
 };
 const prepareReport = (input: unknown): unknown => {

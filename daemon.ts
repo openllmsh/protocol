@@ -755,6 +755,31 @@ export type TDaemonProviderAuthStatus = S.Schema.Type<
   typeof DaemonProviderAuthStatus
 >;
 
+/** Latest model-list outcome for a connected oauth provider (UI live signal). */
+export const DaemonModelsStatus = S.Literal("ok", "unavailable");
+export type TDaemonModelsStatus = S.Schema.Type<typeof DaemonModelsStatus>;
+
+/**
+ * Closed reasons for `models_status: "unavailable"`. Matches the daemon's
+ * listModels null tokens; unknown `http_*` collapses to `http_error` on the
+ * wire. Never paths, bodies, or headers.
+ */
+export const DaemonModelsReason = S.Literal(
+  "token_unavailable",
+  "version_unresolved",
+  "empty_after_filter",
+  "error",
+  "http_401",
+  "http_403",
+  "http_404",
+  "http_429",
+  "http_500",
+  "http_502",
+  "http_503",
+  "http_error",
+);
+export type TDaemonModelsReason = S.Schema.Type<typeof DaemonModelsReason>;
+
 export const DaemonProviderConnection = S.Struct({
   provider: S.String,
   /**
@@ -867,6 +892,15 @@ export const DaemonProviderConnection = S.Struct({
    *  not connected or unreadable, and on daemons predating it. See
    *  docs/proposals/inferred-subscription-usage-calibration.md §10. */
   account_hash: S.optional(S.String),
+  /**
+   * Latest live model-list / discover outcome for this provider (UI signal for
+   * "Connected, but this device hasn't reported models yet"). Optional +
+   * omitted when never attempted so older daemons and older clients stay
+   * compatible. Mirror of how {@link LocalServerState} carries models.
+   */
+  models_status: S.optional(DaemonModelsStatus),
+  /** Closed null-reason when `models_status` is `unavailable`. Omitted on `ok`. */
+  models_reason: S.optional(DaemonModelsReason),
 });
 export type TDaemonProviderConnection = S.Schema.Type<
   typeof DaemonProviderConnection

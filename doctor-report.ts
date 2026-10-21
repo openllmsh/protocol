@@ -389,9 +389,12 @@ export const classifyFailureOutput = (
   }
   // DNS / transport failures before the generic "could not resolve" launcher
   // branch — otherwise curl's `Could not resolve host:` becomes
-  // `launcher_unresolved`.
+  // `launcher_unresolved`. Also catch urllib3 / wget / glibc DNS phrasing
+  // (`Failed to resolve '…'`, `unable to resolve host`, `name resolution`)
+  // before the broader launcher_unresolved `failed to resolve` / `unable to
+  // resolve` match.
   if (
-    /could not resolve host|getaddrinfo|enotfound|econnrefused|econnreset|etimedout|network/.test(
+    /could not resolve host|unable to resolve host|failed to resolve '|name or service not known|name resolution|nodename nor servname|no such host|getaddrinfo|enotfound|econnrefused|econnreset|etimedout|network/.test(
       text,
     )
   ) {

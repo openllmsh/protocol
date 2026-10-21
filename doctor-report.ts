@@ -131,8 +131,33 @@ export const DoctorEventTimings = S.Struct({
   cli_is_script: S.optional(S.Boolean),
   /** Login-start: shebang interpreter resolves on the daemon spawn PATH. */
   interpreter_resolved: S.optional(S.Boolean),
+  /**
+   * Privacy-safe: resolved launcher sits under a known manager install/shim
+   * root (mise/asdf/volta/proto). Never a raw path.
+   */
+  launcher_under_manager_root: S.optional(S.Boolean),
 });
 export type TDoctorEventTimings = S.Schema.Type<typeof DoctorEventTimings>;
+
+/** Closed launcher-kind vocabulary for doctor (no raw paths). */
+export const DoctorLauncherKind = S.Literal(
+  "binary",
+  "script",
+  "shim",
+  "wrapper",
+);
+export type TDoctorLauncherKind = S.Schema.Type<typeof DoctorLauncherKind>;
+
+/** Closed adapter ids we may attribute a shim resolution to. */
+export const DoctorLauncherAdapter = S.Literal(
+  "mise",
+  "asdf",
+  "volta",
+  "proto",
+);
+export type TDoctorLauncherAdapter = S.Schema.Type<
+  typeof DoctorLauncherAdapter
+>;
 
 export const DoctorCachedHealth = S.Struct({
   connected_providers: FiniteCount,
@@ -350,6 +375,8 @@ export const DOCTOR_OUTCOME_LEDGER_KEYS = [
   "store_staging_unlocked",
   "os_version",
   "os_build",
+  "launcher_kind",
+  "launcher_adapter",
 ] as const;
 
 export type TDoctorOutcomeLedger = {
@@ -375,6 +402,10 @@ export type TDoctorOutcomeLedger = {
   readonly store_staging_unlocked?: boolean;
   readonly os_version?: string;
   readonly os_build?: string;
+  /** Privacy-safe launcher profile kind (audit L4). */
+  readonly launcher_kind?: TDoctorLauncherKind;
+  /** Privacy-safe manager adapter id when kind is shim. */
+  readonly launcher_adapter?: TDoctorLauncherAdapter;
 };
 
 const decodeOptionalLiteral = <A>(
@@ -490,6 +521,17 @@ export const projectDoctorOutcomeLedger = (
   if (os_version !== undefined) ledger.os_version = os_version;
   const os_build = decodeOptionalLiteral(DoctorOsBuild, raw.os_build);
   if (os_build !== undefined) ledger.os_build = os_build;
+  const launcher_kind = decodeOptionalLiteral(
+    DoctorLauncherKind,
+    raw.launcher_kind,
+  );
+  if (launcher_kind !== undefined) ledger.launcher_kind = launcher_kind;
+  const launcher_adapter = decodeOptionalLiteral(
+    DoctorLauncherAdapter,
+    raw.launcher_adapter,
+  );
+  if (launcher_adapter !== undefined)
+    ledger.launcher_adapter = launcher_adapter;
   return ledger;
 };
 
@@ -564,6 +606,8 @@ export const DoctorReportEvent = S.Struct({
   store_staging_unlocked: S.optional(S.Boolean),
   os_version: S.optional(DoctorOsVersion),
   os_build: S.optional(DoctorOsBuild),
+  launcher_kind: S.optional(DoctorLauncherKind),
+  launcher_adapter: S.optional(DoctorLauncherAdapter),
 });
 export type TDoctorReportEvent = S.Schema.Type<typeof DoctorReportEvent>;
 

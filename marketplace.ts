@@ -58,8 +58,8 @@ export type TMarketplaceMcp = S.Schema.Type<typeof MarketplaceMcp>;
  * A user who brings their own key bypasses it entirely.
  */
 export const MarketplaceIncludedUsage = S.Struct({
-  /** What one unit is. Only MCP `tools/call` requests are metered today. */
-  unit: S.Literal("tool_calls"),
+  /** What one unit is, as shown to users. Each MCP `tools/call` is metered. */
+  unit: S.Literal("tool_calls", "tokens"),
   free: S.Number,
   trial: S.Number,
   pro: S.Number,
@@ -83,6 +83,11 @@ export const MarketplaceEntry = S.Struct({
   policy: MarketplacePolicy,
   tier: S.optionalWith(MarketplaceTier, { default: () => "free" as const }),
   included_usage: S.optional(MarketplaceIncludedUsage),
+  /**
+   * On for every user until they turn it off — no installation row needed.
+   * Only meaningful with included usage, so it runs without a key.
+   */
+  default_enabled: S.optional(S.Boolean),
   mcp: MarketplaceMcp,
   config: S.optionalWith(S.Array(MarketplaceConfigField), {
     default: () => [],

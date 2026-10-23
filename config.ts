@@ -131,6 +131,13 @@ export type TContextOverflowStrategy = S.Schema.Type<
   typeof ContextOverflowStrategy
 >;
 
+/** The thresholds a usage alert can be set to, in percent of the budget. */
+export const UsageAlertThresholdPct = S.Literal(50, 80, 90);
+export type TUsageAlertThresholdPct = S.Schema.Type<
+  typeof UsageAlertThresholdPct
+>;
+export const USAGE_ALERT_DEFAULT_THRESHOLD_PCT: TUsageAlertThresholdPct = 80;
+
 export const ExtraConfig = S.Struct({
   model_settings: S.optional(ModelSettingsOverrides),
   search_provider: S.optional(S.String),
@@ -143,8 +150,16 @@ export const ExtraConfig = S.Struct({
       daemon_idle_email: S.optional(S.Boolean),
       /** Onboarding tips and Pro trial nudges (lifecycle cron). */
       lifecycle_email: S.optional(S.Boolean),
+      /**
+       * Free-plan usage alerts: one mail at `usage_alert_threshold_pct` of the
+       * monthly token budget and one when it is spent.
+       */
+      usage_alert_email: S.optional(S.Boolean),
     }),
   ),
+  /** Percent of the Free plan's monthly tokens that triggers the first usage
+   *  alert. Absent = {@link USAGE_ALERT_DEFAULT_THRESHOLD_PCT}. */
+  usage_alert_threshold_pct: S.optional(UsageAlertThresholdPct),
   /**
    * Subscription-OAuth providers (`claude_code` / `chatgpt` / `kimi_code`)
    * the user has connected via SOME local daemon. These have no cloud

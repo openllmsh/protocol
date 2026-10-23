@@ -502,12 +502,43 @@ const Base64Blob = S.String.pipe(S.pattern(/^[A-Za-z0-9+/]+={0,2}$/));
 export const GatewayMode = S.Literal("local", "cloud");
 export type TGatewayMode = S.Schema.Type<typeof GatewayMode>;
 
-const ProviderPayload = S.Struct({ slug: SubscriptionProviderSlug });
+/** Device-local account slot of a subscription provider (multi-account,
+ *  `docs/plan/multi-account-subscriptions.md`). Absent ⇒ 0, today's single
+ *  account. Old daemons strip the field on decode and act on account 0, so
+ *  senders must only set it when the daemon advertises
+ *  `features.multi_account`. */
+export const AccountIndex = S.Number.pipe(
+  S.int(),
+  S.greaterThanOrEqualTo(0),
+  S.lessThanOrEqualTo(1023),
+);
+export type TAccountIndex = S.Schema.Type<typeof AccountIndex>;
+
+const ProviderPayload = S.Struct({
+  slug: SubscriptionProviderSlug,
+  account_index: S.optional(AccountIndex),
+});
+/** Add an account slot; the daemon allocates the index and returns it. */
+const AddAccountPayload = S.Struct({
+  slug: SubscriptionProviderSlug,
+  label: S.optional(S.String.pipe(S.maxLength(64))),
+});
+/** Remove an account slot (n >= 1; account 0 is only logged out). */
+const RemoveAccountPayload = S.Struct({
+  slug: SubscriptionProviderSlug,
+  account_index: AccountIndex.pipe(S.greaterThanOrEqualTo(1)),
+});
+/** Pin an account first in routing, or clear the pin with `null`. */
+const PinAccountPayload = S.Struct({
+  slug: SubscriptionProviderSlug,
+  account_index: S.NullOr(AccountIndex),
+});
 /** Cancel an in-flight connect. `flow_id` is optional so old senders keep
  *  working; when present the daemon binds the signal to that owner and
  *  rejects mismatches. Extra field is additive — old decoders ignore it. */
 const CancelConnectPayload = S.Struct({
   slug: SubscriptionProviderSlug,
+  account_index: S.optional(AccountIndex),
   flow_id: S.optional(S.String),
 });
 /** A remote-Claude headless-login code submission: the X25519-sealed OAuth
@@ -518,6 +549,7 @@ const CancelConnectPayload = S.Struct({
  *  `docs/proposals/headless-claude-login-paste-back.md`. */
 const SubmitLoginCodePayload = S.Struct({
   slug: SubscriptionProviderSlug,
+  account_index: S.optional(AccountIndex),
   sealed: Base64Blob,
 });
 /** Set or clear a per-port API key for a local model server. `sealed` is an
@@ -541,6 +573,7 @@ const SetAutoUpdatePayload = S.Struct({ enabled: S.Boolean });
  *  auto/mount path (stored credential, TTL-respecting). */
 const RefreshPayload = S.Struct({
   slug: S.optional(SubscriptionProviderSlug),
+  account_index: S.optional(AccountIndex),
   manual: S.optional(S.Boolean),
 });
 /** Payload-less commands (`status` / `update`): accept an absent payload or a
@@ -588,6 +621,21 @@ const commandVariants = <F extends S.Struct.Fields>(addressing: F) =>
       ...addressing,
       kind: S.Literal("submit_login_code"),
       payload: SubmitLoginCodePayload,
+    }),
+    S.Struct({
+      ...addressing,
+      kind: S.Literal("add_account"),
+      payload: AddAccountPayload,
+    }),
+    S.Struct({
+      ...addressing,
+      kind: S.Literal("remove_account"),
+      payload: RemoveAccountPayload,
+    }),
+    S.Struct({
+      ...addressing,
+      kind: S.Literal("pin_account"),
+      payload: PinAccountPayload,
     }),
     S.Struct({
       ...addressing,
@@ -690,6 +738,9 @@ export const DaemonCommandKind = S.Literal(
   "cancel_connect",
   "logout",
   "submit_login_code",
+  "add_account",
+  "remove_account",
+  "pin_account",
   "set_auto_update",
   "refresh",
   "status",
@@ -892,6 +943,13 @@ export const DaemonProviderConnection = S.Struct({
    *  not connected or unreadable, and on daemons predating it. See
    *  docs/proposals/inferred-subscription-usage-calibration.md §10. */
   account_hash: S.optional(S.String),
+  /** Device-local account slot this row describes (multi-account). Several
+   *  rows may share one `provider` with distinct indexes. Absent ⇒ 0. */
+  account_index: S.optional(AccountIndex),
+  /** User label for the account slot, when set. */
+  account_label: S.optional(S.String.pipe(S.maxLength(64))),
+  /** True on the slot the user pinned first in routing for this provider. */
+  account_pinned: S.optional(S.Boolean),
   /**
    * Latest live model-list / discover outcome for this provider (UI signal for
    * "Connected, but this device hasn't reported models yet"). Optional +
@@ -905,6 +963,12 @@ export const DaemonProviderConnection = S.Struct({
 export type TDaemonProviderConnection = S.Schema.Type<
   typeof DaemonProviderConnection
 >;
+
+/** `control_caps` entry: the daemon understands `account_index` on auth
+ *  commands and the `add_account` / `remove_account` / `pin_account` kinds.
+ *  Senders must not address account n >= 1 without it (old daemons strip the
+ *  field and would act on account 0). */
+export const MULTI_ACCOUNT_CONTROL_CAP = "multi_account";
 
 /**
  * A `pending_auth` self-expires after this **on cached / unconfirmed

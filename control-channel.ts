@@ -1,5 +1,5 @@
 import { Schema as S } from "effect";
-import { DaemonCommandKind } from "./daemon";
+import { AccountIndex, DaemonCommandKind } from "./daemon";
 
 // ─── Control channel — the live command lifecycle ────────────────────
 //
@@ -75,6 +75,15 @@ export const CommandLifecycle = S.Struct({
   daemon_session_id: S.optional(S.String),
   slug: S.optional(S.String),
   target: S.optional(S.String),
+  /**
+   * Device-local account slot this lifecycle clears in the dashboard
+   * (`docs/plan/multi-account-subscriptions.md`). Absent ⇒ account 0 so
+   * older relays / single-account tickets keep the bare `(keyId, slug)`
+   * pending key. Roster commands (`add_account` / `remove_account` /
+   * `pin_account`) leave this unset and scope via a `${slug}#roster`
+   * ticket instead.
+   */
+  account_index: S.optional(AccountIndex),
   kind: DaemonCommandKind,
   state: CommandState,
   message: S.optional(S.String),

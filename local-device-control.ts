@@ -77,3 +77,53 @@ export const LocalDeviceControlRequest = S.Struct({
 export type TLocalDeviceControlRequest = S.Schema.Type<
   typeof LocalDeviceControlRequest
 >;
+
+/**
+ * `POST /local/device-anchor` — hand this machine's daemon the install-time
+ * trust anchor over loopback (the desktop app's "Device sessions" toggle,
+ * after `pair_daemon` succeeds or for an already-paired Mac). Same admission
+ * as `/local/device-control`. The daemon refuses unless `key_id` is the key it
+ * runs on, writes `OPENLLM_DEVICE_ANCHOR` with the same writer as
+ * `openllm daemon anchor`, re-derives its pin and enables device sessions
+ * unless they are locked. The anchor is never logged or echoed back.
+ */
+export const DEVICE_ANCHOR_LOCAL_PATH = "/local/device-anchor";
+export const DEVICE_ANCHOR_LOCAL_MAX_BODY_BYTES = 512;
+
+/** `POST /local/device-anchor` body. */
+export const LocalDeviceAnchorRequest = S.Struct({
+  /** The API key id the anchor was derived for (`sk-llm-<key_id>.…`). */
+  key_id: S.String.pipe(S.minLength(1), S.maxLength(64)),
+  /** The 86-char base64url anchor (`buildDeviceAnchor(seed, key_id)`). */
+  anchor: S.String.pipe(S.minLength(1), S.maxLength(128)),
+});
+export type TLocalDeviceAnchorRequest = S.Schema.Type<
+  typeof LocalDeviceAnchorRequest
+>;
+
+/** Why `POST /local/device-anchor` refused. */
+export const LocalDeviceAnchorRefusal = S.Literal(
+  "invalid_body",
+  "body_too_large",
+  "malformed_anchor",
+  "key_id_mismatch",
+  "persist_failed",
+);
+export type TLocalDeviceAnchorRefusal = S.Schema.Type<
+  typeof LocalDeviceAnchorRefusal
+>;
+
+/** `POST /local/device-anchor` response. */
+export const LocalDeviceAnchorResponse = S.Union(
+  S.Struct({
+    ok: S.Literal(true),
+    device_sessions: DeviceSessionsReport,
+  }),
+  S.Struct({
+    ok: S.Literal(false),
+    error: LocalDeviceAnchorRefusal,
+  }),
+);
+export type TLocalDeviceAnchorResponse = S.Schema.Type<
+  typeof LocalDeviceAnchorResponse
+>;

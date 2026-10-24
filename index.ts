@@ -1,4 +1,5 @@
 export * from "./agent";
+export * from "./agent-prompt-text";
 export * from "./api-key-syntax";
 export * from "./audio";
 export * from "./auth";

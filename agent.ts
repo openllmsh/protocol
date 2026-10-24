@@ -54,8 +54,16 @@ export const AGENT_MAX_PROMPT_LENGTH = 1024 * 1024;
  * JSON) or `{}` for no output.
  */
 export const AGENT_HOOK_LOCAL_PATH = "/local/agent-hook";
-/** Claude hook events `openllm exec agent hook` forwards. */
-export const AGENT_HOOK_EVENTS = ["PermissionRequest", "Stop"] as const;
+/**
+ * Claude hook events `openllm exec agent hook` forwards. `SessionStart` is the
+ * engine's readiness signal: Claude runs it once the TUI is up (after any
+ * folder-trust dialog), so a queued web prompt is pasted only then.
+ */
+export const AGENT_HOOK_EVENTS = [
+  "PermissionRequest",
+  "Stop",
+  "SessionStart",
+] as const;
 
 /** Max inline attachments on one `send`. */
 export const AGENT_MAX_ATTACHMENTS = 8;

@@ -186,6 +186,13 @@ export const AgentStartCommand = S.Struct({
    */
   skip_permissions: S.optional(S.Boolean),
   title: S.optional(S.String.pipe(S.maxLength(80))),
+  /**
+   * The id the new session takes (the consumer's own record id, e.g. the web's
+   * cloud session row). Omitted → the daemon mints one. One id end to end (the
+   * cloud row, the session host, Claude's transcript) is what lets a reload
+   * re-attach and a running row match the daemon's status.
+   */
+  session_id: S.optional(AgentSessionId),
 });
 export type TAgentStartCommand = S.Schema.Type<typeof AgentStartCommand>;
 

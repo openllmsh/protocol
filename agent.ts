@@ -480,6 +480,8 @@ export const AgentNoticeKind = S.Literal(
   "interrupted",
   "model_changed",
   "error",
+  /** A background subagent reported completion (`ref_item_id` is its call). */
+  "subagent_finished",
 );
 export type TAgentNoticeKind = S.Schema.Type<typeof AgentNoticeKind>;
 
@@ -509,6 +511,12 @@ export const AgentItem = S.Union(
     duration_ms: S.optional(S.Number.pipe(S.int(), S.nonNegative())),
     /** A shell command's exit status, when the engine reported it. */
     exit_code: S.optional(S.Number.pipe(S.int())),
+    /**
+     * A subagent launched in the background: the call's own result is only
+     * the launch ack, so it stays in progress past its turn until the
+     * subagent finishes. Optional, additive.
+     */
+    background: S.optional(S.Boolean),
   }),
   /**
    * A marker in the conversation that is neither speech nor a tool: context
@@ -519,6 +527,8 @@ export const AgentItem = S.Union(
     kind: S.Literal("notice"),
     notice: AgentNoticeKind,
     text: S.optional(DetailText),
+    /** The item the notice is about (a subagent's call). Optional, additive. */
+    ref_item_id: S.optional(AgentRefId),
   }),
 );
 export type TAgentItem = S.Schema.Type<typeof AgentItem>;

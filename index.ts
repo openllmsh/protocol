@@ -1,3 +1,4 @@
+export * from "./agent";
 export * from "./api-key-syntax";
 export * from "./audio";
 export * from "./auth";
@@ -20,7 +21,9 @@ export * from "./image-edit-parse";
 export * from "./images";
 export * from "./inference-headers";
 export * from "./local-auth";
+export * from "./local-device-control";
 export * from "./local-provider";
+export * from "./local-session";
 export * from "./marketplace";
 export * from "./media-attempt";
 export * from "./media-bytes";

@@ -7,11 +7,7 @@
  * binary message, so one WebSocket can carry several channels concurrently.
  */
 import { Either, Schema as S } from "effect";
-import {
-  DeviceSessionCli,
-  SessionTitleField,
-  supportsDangerousSession,
-} from "./daemon";
+import { AgentStreamOpenPayload } from "./agent";
 import {
   OPENLLM_CHAIN_HEADER,
   OPENLLM_RESOLVED_MODEL_HEADER,
@@ -80,7 +76,7 @@ export const hasMediaHttpVideoCap = (
 /**
  * The dedicated duplex realtime mux kind (`kind:"realtime"` in
  * {@link StreamOpenPayload}, vocabulary in `./realtime`). A distinct kind
- * from `kind:"tunnel"` (request/response HTTP) and PTY `kind:"session"` —
+ * from `kind:"tunnel"` (request/response HTTP) and `kind:"agent"` —
  * never overload either for a long-lived bidirectional voice session.
  *
  * NOT YET ADVERTISED: a daemon must add this to its capability list only
@@ -460,21 +456,6 @@ export const tunnelResponseHeadersFromHttp = (
   };
 };
 
-/** Session ids are client-minted url-safe tokens. The url-safe pattern is
- * still required because the id is embedded in the session-host pidfile name
- * (`<id>.pid`); there is no longer a `~/.openllm/sessions/<id>/` workspace.
- *
- * Validated by the SERVING DAEMON at stream open (mux); the relay never
- * decodes it.
- */
-export const SESSION_ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
-export const SessionId = S.String.pipe(S.pattern(SESSION_ID_PATTERN));
-export type TSessionId = S.Schema.Type<typeof SessionId>;
-
-/** Terminal cols/rows on session open + resize (mux). */
-export const TerminalDimension = S.Number.pipe(S.int(), S.between(1, 1024));
-export type TTerminalDimension = S.Schema.Type<typeof TerminalDimension>;
-
 /** A channel-level admission failure. */
 export const ChannelOpenError = S.Literal(
   "daemon_offline",
@@ -509,39 +490,10 @@ export type TTunnelStreamOpenPayload = S.Schema.Type<
   typeof TunnelStreamOpenPayload
 >;
 
-/** Consumer-initiated PTY stream OPEN payload. */
-export const SessionStreamOpenPayload = S.Struct({
-  kind: S.Literal("session"),
-  session_id: SessionId,
-  cli: DeviceSessionCli,
-  cols: TerminalDimension,
-  rows: TerminalDimension,
-  mode: S.Literal("spawn", "attach", "continue"),
-  title: S.optional(SessionTitleField),
-  /** When true, launch via `openllm -d <client>` for CLIs that support it. */
-  dangerous: S.optional(S.Boolean),
-  /**
-   * Cold-resume a vendor session by id (`spawn` only). The daemon launches
-   * the CLI with its native resume flag in the session's recorded cwd.
-   * Live OpenLLM PTYs rebind via `mode:"attach"` instead.
-   */
-  resume_session_id: S.optional(
-    S.String.pipe(S.minLength(1), S.maxLength(128)),
-  ),
-  /**
-   * Absolute cwd for spawn/continue. Validated on the daemon (must exist
-   * as a directory). Omitted → `$HOME` for new sessions.
-   */
-  cwd: S.optional(S.String.pipe(S.minLength(1), S.maxLength(1024))),
-});
-export type TSessionStreamOpenPayload = S.Schema.Type<
-  typeof SessionStreamOpenPayload
->;
-
 /** JSON payload of a mux OPEN frame. */
 export const StreamOpenPayload = S.Union(
   TunnelStreamOpenPayload,
-  SessionStreamOpenPayload,
+  AgentStreamOpenPayload,
   RealtimeStreamOpenPayload,
 );
 export type TStreamOpenPayload = S.Schema.Type<typeof StreamOpenPayload>;
@@ -553,11 +505,11 @@ export const StreamCtrlPayload = S.Union(
     t: S.Literal("open_ack"),
     ok: S.Boolean,
     live: S.optional(S.Boolean),
-    /** Daemon-minted, monotonically increasing session-open generation. */
+    /** Daemon-minted, monotonically increasing stream-open generation. */
     generation: S.optional(S.Number.pipe(S.int(), S.nonNegative())),
     initial_credit: S.optional(S.Number.pipe(S.int(), S.nonNegative())),
     /** Present on nacks (`ok:false`) — same vocabulary as `StreamResetCode`
-     * session-open failures (`cli_not_installed`, `session_busy`, …). */
+     * open failures (`agent_unavailable`, `realtime_busy`, …). */
     error: S.optional(S.String.pipe(S.maxLength(64))),
     message: S.optional(S.String.pipe(S.maxLength(256))),
   }),
@@ -566,15 +518,8 @@ export const StreamCtrlPayload = S.Union(
     status: S.Number.pipe(S.int(), S.between(200, 599)),
     res_headers: S.optional(TunnelResponseHeaders),
   }),
-  S.Struct({
-    t: S.Literal("resize"),
-    cols: TerminalDimension,
-    rows: TerminalDimension,
-  }),
-  /** Viewer became the active (focused) consumer — bumps primary election
-   * without requiring typed input. Additive + skew-safe: unknown tags are
-   * dropped by the parser on older peers. */
-  S.Struct({ t: S.Literal("focus") }),
+  /** End of an attach replay (an agent `attach` re-emits prior events, then
+   * this marker). */
   S.Struct({ t: S.Literal("replay_done") }),
   S.Struct({ t: S.Literal("close"), intent: S.Literal("detach", "kill") }),
   /** Realtime (`kind:"realtime"`) liveness — either peer may send this while
@@ -585,12 +530,15 @@ export const StreamCtrlPayload = S.Union(
 export type TStreamCtrlPayload = S.Schema.Type<typeof StreamCtrlPayload>;
 
 /** Per-stream failure codes. Channel admission errors deliberately do not live
- * here; those use `ChannelOpenError`. */
+ * here; those use `ChannelOpenError`. A CLOSED vocabulary that only grows:
+ * retired PTY codes stay so old peers keep decoding what they receive. */
 export const StreamResetCode = S.Literal(
   "tunnel_refused",
   "tunnel_busy",
   "invalid_tunnel",
   "overloaded",
+  /** Retired PTY mirroring. A legacy `kind:"session"` OPEN is reset with
+   * this code (old browsers already decode it). */
   "pty_unsupported",
   "cli_not_installed",
   "session_not_found",
@@ -602,9 +550,7 @@ export const StreamResetCode = S.Literal(
   "peer_gone",
   /** The consumer fell behind the daemon's bounded session-output queue. */
   "lagging",
-  /** Remote PTY sessions are opt-in (default off) and this daemon has them
-   * disabled. Terminal — not retryable until the user enables them on the
-   * device (`openllmd sessions on`, or reinstall with the toggle on). */
+  /** Retired: remote PTY sessions used to be opt-in. Kept so old peers decode. */
   "sessions_disabled",
   /** This daemon does not (yet) serve `kind:"realtime"` — no provider
    * delegate exposes `credentialForRealtime`, or the runtime path isn't
@@ -627,6 +573,20 @@ export const StreamResetCode = S.Literal(
    * credential. Never retryable by simply reconnecting — the caller needs a
    * plan the cloud actually signed for this provider/model. */
   "realtime_policy_refused",
+  /** A seed-gated stream kind (`agent`) opened on a channel whose consumer
+   * presented no valid device grant. Unlock the vault, then retry. */
+  "unauthorized",
+  /** This daemon advertises no agent engine handler (or it is not wired). */
+  "agent_unavailable",
+  /** Max concurrent agent sessions reached on this daemon. */
+  "agent_busy",
+  /** The daemon's device-control pin is not anchored (first-use / legacy, or
+   * no install anchor): agent sessions fail closed. Fix with "Set up device
+   * sessions" (`openllm login sk-llm-<key>.<anchor>`). */
+  "device_not_anchored",
+  /** Remote device sessions are switched off on this device (fresh installs
+   * default off). Enable from Manage device, or `openllm device enable`. */
+  "device_sessions_disabled",
 );
 export type TStreamResetCode = S.Schema.Type<typeof StreamResetCode>;
 
@@ -651,12 +611,35 @@ const hasOnlyKeys = (
   !Array.isArray(value) &&
   Object.keys(value).every((key) => keys.includes(key));
 
+/** Raw `kind` of an already-parsed OPEN JSON value, before schema decode —
+ * lets a host gate or retire a kind (e.g. legacy `"session"`) that the
+ * current {@link StreamOpenPayload} no longer accepts. */
+export const streamOpenKindOf = (value: unknown): string | null => {
+  if (typeof value !== "object" || value === null || Array.isArray(value))
+    return null;
+  const kind: unknown = (value as { readonly kind?: unknown }).kind;
+  return typeof kind === "string" ? kind : null;
+};
+
+/** Mux OPEN kinds that no longer exist on the wire. A host resets them with
+ * {@link RETIRED_STREAM_KIND_RESET} rather than a generic invalid-OPEN. */
+export const RETIRED_STREAM_KINDS: ReadonlySet<string> = new Set(["session"]);
+
+export const RETIRED_STREAM_KIND_RESET = {
+  code: "pty_unsupported",
+  message:
+    "remote terminal sessions were replaced by agent sessions; reload the app",
+} as const satisfies {
+  readonly code: TStreamResetCode;
+  readonly message: string;
+};
+
 /** Decodes an already-parsed mux OPEN JSON value, returning null on failure. */
 export const parseStreamOpenPayload = (
   value: unknown,
 ): TStreamOpenPayload | null => {
-  // Allowlist matches StreamOpenPayload union keys (tunnel + session) exactly
-  // so the filter and Schema cannot disagree.
+  // Allowlist matches StreamOpenPayload union keys (tunnel + agent +
+  // realtime) exactly so the filter and Schema cannot disagree.
   if (
     !hasOnlyKeys(value, [
       "kind",
@@ -664,15 +647,6 @@ export const parseStreamOpenPayload = (
       "surface",
       "headers",
       "consumer",
-      "session_id",
-      "cli",
-      "cols",
-      "rows",
-      "mode",
-      "title",
-      "dangerous",
-      "resume_session_id",
-      "cwd",
       "provider",
       "model",
       "voice",
@@ -694,15 +668,7 @@ export const parseStreamOpenPayload = (
   ) {
     return null;
   }
-  const open = parse(StreamOpenPayload, value);
-  if (open === null || open.kind !== "session") return open;
-  if (open.dangerous === true && !supportsDangerousSession(open.cli))
-    return null;
-  if (open.cli === "shell" && open.resume_session_id !== undefined) return null;
-  if (open.resume_session_id !== undefined && open.mode !== "spawn")
-    return null;
-  if (open.cwd !== undefined && open.mode === "attach") return null;
-  return open;
+  return parse(StreamOpenPayload, value);
 };
 
 /** Decodes an already-parsed mux CTRL JSON value, returning null on failure. */

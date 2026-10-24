@@ -43,6 +43,12 @@ export const LocalSessionOpenPayload = S.Struct({
   ),
   /** Absolute cwd for spawn/continue; omitted → `$HOME` for new sessions. */
   cwd: S.optional(S.String.pipe(S.minLength(1), S.maxLength(1024))),
+  /**
+   * `attach` only: a structured observer (the daemon's agent engine). It reads
+   * output and writes input but is not a viewer: it never drives the PTY size
+   * and does not count as attached for detach / idle reap.
+   */
+  observer: S.optional(S.Boolean),
 });
 export type TLocalSessionOpenPayload = S.Schema.Type<
   typeof LocalSessionOpenPayload

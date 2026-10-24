@@ -368,6 +368,11 @@ export const AgentSessionConfiguredEvent = S.Struct({
   ...eventBase,
   type: S.Literal("session.configured"),
   model: S.optional(AgentModel),
+  /**
+   * The conversation's title, from the engine's own record (Claude's
+   * `ai-title`). Optional: older daemons omit it, older consumers ignore it.
+   */
+  title: S.optional(ShortText),
 });
 
 export const AgentSessionExitedEvent = S.Struct({

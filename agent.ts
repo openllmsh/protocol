@@ -45,6 +45,17 @@ export const AGENT_MAX_LINE_BYTES = 8 * 1024 * 1024;
 /** Max characters of one prompt. */
 export const AGENT_MAX_PROMPT_LENGTH = 1024 * 1024;
 
+/**
+ * Daemon loopback route Claude's hooks post to (`openllm exec agent hook`):
+ * busy/idle and PermissionRequest for agent sessions. Admitted like the other
+ * `/local/*` routes (loopback peer + Host, local control capability).
+ * Body: `{session_id, event, payload}`; reply: `{output}` (the hook's stdout
+ * JSON) or `{}` for no output.
+ */
+export const AGENT_HOOK_LOCAL_PATH = "/local/agent-hook";
+/** Claude hook events `openllm exec agent hook` forwards. */
+export const AGENT_HOOK_EVENTS = ["PermissionRequest", "Stop"] as const;
+
 /** Max inline attachments on one `send`. */
 export const AGENT_MAX_ATTACHMENTS = 8;
 

@@ -8,9 +8,10 @@
  * channel:
  *
  *   consumer → daemon : {@link AgentCommand} (start / attach / send /
- *                        interrupt / respond / close)
+ *                        interrupt / respond / close / attachment_get)
  *   daemon → consumer : {@link AgentEvent} (session / turn / item / content /
- *                        request / user-input / token-usage / runtime)
+ *                        request / user-input / token-usage / runtime /
+ *                        attachment.data)
  *
  * The event families are a trimmed subset of t3code's `ProviderRuntimeEvent`:
  * no multi-CLI orchestration, no event-sourcing / checkpoint / git tooling, no
@@ -122,6 +123,25 @@ export const AgentAttachment = S.Struct({
 });
 export type TAgentAttachment = S.Schema.Type<typeof AgentAttachment>;
 
+/**
+ * Metadata for an attachment that was saved on the device for a turn. The
+ * `name` is the on-disk basename under the session's attachments dir (what
+ * {@link AgentAttachmentGetCommand} looks up) — not the original upload name
+ * when they differ. Optional on `turn.started` so terminal prompts and older
+ * daemons stay compatible.
+ */
+export const AgentAttachmentMeta = S.Struct({
+  name: S.String.pipe(S.minLength(1), S.maxLength(256)),
+  mime: S.String.pipe(S.minLength(1), S.maxLength(128)),
+  size: S.Number.pipe(S.int(), S.nonNegative()),
+});
+export type TAgentAttachmentMeta = S.Schema.Type<typeof AgentAttachmentMeta>;
+
+/** Decoded-byte cap mirroring {@link AGENT_MAX_ATTACHMENT_BASE64_LENGTH}. */
+export const AGENT_MAX_ATTACHMENT_BYTES = Math.floor(
+  (AGENT_MAX_ATTACHMENT_BASE64_LENGTH * 3) / 4,
+);
+
 /** Decision on an approval request (`request.opened`). */
 export const AgentRequestDecision = S.Literal(
   "accept",
@@ -217,6 +237,22 @@ export const AgentCloseCommand = S.Struct({
 });
 export type TAgentCloseCommand = S.Schema.Type<typeof AgentCloseCommand>;
 
+/**
+ * Fetch one attachment from the current session's on-device attachments dir.
+ * `name` is the basename recorded on `turn.started.attachments` (no path
+ * separators). The daemon refuses traversal / absolute / symlink-escape names
+ * and streams the bytes back as one or more {@link AgentAttachmentDataEvent}
+ * lines under the same `command_id`.
+ */
+export const AgentAttachmentGetCommand = S.Struct({
+  type: S.Literal("attachment_get"),
+  id: S.optional(AgentCommandId),
+  name: S.String.pipe(S.minLength(1), S.maxLength(256)),
+});
+export type TAgentAttachmentGetCommand = S.Schema.Type<
+  typeof AgentAttachmentGetCommand
+>;
+
 /** One consumer → daemon command line. */
 export const AgentCommand = S.Union(
   AgentStartCommand,
@@ -225,6 +261,7 @@ export const AgentCommand = S.Union(
   AgentInterruptCommand,
   AgentRespondCommand,
   AgentCloseCommand,
+  AgentAttachmentGetCommand,
 );
 export type TAgentCommand = S.Schema.Type<typeof AgentCommand>;
 export type TAgentCommandType = TAgentCommand["type"];
@@ -286,6 +323,13 @@ export const AgentTurnStartedEvent = S.Struct({
    * omit it and older consumers ignore it.
    */
   prompt: S.optional(S.String.pipe(S.maxLength(AGENT_MAX_PROMPT_LENGTH))),
+  /**
+   * Attachments saved for this turn (on-disk basename + mime + size). Optional:
+   * terminal prompts and older daemons omit it; older consumers ignore it.
+   */
+  attachments: S.optional(
+    S.Array(AgentAttachmentMeta).pipe(S.maxItems(AGENT_MAX_ATTACHMENTS)),
+  ),
 });
 
 export const AgentTurnCompletedEvent = S.Struct({
@@ -466,6 +510,29 @@ export const AgentRuntimeErrorEvent = S.Struct({
   fatal: S.optional(S.Boolean),
 });
 
+/**
+ * One chunk of an `attachment_get` response. Chunked so a single NDJSON line
+ * stays under {@link AGENT_MAX_LINE_BYTES}: `data` is base64 of
+ * `file[offset .. offset+decodedLen)`, and `done` is true on the last chunk.
+ */
+export const AgentAttachmentDataEvent = S.Struct({
+  ...eventBase,
+  type: S.Literal("attachment.data"),
+  name: S.String.pipe(S.minLength(1), S.maxLength(256)),
+  mime: S.String.pipe(S.minLength(1), S.maxLength(128)),
+  /** Total decoded byte length of the file. */
+  size: S.Number.pipe(S.int(), S.nonNegative()),
+  /** Decoded-byte offset of this chunk within the file. */
+  offset: S.Number.pipe(S.int(), S.nonNegative()),
+  /** Base64 of this chunk. */
+  data: S.String.pipe(S.maxLength(AGENT_MAX_ATTACHMENT_BASE64_LENGTH)),
+  /** True when this is the last chunk. */
+  done: S.Boolean,
+});
+export type TAgentAttachmentDataEvent = S.Schema.Type<
+  typeof AgentAttachmentDataEvent
+>;
+
 /** One daemon → consumer event line. */
 export const AgentEvent = S.Union(
   AgentSessionStartedEvent,
@@ -484,6 +551,7 @@ export const AgentEvent = S.Union(
   AgentTokenUsageUpdatedEvent,
   AgentRuntimeWarningEvent,
   AgentRuntimeErrorEvent,
+  AgentAttachmentDataEvent,
 );
 export type TAgentEvent = S.Schema.Type<typeof AgentEvent>;
 export type TAgentEventType = TAgentEvent["type"];

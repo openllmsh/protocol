@@ -269,6 +269,12 @@ export const AgentTurnStartedEvent = S.Struct({
   type: S.Literal("turn.started"),
   turn_id: AgentRefId,
   model: S.optional(AgentModel),
+  /**
+   * The prompt text that opened the turn. Lets a consumer that attaches later
+   * (replay) render the user's side of the transcript. Optional: older daemons
+   * omit it and older consumers ignore it.
+   */
+  prompt: S.optional(S.String.pipe(S.maxLength(AGENT_MAX_PROMPT_LENGTH))),
 });
 
 export const AgentTurnCompletedEvent = S.Struct({

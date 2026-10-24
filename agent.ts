@@ -268,6 +268,26 @@ export type TAgentAttachmentGetCommand = S.Schema.Type<
   typeof AgentAttachmentGetCommand
 >;
 
+/**
+ * A model id a running session can switch to: gateway ids and Claude aliases
+ * (`ultra`, `sonnet`, `openai/gpt-5`, `claude-opus-4-5[1m]`). No whitespace or
+ * control characters: it is typed into the engine's own `/model` command.
+ */
+export const AGENT_SWITCH_MODEL_PATTERN =
+  /^[A-Za-z0-9][A-Za-z0-9._:/@[\]-]{0,255}$/;
+
+/**
+ * Switch the running session's model (Claude: its own `/model <id>`, applied
+ * when the session is idle, queued while a turn runs). Confirmed by a
+ * `session.configured` event once the engine reports the change.
+ */
+export const AgentSetModelCommand = S.Struct({
+  type: S.Literal("set_model"),
+  id: S.optional(AgentCommandId),
+  model: S.String.pipe(S.pattern(AGENT_SWITCH_MODEL_PATTERN)),
+});
+export type TAgentSetModelCommand = S.Schema.Type<typeof AgentSetModelCommand>;
+
 /** One consumer → daemon command line. */
 export const AgentCommand = S.Union(
   AgentStartCommand,
@@ -277,6 +297,7 @@ export const AgentCommand = S.Union(
   AgentRespondCommand,
   AgentCloseCommand,
   AgentAttachmentGetCommand,
+  AgentSetModelCommand,
 );
 export type TAgentCommand = S.Schema.Type<typeof AgentCommand>;
 export type TAgentCommandType = TAgentCommand["type"];
@@ -317,6 +338,17 @@ export const AgentSessionStartedEvent = S.Struct({
   /** True when this is an attach/resume of an existing engine session. */
   resumed: S.optional(S.Boolean),
   skip_permissions: S.optional(S.Boolean),
+});
+
+/**
+ * The session's configuration changed (today: its model), from whichever side
+ * changed it (a web `set_model`, or `/model` typed in the terminal). Read from
+ * the engine's own record, so every viewer converges on the same value.
+ */
+export const AgentSessionConfiguredEvent = S.Struct({
+  ...eventBase,
+  type: S.Literal("session.configured"),
+  model: S.optional(AgentModel),
 });
 
 export const AgentSessionExitedEvent = S.Struct({
@@ -551,6 +583,7 @@ export type TAgentAttachmentDataEvent = S.Schema.Type<
 /** One daemon → consumer event line. */
 export const AgentEvent = S.Union(
   AgentSessionStartedEvent,
+  AgentSessionConfiguredEvent,
   AgentSessionExitedEvent,
   AgentTurnStartedEvent,
   AgentTurnCompletedEvent,

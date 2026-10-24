@@ -8,7 +8,8 @@
  * channel:
  *
  *   consumer → daemon : {@link AgentCommand} (start / attach / send /
- *                        interrupt / respond / close / attachment_get)
+ *                        interrupt / respond / close / attachment_get /
+ *                        set_model / delete_session)
  *   daemon → consumer : {@link AgentEvent} (session / turn / item / content /
  *                        request / user-input / token-usage / runtime /
  *                        attachment.data)
@@ -288,6 +289,23 @@ export const AgentSetModelCommand = S.Struct({
 });
 export type TAgentSetModelCommand = S.Schema.Type<typeof AgentSetModelCommand>;
 
+/**
+ * Delete one session from this device: stop its process if it runs (here or
+ * in a terminal), then remove its attachments, Claude's transcript
+ * (`~/.claude/projects/<slug of its cwd>/<id>.jsonl`) and its lines in
+ * `~/.claude/history.jsonl`. Stream-level (needs no bound session). Answered
+ * by `session.deleted`, or a `runtime.error`. `close` is the non-destructive
+ * Stop: it kills the process and keeps the history.
+ */
+export const AgentDeleteSessionCommand = S.Struct({
+  type: S.Literal("delete_session"),
+  id: S.optional(AgentCommandId),
+  session_id: AgentSessionId,
+});
+export type TAgentDeleteSessionCommand = S.Schema.Type<
+  typeof AgentDeleteSessionCommand
+>;
+
 /** One consumer → daemon command line. */
 export const AgentCommand = S.Union(
   AgentStartCommand,
@@ -298,6 +316,7 @@ export const AgentCommand = S.Union(
   AgentCloseCommand,
   AgentAttachmentGetCommand,
   AgentSetModelCommand,
+  AgentDeleteSessionCommand,
 );
 export type TAgentCommand = S.Schema.Type<typeof AgentCommand>;
 export type TAgentCommandType = TAgentCommand["type"];
@@ -580,6 +599,13 @@ export type TAgentAttachmentDataEvent = S.Schema.Type<
   typeof AgentAttachmentDataEvent
 >;
 
+/** Answer to `delete_session`: the session is gone from the device. */
+export const AgentSessionDeletedEvent = S.Struct({
+  ...eventBase,
+  type: S.Literal("session.deleted"),
+  session_id: AgentSessionId,
+});
+
 /** One daemon → consumer event line. */
 export const AgentEvent = S.Union(
   AgentSessionStartedEvent,
@@ -600,6 +626,7 @@ export const AgentEvent = S.Union(
   AgentRuntimeWarningEvent,
   AgentRuntimeErrorEvent,
   AgentAttachmentDataEvent,
+  AgentSessionDeletedEvent,
 );
 export type TAgentEvent = S.Schema.Type<typeof AgentEvent>;
 export type TAgentEventType = TAgentEvent["type"];

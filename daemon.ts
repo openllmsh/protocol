@@ -595,11 +595,11 @@ const SetLocalKeyPayload = S.Struct({
   sealed: S.Union(Base64Blob, S.Literal("")),
 });
 const SetAutoUpdatePayload = S.Struct({ enabled: S.Boolean });
-/** Remote enable / disable of device (agent) sessions: `statement` is the base64
- *  envelope of `{ v: 1, key_id, enable, ts, nonce, sig }` signed by the account
- *  control key (`@openllm/vault` `signDeviceSessionsCommand`). The daemon
- *  verifies it against its ANCHORED pin; the cloud only relays it and cannot
- *  forge one. */
+/** Disable device sessions remotely: `statement` is the base64 envelope of
+ *  `{ v: 1, key_id, ts, nonce, sig }` signed by the account control key
+ *  (`@openllm/vault` `signDeviceSessionsDisable`). Disable-only — there is no
+ *  remote enable. The daemon verifies against its ANCHORED pin and blanks
+ *  `OPENLLM_DEVICE_ANCHOR`; the cloud only relays and cannot forge one. */
 const SetDeviceSessionsPayload = S.Struct({
   statement: S.String.pipe(
     S.minLength(1),
@@ -759,8 +759,10 @@ const commandVariants = <F extends S.Struct.Fields>(addressing: F) =>
       kind: S.Literal("set_local_key"),
       payload: SetLocalKeyPayload,
     }),
-    // Control-key-signed device-sessions switch. Older daemons ignore the
+    // Control-key-signed device-sessions DISABLE. Older daemons ignore the
     // kind; the dashboard sends it only when `control_caps` advertises it.
+    // There is no remote enable — re-enable is install/update/login/desktop
+    // with the sessions toggle on (writes the anchor again).
     S.Struct({
       ...addressing,
       kind: S.Literal("set_device_sessions"),
@@ -1020,7 +1022,7 @@ export type TDaemonProviderConnection = S.Schema.Type<
  *  Senders must not address account n >= 1 without it (old daemons strip the
  *  field and would act on account 0). */
 export const MULTI_ACCOUNT_CONTROL_CAP = "multi_account";
-/** Control cap: the daemon executes the signed `set_device_sessions` command. */
+/** Control cap: the daemon executes the signed `set_device_sessions` disable. */
 export const DEVICE_SESSIONS_CONTROL_CAP = "device_sessions_v1";
 
 /**
@@ -1089,8 +1091,9 @@ export const DaemonStatus = S.Struct({
    *  path that set it. Whether it is agent-eligible is reported once, in
    *  `device_sessions.anchored`. Absent when unpinned or on older daemons. */
   device_access_pin: S.optional(DeviceAccessPinReport),
-  /** Remote device-session switch + the dpk proof (`DeviceSessionsReport`).
-   *  Absent on daemons too old to anchor — treat as not anchored. */
+  /** Device sessions readiness + the dpk proof (`DeviceSessionsReport`).
+   *  `anchored` == sessions on (env-file trust anchor present). Absent on
+   *  daemons too old to anchor — treat as not anchored. */
   device_sessions: S.optional(DeviceSessionsReport),
   /** The loopback port this daemon's `/v1/*` + `/whoami` surface listens on
    *  (`OPENLLM_DAEMON_PORT`, default 8787). Reported in `daemon_status_json`

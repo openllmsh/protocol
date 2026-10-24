@@ -11,6 +11,8 @@
  *   browser to attest with its control key;
  * - `POST /local/device-control` → pin the account control public key
  *   directly (`via: "local"`, an anchored pin).
+ * - `POST /local/device-anchor`  → install or remove the device trust anchor
+ *   (sessions on == anchor present).
  */
 import { Schema as S } from "effect";
 
@@ -29,15 +31,13 @@ export type TDeviceAccessPinReport = S.Schema.Type<
 >;
 
 /**
- * `DaemonStatus.device_sessions` — the remote device (agent) session switch
+ * `DaemonStatus.device_sessions` — whether this device can host agent sessions
  * and the daemon's proof of its X25519 key.
  *
- * - `anchored`: the pin descends from a local trust root (install anchor,
- *   loopback). False → agent sessions fail closed with
- *   `device_not_anchored`; offer "Set up device sessions".
- * - `enabled`: remote device sessions are on. The anchor is the opt-in —
- *   an anchored device with no persisted switch reports enabled. An
- *   explicit local or signed-remote disable turns it off.
+ * - `anchored`: the pin descends from a local trust root (install / login /
+ *   desktop loopback anchor). True == device sessions are on. False → agent
+ *   sessions fail closed with `device_not_anchored`; offer "Set up device
+ *   sessions".
  * - `dpk_proof`: `HMAC-SHA256(pair_secret, "openllm-dpk-proof-v1" ||
  *   key_id || pubkey)`, base64url. Verify with `@openllm/vault`
  *   `verifyDpkProof` BEFORE using `DaemonStatus.pubkey` as `dpk`. Absent when
@@ -45,7 +45,6 @@ export type TDeviceAccessPinReport = S.Schema.Type<
  */
 export const DeviceSessionsReport = S.Struct({
   anchored: S.Boolean,
-  enabled: S.Boolean,
   dpk_proof: S.optional(S.String.pipe(S.maxLength(64))),
 });
 export type TDeviceSessionsReport = S.Schema.Type<typeof DeviceSessionsReport>;
@@ -78,24 +77,30 @@ export type TLocalDeviceControlRequest = S.Schema.Type<
 >;
 
 /**
- * `POST /local/device-anchor` — hand this machine's daemon the install-time
- * trust anchor over loopback (the desktop app's "Device sessions" toggle,
- * after `pair_daemon` succeeds or for an already-paired Mac). Same admission
- * as `/local/device-control`. The daemon refuses unless `key_id` is the key it
- * runs on, writes `OPENLLM_DEVICE_ANCHOR` with the same writer as
- * `openllm daemon anchor`, and re-derives its pin. The anchor is the sessions
- * opt-in (absent switch = on). The anchor is never logged or echoed back.
+ * `POST /local/device-anchor` — install or remove this machine's trust anchor
+ * over loopback (the desktop app's Device sessions toggle). Same admission as
+ * `/local/device-control`. Install refuses unless `key_id` is the key this
+ * daemon runs on, writes `OPENLLM_DEVICE_ANCHOR` with the same writer as
+ * `openllm daemon anchor`, and re-derives its pin. Remove blanks that line.
+ * The anchor is never logged or echoed back. Sessions on == anchor present.
  */
 export const DEVICE_ANCHOR_LOCAL_PATH = "/local/device-anchor";
 export const DEVICE_ANCHOR_LOCAL_MAX_BODY_BYTES = 512;
 
-/** `POST /local/device-anchor` body. */
-export const LocalDeviceAnchorRequest = S.Struct({
-  /** The API key id the anchor was derived for (`sk-llm-<key_id>.…`). */
-  key_id: S.String.pipe(S.minLength(1), S.maxLength(64)),
-  /** The 86-char base64url anchor (`buildDeviceAnchor(seed, key_id)`). */
-  anchor: S.String.pipe(S.minLength(1), S.maxLength(128)),
-});
+/** `POST /local/device-anchor` body — install or remove. */
+export const LocalDeviceAnchorRequest = S.Union(
+  S.Struct({
+    /** The API key id the anchor was derived for (`sk-llm-<key_id>.…`). */
+    key_id: S.String.pipe(S.minLength(1), S.maxLength(64)),
+    /** The 86-char base64url anchor (`buildDeviceAnchor(seed, key_id)`). */
+    anchor: S.String.pipe(S.minLength(1), S.maxLength(128)),
+  }),
+  S.Struct({
+    key_id: S.String.pipe(S.minLength(1), S.maxLength(64)),
+    /** Blank `OPENLLM_DEVICE_ANCHOR` — sessions off. */
+    remove: S.Literal(true),
+  }),
+);
 export type TLocalDeviceAnchorRequest = S.Schema.Type<
   typeof LocalDeviceAnchorRequest
 >;

@@ -584,8 +584,9 @@ export const StreamResetCode = S.Literal(
    * no install anchor): agent sessions fail closed. Fix with "Set up device
    * sessions" (`openllm login sk-llm-<key>.<anchor>`). */
   "device_not_anchored",
-  /** Remote device sessions are switched off on this device (fresh installs
-   * default off). Enable from Manage device, or `openllm device enable`. */
+  /** Retired: older daemons emitted this when a separate enabled flag was off.
+   * Current daemons only emit `device_not_anchored` (sessions on == anchor).
+   * Kept in the closed vocabulary so old peers still decode. */
   "device_sessions_disabled",
 );
 export type TStreamResetCode = S.Schema.Type<typeof StreamResetCode>;

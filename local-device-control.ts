@@ -35,9 +35,9 @@ export type TDeviceAccessPinReport = S.Schema.Type<
  * - `anchored`: the pin descends from a local trust root (install anchor,
  *   loopback). False → agent sessions fail closed with
  *   `device_not_anchored`; offer "Set up device sessions".
- * - `enabled`: remote device sessions are on (fresh installs: off).
- * - `locked`: installed with `--lock-device-sessions` — a remote enable is
- *   refused; only `openllm device enable` on the machine turns it on.
+ * - `enabled`: remote device sessions are on. The anchor is the opt-in —
+ *   an anchored device with no persisted switch reports enabled. An
+ *   explicit local or signed-remote disable turns it off.
  * - `dpk_proof`: `HMAC-SHA256(pair_secret, "openllm-dpk-proof-v1" ||
  *   key_id || pubkey)`, base64url. Verify with `@openllm/vault`
  *   `verifyDpkProof` BEFORE using `DaemonStatus.pubkey` as `dpk`. Absent when
@@ -46,7 +46,6 @@ export type TDeviceAccessPinReport = S.Schema.Type<
 export const DeviceSessionsReport = S.Struct({
   anchored: S.Boolean,
   enabled: S.Boolean,
-  locked: S.Boolean,
   dpk_proof: S.optional(S.String.pipe(S.maxLength(64))),
 });
 export type TDeviceSessionsReport = S.Schema.Type<typeof DeviceSessionsReport>;
@@ -84,8 +83,8 @@ export type TLocalDeviceControlRequest = S.Schema.Type<
  * after `pair_daemon` succeeds or for an already-paired Mac). Same admission
  * as `/local/device-control`. The daemon refuses unless `key_id` is the key it
  * runs on, writes `OPENLLM_DEVICE_ANCHOR` with the same writer as
- * `openllm daemon anchor`, re-derives its pin and enables device sessions
- * unless they are locked. The anchor is never logged or echoed back.
+ * `openllm daemon anchor`, and re-derives its pin. The anchor is the sessions
+ * opt-in (absent switch = on). The anchor is never logged or echoed back.
  */
 export const DEVICE_ANCHOR_LOCAL_PATH = "/local/device-anchor";
 export const DEVICE_ANCHOR_LOCAL_MAX_BODY_BYTES = 512;

@@ -10,6 +10,10 @@ import { CooldownReason } from "./cooldown-reason";
 import { DaemonReportingPolicy } from "./doctor-report-policy";
 import { ExecutionSelection } from "./execution-selection";
 import {
+  DeviceAccessPinReport,
+  DeviceSessionsReport,
+} from "./local-device-control";
+import {
   ModelSettingDefinitions,
   ModelSettingsOverrides,
 } from "./model-settings";
@@ -184,13 +188,40 @@ export const DaemonBootstrap = S.Struct({
     ),
   ),
   /**
-   * SPKI DER (base64) of the seed-derived device-access public key for
-   * the authenticating api key. The daemon verifies browser-signed
-   * device grants against it. Null when the key is un-provisioned or
-   * the caller is session-only / watcher (no owning key). Optional so
-   * older clouds keep bootstrapping newer daemons.
+   * SPKI DER (base64) of the account DEVICE-CONTROL public key (Ed25519,
+   * derived in the browser from the recovery phrase — never from the DEK, so
+   * the cloud cannot sign with it). The daemon first-use pins it UNANCHORED
+   * (tunnel only), follows signed rotations, and anchors only from a local
+   * root (install anchor / loopback); it verifies
+   * browser-signed device grants against it. The
+   * field name is historical: before `device_access_kind: "control"` it carried
+   * a per-key DEK-derived key ("legacy"). Null when the key is un-provisioned or
+   * the caller is session-only / watcher (no owning key). Optional so older
+   * clouds keep bootstrapping newer daemons.
    */
   device_access_pubkey: S.optional(S.NullOr(S.String.check(S.isMaxLength(64)))),
+  /**
+   * `"control"` when {@link device_access_pubkey} is the account control key.
+   * Absent = legacy per-key value (the daemon then never upgrades a pin to it
+   * and refuses agent sessions with `device_not_anchored`).
+   */
+  device_access_kind: S.optional(S.Literal("control")),
+  /**
+   * The control key's generation (`users.device_control_version`, the vault
+   * generation it was derived under). A signed rotation must carry a greater
+   * `cv` than the daemon's pinned version. Null/absent when unknown.
+   */
+  device_access_version: S.optional(S.NullOr(S.Number.check(S.isInt()))),
+  /**
+   * Control-key rotation statements, oldest first (base64 JSON, signed by the
+   * PREVIOUS control key — see `@openllmsh/tunnel` `device-control.ts`). The
+   * daemon walks the chain from its own pin to {@link device_access_pubkey}.
+   * The cloud cannot forge a step: each is signed by a key only a browser
+   * holding the recovery phrase ever derived.
+   */
+  device_access_rotations: S.optional(
+    S.Array(S.String.check(S.isMaxLength(1024))).check(S.isMaxLength(8)),
+  ),
   /**
    * Optional reporting policy. Absent on old clouds = off. Expired or
    * `enabled: false` means no upload. See `doctor-report-policy.ts`.
@@ -568,6 +599,18 @@ const SetLocalKeyPayload = S.Struct({
   sealed: S.Union([Base64Blob, S.Literal("")]),
 });
 const SetAutoUpdatePayload = S.Struct({ enabled: S.Boolean });
+/** Disable device sessions remotely: `statement` is the base64 envelope of
+ *  `{ v: 1, key_id, ts, nonce, sig }` signed by the account control key
+ *  (`@openllm/vault` `signDeviceSessionsDisable`). Disable-only — there is no
+ *  remote enable. The daemon verifies against its ANCHORED pin and blanks
+ *  `OPENLLM_DEVICE_ANCHOR`; the cloud only relays and cannot forge one. */
+const SetDeviceSessionsPayload = S.Struct({
+  statement: S.String.check(
+    S.isMinLength(1),
+    S.isMaxLength(1024),
+    S.isPattern(/^[A-Za-z0-9+/]+={0,2}$/),
+  ),
+});
 /** `refresh` re-reads usage for connected providers. Optional `slug` scopes
  *  that read to one provider; omitted `slug` means every connected provider
  *  (bare `{}` is that whole-daemon read — it does not clear the usage cache).
@@ -720,6 +763,15 @@ const commandVariants = <F extends S.Struct.Fields>(addressing: F) =>
       kind: S.Literals(["set_local_key"]),
       payload: SetLocalKeyPayload,
     }),
+    // Control-key-signed device-sessions DISABLE. Older daemons ignore the
+    // kind; the dashboard sends it only when `control_caps` advertises it.
+    // There is no remote enable — re-enable is install/update/login/desktop
+    // with the sessions toggle on (writes the anchor again).
+    S.Struct({
+      ...addressing,
+      kind: S.Literals(["set_device_sessions"]),
+      payload: SetDeviceSessionsPayload,
+    }),
   ] as const;
 
 /** The bare `{ kind, payload }` vocabulary — what an enqueue boundary (the
@@ -755,6 +807,7 @@ export const DaemonCommandKind = S.Literals([
   "list_local_sessions",
   "local_rescan",
   "set_local_key",
+  "set_device_sessions",
 ]);
 type TDaemonCommandKindLiteral = S.Schema.Type<typeof DaemonCommandKind>;
 // Bidirectional assignability assertion: the literal and the union's
@@ -973,6 +1026,8 @@ export type TDaemonProviderConnection = S.Schema.Type<
  *  Senders must not address account n >= 1 without it (old daemons strip the
  *  field and would act on account 0). */
 export const MULTI_ACCOUNT_CONTROL_CAP = "multi_account";
+/** Control cap: the daemon executes the signed `set_device_sessions` disable. */
+export const DEVICE_SESSIONS_CONTROL_CAP = "device_sessions_v1";
 
 /**
  * A `pending_auth` self-expires after this **on cached / unconfirmed
@@ -1024,11 +1079,6 @@ export const DaemonStatus = S.Struct({
    *  Absent on daemons too old to report it — those always self-updated, so the
    *  switch then reads as on. See `packages/cli/daemon/src/auto-update-pref.ts`. */
   auto_update: S.optional(S.Boolean),
-  /** Whether remote PTY sessions are enabled (OPT-IN, default off). Local-only
-   *  toggle — `openllmd sessions on|off` or the install flag; deliberately NO
-   *  relay command can flip it. Absent on daemons too old to gate (those serve
-   *  sessions unconditionally). See `packages/cli/daemon/src/pty-sessions-pref.ts`. */
-  pty_sessions: S.optional(S.Boolean),
   /** Result of the last bootstrap — see `DaemonCloudState`. */
   cloud_state: DaemonCloudState,
   /** This daemon's X25519 public key (SPKI DER, base64). Lets ANOTHER of the
@@ -1040,6 +1090,15 @@ export const DaemonStatus = S.Struct({
    * daemon's local key. A browser session must reset the pin before RTC can
    * connect; absent on daemons that have not observed this conflict. */
   identity_conflict: S.optional(S.Boolean),
+  /** The device-control pin this daemon verifies grants against: `fp` is the
+   *  key's fingerprint (`keyFingerprint` in `@openllmsh/tunnel`), `via` the
+   *  path that set it. Whether it is agent-eligible is reported once, in
+   *  `device_sessions.anchored`. Absent when unpinned or on older daemons. */
+  device_access_pin: S.optional(DeviceAccessPinReport),
+  /** Device sessions readiness + the dpk proof (`DeviceSessionsReport`).
+   *  `anchored` == sessions on (env-file trust anchor present). Absent on
+   *  daemons too old to anchor — treat as not anchored. */
+  device_sessions: S.optional(DeviceSessionsReport),
   /** The loopback port this daemon's `/v1/*` + `/whoami` surface listens on
    *  (`OPENLLM_DAEMON_PORT`, default 8787). Reported in `daemon_status_json`
    *  for display; routing never uses it (origin reaches devices over the
@@ -1077,7 +1136,7 @@ export const DaemonStatus = S.Struct({
       S.Struct({
         /** Local daemon session id; independent of the mux SessionId validator. */
         id: S.String.check(S.isMinLength(1), S.isMaxLength(128)),
-        // Same closed vocabulary as the mux `SessionStreamOpenPayload.cli`.
+        // Same closed vocabulary as the local `LocalSessionOpenPayload.cli`.
         cli: DeviceSessionCli,
         started_at_ms: S.Number,
         /** A consumer channel is currently bound. */

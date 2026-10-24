@@ -24,7 +24,10 @@ export const SessionId = S.String.check(S.isPattern(SESSION_ID_PATTERN));
 export type TSessionId = S.Schema.Type<typeof SessionId>;
 
 /** Terminal cols/rows on local session open + resize. */
-export const TerminalDimension = S.Number.check(S.isInt(), S.isBetween({ minimum: 1, maximum: 1024 }));
+export const TerminalDimension = S.Number.check(
+  S.isInt(),
+  S.isBetween({ minimum: 1, maximum: 1024 }),
+);
 export type TTerminalDimension = S.Schema.Type<typeof TerminalDimension>;
 
 /** Open request on the local session-host broker. */
@@ -61,7 +64,9 @@ export const LocalSessionCtrlPayload = S.Union([
     t: S.Literal("open_ack"),
     ok: S.Boolean,
     live: S.optional(S.Boolean),
-    generation: S.optional(S.Number.check(S.isInt(), S.isGreaterThanOrEqualTo(0))),
+    generation: S.optional(
+      S.Number.check(S.isInt(), S.isGreaterThanOrEqualTo(0)),
+    ),
     error: S.optional(S.String.check(S.isMaxLength(64))),
     message: S.optional(S.String.check(S.isMaxLength(256))),
   }),
@@ -79,8 +84,12 @@ export type TLocalSessionCtrlPayload = S.Schema.Type<
   typeof LocalSessionCtrlPayload
 >;
 
-const decodeOpen = S.decodeUnknownResult(S.revealCodec(LocalSessionOpenPayload));
-const decodeCtrl = S.decodeUnknownResult(S.revealCodec(LocalSessionCtrlPayload));
+const decodeOpen = S.decodeUnknownResult(
+  S.revealCodec(LocalSessionOpenPayload),
+);
+const decodeCtrl = S.decodeUnknownResult(
+  S.revealCodec(LocalSessionCtrlPayload),
+);
 
 /** Decode a local session open, enforcing the cross-field rules, or null. */
 export const parseLocalSessionOpenPayload = (

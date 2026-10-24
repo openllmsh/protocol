@@ -507,8 +507,12 @@ export const StreamCtrlPayload = S.Union([
     ok: S.Boolean,
     live: S.optional(S.Boolean),
     /** Daemon-minted, monotonically increasing stream-open generation. */
-    generation: S.optional(S.Number.check(S.isInt(), S.isGreaterThanOrEqualTo(0))),
-    initial_credit: S.optional(S.Number.check(S.isInt(), S.isGreaterThanOrEqualTo(0))),
+    generation: S.optional(
+      S.Number.check(S.isInt(), S.isGreaterThanOrEqualTo(0)),
+    ),
+    initial_credit: S.optional(
+      S.Number.check(S.isInt(), S.isGreaterThanOrEqualTo(0)),
+    ),
     /** Present on nacks (`ok:false`) — same vocabulary as `StreamResetCode`
      * open failures (`agent_unavailable`, `realtime_busy`, …). */
     error: S.optional(S.String.check(S.isMaxLength(64))),

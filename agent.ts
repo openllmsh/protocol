@@ -9,10 +9,15 @@
  *
  *   consumer → daemon : {@link AgentCommand} (start / attach / send /
  *                        interrupt / respond / close / attachment_get /
- *                        set_model / delete_session)
+ *                        set_model / delete_session / history_get)
  *   daemon → consumer : {@link AgentEvent} (session / turn / item / content /
  *                        request / user-input / token-usage / runtime /
- *                        attachment.data)
+ *                        attachment.data / history.page)
+ *
+ * History is paged (after t3code's windowed thread detail): an attach replays
+ * only the LATEST window of the session, ending on a turn boundary, then a
+ * {@link AgentHistoryPageEvent} names the opaque cursor before that window.
+ * `history_get{before}` returns the adjacent, strictly older page.
  *
  * The event families are a trimmed subset of t3code's `ProviderRuntimeEvent`:
  * no multi-CLI orchestration, no event-sourcing / checkpoint / git tooling, no
@@ -306,6 +311,35 @@ export type TAgentDeleteSessionCommand = S.Schema.Type<
   typeof AgentDeleteSessionCommand
 >;
 
+/** Turns one `history_get` page holds at most. */
+export const AGENT_HISTORY_MAX_PAGE_TURNS = 100;
+/** Events one `history.page` carries at most. */
+export const AGENT_HISTORY_MAX_PAGE_EVENTS = 4_000;
+
+/** Opaque daemon-minted history cursor (consumers never parse it). */
+const AgentHistoryCursor = S.String.pipe(S.minLength(1), S.maxLength(128));
+
+/**
+ * Older history of the bound session: the turns strictly before `before`
+ * (a cursor from an earlier `history.page`), newest `limit` of them. Answered
+ * by one `history.page` carrying the events, under the same `command_id`.
+ */
+export const AgentHistoryGetCommand = S.Struct({
+  type: S.Literal("history_get"),
+  id: S.optional(AgentCommandId),
+  before: AgentHistoryCursor,
+  limit: S.optional(
+    S.Number.pipe(
+      S.int(),
+      S.positive(),
+      S.lessThanOrEqualTo(AGENT_HISTORY_MAX_PAGE_TURNS),
+    ),
+  ),
+});
+export type TAgentHistoryGetCommand = S.Schema.Type<
+  typeof AgentHistoryGetCommand
+>;
+
 /** One consumer → daemon command line. */
 export const AgentCommand = S.Union(
   AgentStartCommand,
@@ -317,6 +351,7 @@ export const AgentCommand = S.Union(
   AgentAttachmentGetCommand,
   AgentSetModelCommand,
   AgentDeleteSessionCommand,
+  AgentHistoryGetCommand,
 );
 export type TAgentCommand = S.Schema.Type<typeof AgentCommand>;
 export type TAgentCommandType = TAgentCommand["type"];
@@ -336,6 +371,19 @@ const eventBase = {
   /** Echo of the {@link AgentCommand} `id` this event answers, if any. */
   command_id: S.optional(AgentCommandId),
 } as const;
+
+const TokenCount = S.Number.pipe(S.int(), S.nonNegative());
+
+export const AgentTokenUsage = S.Struct({
+  input_tokens: TokenCount,
+  output_tokens: TokenCount,
+  cached_input_tokens: S.optional(TokenCount),
+  reasoning_tokens: S.optional(TokenCount),
+  total_tokens: S.optional(TokenCount),
+  /** The model's context window, when known, for a fill gauge. */
+  context_window: S.optional(TokenCount),
+});
+export type TAgentTokenUsage = S.Schema.Type<typeof AgentTokenUsage>;
 
 export const AgentSessionExitReason = S.Literal(
   "closed",
@@ -408,6 +456,12 @@ export const AgentTurnCompletedEvent = S.Struct({
   type: S.Literal("turn.completed"),
   turn_id: AgentRefId,
   stop_reason: S.optional(S.String.pipe(S.maxLength(64))),
+  /**
+   * What the turn cost, from the engine's own record: `input_tokens` is the
+   * context the turn's last request carried, `output_tokens` the sum the turn
+   * generated. Optional: older daemons omit it, older consumers ignore it.
+   */
+  usage: S.optional(AgentTokenUsage),
 });
 
 export const AgentTurnAbortedEvent = S.Struct({
@@ -420,6 +474,14 @@ export const AgentTurnAbortedEvent = S.Struct({
 
 export const AgentToolStatus = S.Literal("in_progress", "completed", "failed");
 export type TAgentToolStatus = S.Schema.Type<typeof AgentToolStatus>;
+
+export const AgentNoticeKind = S.Literal(
+  "compacted",
+  "interrupted",
+  "model_changed",
+  "error",
+);
+export type TAgentNoticeKind = S.Schema.Type<typeof AgentNoticeKind>;
 
 /** The renderable unit of a turn. */
 export const AgentItem = S.Union(
@@ -441,6 +503,22 @@ export const AgentItem = S.Union(
     /** Result text, truncated by the daemon to fit one line. */
     output: S.optional(S.String),
     is_error: S.optional(S.Boolean),
+    /** The user (or a policy) refused the call; optional, additive. */
+    denied: S.optional(S.Boolean),
+    /** Wall time from call to result, when the engine recorded both. */
+    duration_ms: S.optional(S.Number.pipe(S.int(), S.nonNegative())),
+    /** A shell command's exit status, when the engine reported it. */
+    exit_code: S.optional(S.Number.pipe(S.int())),
+  }),
+  /**
+   * A marker in the conversation that is neither speech nor a tool: context
+   * compacted, a turn interrupted, the model switched, an engine error. Older
+   * consumers drop the whole event (unknown kind), which loses only the line.
+   */
+  S.Struct({
+    kind: S.Literal("notice"),
+    notice: AgentNoticeKind,
+    text: S.optional(DetailText),
   }),
 );
 export type TAgentItem = S.Schema.Type<typeof AgentItem>;
@@ -451,6 +529,12 @@ const itemEventFields = {
   turn_id: S.optional(AgentRefId),
   item_id: AgentRefId,
   item: AgentItem,
+  /**
+   * The tool call (a Task / Agent subagent) this item belongs to: a
+   * subagent's own text and tool calls nest under the call that spawned it.
+   * Absent → a top-level item of the turn. Older consumers ignore it.
+   */
+  parent_item_id: S.optional(AgentRefId),
 } as const;
 
 export const AgentItemStartedEvent = S.Struct({
@@ -546,19 +630,6 @@ export const AgentUserInputResolvedEvent = S.Struct({
   answers: AgentUserInputAnswers,
 });
 
-const TokenCount = S.Number.pipe(S.int(), S.nonNegative());
-
-export const AgentTokenUsage = S.Struct({
-  input_tokens: TokenCount,
-  output_tokens: TokenCount,
-  cached_input_tokens: S.optional(TokenCount),
-  reasoning_tokens: S.optional(TokenCount),
-  total_tokens: S.optional(TokenCount),
-  /** The model's context window, when known, for a fill gauge. */
-  context_window: S.optional(TokenCount),
-});
-export type TAgentTokenUsage = S.Schema.Type<typeof AgentTokenUsage>;
-
 export const AgentTokenUsageUpdatedEvent = S.Struct({
   ...eventBase,
   type: S.Literal("thread.token-usage.updated"),
@@ -611,6 +682,27 @@ export const AgentSessionDeletedEvent = S.Struct({
   session_id: AgentSessionId,
 });
 
+/**
+ * A page of session history. On attach (no `events`): the cursor before the
+ * replayed window. Answering `history_get` (same `command_id`): the older
+ * events themselves, oldest first, each one {@link AgentEvent} line's value
+ * (decode with {@link parseAgentEvent}; unknown types are dropped). Paging is
+ * by whole turns, so a page never splits one. `has_more` false → the page
+ * reaches the start of the session.
+ */
+export const AgentHistoryPageEvent = S.Struct({
+  ...eventBase,
+  type: S.Literal("history.page"),
+  before_cursor: S.optional(AgentHistoryCursor),
+  has_more: S.Boolean,
+  events: S.optional(
+    S.Array(S.Unknown).pipe(S.maxItems(AGENT_HISTORY_MAX_PAGE_EVENTS)),
+  ),
+});
+export type TAgentHistoryPageEvent = S.Schema.Type<
+  typeof AgentHistoryPageEvent
+>;
+
 /** One daemon → consumer event line. */
 export const AgentEvent = S.Union(
   AgentSessionStartedEvent,
@@ -632,6 +724,7 @@ export const AgentEvent = S.Union(
   AgentRuntimeErrorEvent,
   AgentAttachmentDataEvent,
   AgentSessionDeletedEvent,
+  AgentHistoryPageEvent,
 );
 export type TAgentEvent = S.Schema.Type<typeof AgentEvent>;
 export type TAgentEventType = TAgentEvent["type"];

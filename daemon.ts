@@ -146,7 +146,7 @@ export const DaemonBootstrap = S.Struct({
    * decode.
    */
   execution_selections: S.optional(
-    S.NullOr(S.Record({ key: S.String, value: ExecutionSelection })),
+    S.NullOr(S.Record(S.String, ExecutionSelection)),
   ),
   /**
    * Cloud-controlled toggle for the daemon's SIGNED-PLAN CACHE
@@ -190,7 +190,7 @@ export const DaemonBootstrap = S.Struct({
    * the caller is session-only / watcher (no owning key). Optional so
    * older clouds keep bootstrapping newer daemons.
    */
-  device_access_pubkey: S.optional(S.NullOr(S.String.pipe(S.maxLength(64)))),
+  device_access_pubkey: S.optional(S.NullOr(S.String.check(S.isMaxLength(64)))),
   /**
    * Optional reporting policy. Absent on old clouds = off. Expired or
    * `enabled: false` means no upload. See `doctor-report-policy.ts`.
@@ -246,14 +246,14 @@ export const DaemonRecordRequest = S.Struct({
   cooldown_reason: S.optional(CooldownReason),
   /** Reset instant for reset-aware TTL cap; optional so old daemons omit. */
   reset_at_ms: S.optional(S.Number),
-}).pipe(
+}).check(
   // A successful hop never cools — a `cooldown_reason` on a `success` record
   // is malformed, so reject it at the schema boundary rather than let the
   // handler mark a cooldown for a model that just served cleanly.
-  S.filter(
-    (record) =>
+  S.makeFilter(
+    (record: TDaemonRecordRequest) =>
       record.status !== "success" || record.cooldown_reason === undefined,
-    { message: () => "cooldown_reason is only valid on a non-success record" },
+    { message: "cooldown_reason is only valid on a non-success record" },
   ),
 );
 export type TDaemonRecordRequest = S.Schema.Type<typeof DaemonRecordRequest>;
@@ -269,7 +269,7 @@ export type TDaemonRecordRequest = S.Schema.Type<typeof DaemonRecordRequest>;
 // `provider` to the subscription set so a daemon can never overwrite the
 // cloud-owned API-key rows.
 export const DaemonModelReportEntry = S.Struct({
-  provider: S.String.pipe(S.maxLength(64)),
+  provider: S.String.check(S.isMaxLength(64)),
   // Same per-list bound as `ProviderModelList` (defense-in-depth on
   // this authenticated write path).
   models: ProviderModelList,
@@ -278,7 +278,7 @@ export const DaemonModelReportEntry = S.Struct({
    *  the cloud uses this to refuse a write that would replace a fresh
    *  row produced by a NEWER CLI on another device. Optional so daemons
    *  built before the field still report (their writes stay permissive). */
-  cli_version: S.optional(S.String.pipe(S.maxLength(64))),
+  cli_version: S.optional(S.String.check(S.isMaxLength(64))),
 });
 export type TDaemonModelReportEntry = S.Schema.Type<
   typeof DaemonModelReportEntry
@@ -287,7 +287,7 @@ export type TDaemonModelReportEntry = S.Schema.Type<
 export const DaemonModelReport = S.Struct({
   // One entry per subscription (oauth) provider — the closed set is small;
   // 32 leaves headroom without allowing a bloated report.
-  entries: S.Array(DaemonModelReportEntry).pipe(S.maxItems(32)),
+  entries: S.Array(DaemonModelReportEntry).check(S.isMaxLength(32)),
   /**
    * Device-discovered local model-server lists, keyed by `local_*` /
    * `local_port_*` provider. Separate from `entries` so an oauth-only
@@ -295,13 +295,13 @@ export const DaemonModelReport = S.Struct({
    * Absent on older daemons.
    */
   local_entries: S.optional(
-    S.Array(DaemonModelReportEntry).pipe(S.maxItems(64)),
+    S.Array(DaemonModelReportEntry).check(S.isMaxLength(64)),
   ),
 });
 export type TDaemonModelReport = S.Schema.Type<typeof DaemonModelReport>;
 
 /** Probe outcome for one local model server on the daemon's machine. */
-export const LocalServerStatus = S.Literal("ok", "needs_key", "unreachable");
+export const LocalServerStatus = S.Literals(["ok", "needs_key", "unreachable"]);
 export type TLocalServerStatus = S.Schema.Type<typeof LocalServerStatus>;
 
 /**
@@ -310,13 +310,13 @@ export type TLocalServerStatus = S.Schema.Type<typeof LocalServerStatus>;
  */
 export const LocalServerState = S.Struct({
   /** Preset slug (`local_ollama`, …) or `local_port_<port>` fallback. */
-  slug: S.String.pipe(S.minLength(1), S.maxLength(64)),
-  port: S.Number.pipe(
-    S.int(),
-    S.greaterThanOrEqualTo(1),
-    S.lessThanOrEqualTo(65535),
+  slug: S.String.check(S.isMinLength(1), S.isMaxLength(64)),
+  port: S.Number.check(
+    S.isInt(),
+    S.isGreaterThanOrEqualTo(1),
+    S.isLessThanOrEqualTo(65535),
   ),
-  base_url: S.String.pipe(S.minLength(1), S.maxLength(512)),
+  base_url: S.String.check(S.isMinLength(1), S.isMaxLength(512)),
   status: LocalServerStatus,
   has_key: S.Boolean,
   models: ProviderModelList,
@@ -351,7 +351,7 @@ export type TDaemonSessionLost = S.Schema.Type<typeof DaemonSessionLost>;
 
 export const DaemonQuotaStatusReached = S.Struct({
   slug: SubscriptionProviderSlug,
-  status: S.Literal("allowed_warning", "rejected"),
+  status: S.Literals(["allowed_warning", "rejected"]),
   account_hash: S.optional(S.String),
   plan: S.optional(S.String),
   /**
@@ -373,7 +373,7 @@ export type TDaemonQuotaStatusReached = S.Schema.Type<
 >;
 
 /** Optional user-visible device-session label (open frames + presence). */
-export const SessionTitleField = S.String.pipe(S.maxLength(80));
+export const SessionTitleField = S.String.check(S.isMaxLength(80));
 export type TSessionTitleField = S.Schema.Type<typeof SessionTitleField>;
 
 /**
@@ -383,14 +383,14 @@ export type TSessionTitleField = S.Schema.Type<typeof SessionTitleField>;
  * session frames use this set, while the local-session list uses its narrower
  * canonical set. Kimi and Cursor stay subscription-only for now.
  */
-export const DeviceSessionCli = S.Literal(
+export const DeviceSessionCli = S.Literals([
   "claude_code",
   "chatgpt",
   "grok",
   "opencode",
   "hermes",
   "shell",
-);
+]);
 export type TDeviceSessionCli = S.Schema.Type<typeof DeviceSessionCli>;
 
 /**
@@ -428,16 +428,16 @@ export const isListableSessionCli = (cli: string): boolean =>
  */
 export const LocalCliSession = S.Struct({
   /** Vendor session id when known; otherwise a synthetic live-run key. */
-  id: S.String.pipe(S.minLength(1), S.maxLength(128)),
+  id: S.String.check(S.isMinLength(1), S.isMaxLength(128)),
   title: SessionTitleField,
-  cwd: S.NullOr(S.String.pipe(S.maxLength(1024))),
+  cwd: S.NullOr(S.String.check(S.isMaxLength(1024))),
   updated_at_ms: S.Number,
   cli: DeviceSessionCli,
   live: S.Boolean,
   /** Where the live process is hosted, when `live`. */
-  host: S.optional(S.NullOr(S.Literal("local", "device"))),
+  host: S.optional(S.NullOr(S.Literals(["local", "device"]))),
   /** OpenLLM device session id when the PTY is already hosted by the daemon. */
-  openllm_session_id: S.optional(S.NullOr(S.String.pipe(S.maxLength(64)))),
+  openllm_session_id: S.optional(S.NullOr(S.String.check(S.isMaxLength(64)))),
   /** True when the browser can `mode:"attach"` without spawning a second CLI. */
   attachable: S.Boolean,
 });
@@ -448,7 +448,7 @@ export const ListLocalSessionsPayload = S.Struct({
   cli: DeviceSessionCli,
   /** Max rows (default 30 server-side; hard cap 100). */
   limit: S.optional(
-    S.Number.pipe(S.int(), S.greaterThanOrEqualTo(1), S.lessThanOrEqualTo(100)),
+    S.Number.check(S.isInt(), S.isGreaterThanOrEqualTo(1), S.isLessThanOrEqualTo(100)),
   ),
 });
 export type TListLocalSessionsPayload = S.Schema.Type<
@@ -483,23 +483,23 @@ export type TRefreshModelsDueResult = S.Schema.Type<
 >;
 
 /** Terminal exit reason retained for a dead but resumable device session. */
-export const SessionExitReason = S.Literal(
+export const SessionExitReason = S.Literals([
   "evicted",
   "reaped",
   "done",
   "killed",
-);
+]);
 export type TSessionExitReason = S.Schema.Type<typeof SessionExitReason>;
 
 // Opaque base64 blob (an X25519 sealed box / SPKI public key) — decrypted or
 // parsed by the recipient, never executed. Padding restricted to at most two
 // '=' characters only at the end (valid base64 format).
-const Base64Blob = S.String.pipe(S.pattern(/^[A-Za-z0-9+/]+={0,2}$/));
+const Base64Blob = S.String.check(S.isPattern(/^[A-Za-z0-9+/]+={0,2}$/));
 
 /** The closed set of install-time gateway modes: which base URL a client
  *  setup bakes — the local daemon (`local`, the default) or the cloud
  *  origin. ONE schema for every wire field and TS union that carries it. */
-export const GatewayMode = S.Literal("local", "cloud");
+export const GatewayMode = S.Literals(["local", "cloud"]);
 export type TGatewayMode = S.Schema.Type<typeof GatewayMode>;
 
 /** Device-local account slot of a subscription provider (multi-account,
@@ -507,10 +507,10 @@ export type TGatewayMode = S.Schema.Type<typeof GatewayMode>;
  *  account. Old daemons strip the field on decode and act on account 0, so
  *  senders must only set it when the daemon advertises
  *  `features.multi_account`. */
-export const AccountIndex = S.Number.pipe(
-  S.int(),
-  S.greaterThanOrEqualTo(0),
-  S.lessThanOrEqualTo(1023),
+export const AccountIndex = S.Number.check(
+  S.isInt(),
+  S.isGreaterThanOrEqualTo(0),
+  S.isLessThanOrEqualTo(1023),
 );
 export type TAccountIndex = S.Schema.Type<typeof AccountIndex>;
 
@@ -521,12 +521,12 @@ const ProviderPayload = S.Struct({
 /** Add an account slot; the daemon allocates the index and returns it. */
 const AddAccountPayload = S.Struct({
   slug: SubscriptionProviderSlug,
-  label: S.optional(S.String.pipe(S.maxLength(64))),
+  label: S.optional(S.String.check(S.isMaxLength(64))),
 });
 /** Remove an account slot (n >= 1; account 0 is only logged out). */
 const RemoveAccountPayload = S.Struct({
   slug: SubscriptionProviderSlug,
-  account_index: AccountIndex.pipe(S.greaterThanOrEqualTo(1)),
+  account_index: AccountIndex.check(S.isGreaterThanOrEqualTo(1)),
 });
 /** Pin an account first in routing, or clear the pin with `null`. */
 const PinAccountPayload = S.Struct({
@@ -556,12 +556,12 @@ const SubmitLoginCodePayload = S.Struct({
  *  X25519 sealed box to the daemon's pubkey (same posture as
  *  `submit_login_code`); an empty sealed blob clears the stored key. */
 const SetLocalKeyPayload = S.Struct({
-  port: S.Number.pipe(
-    S.int(),
-    S.greaterThanOrEqualTo(1),
-    S.lessThanOrEqualTo(65535),
+  port: S.Number.check(
+    S.isInt(),
+    S.isGreaterThanOrEqualTo(1),
+    S.isLessThanOrEqualTo(65535),
   ),
-  sealed: S.Union(Base64Blob, S.Literal("")),
+  sealed: S.Union([Base64Blob, S.Literal("")]),
 });
 const SetAutoUpdatePayload = S.Struct({ enabled: S.Boolean });
 /** `refresh` re-reads usage for connected providers. Optional `slug` scopes
@@ -721,7 +721,7 @@ const commandVariants = <F extends S.Struct.Fields>(addressing: F) =>
 /** The bare `{ kind, payload }` vocabulary — what an enqueue boundary (the
  *  relay's watcher `enqueue` frame, `enqueueCommand` in `packages/api`)
  *  validates before writing a `daemon_commands` row. */
-export const DaemonCommandBody = S.Union(...commandVariants({}));
+export const DaemonCommandBody = S.Union([...commandVariants({})]);
 export type TDaemonCommandBody = S.Schema.Type<typeof DaemonCommandBody>;
 
 /** Every kind in the closed vocabulary (the union's discriminants). */
@@ -732,7 +732,7 @@ export type TDaemonCommandKind = TDaemonCommandBody["kind"];
  *  command a lifecycle frame is reporting on. The `_kindDriftGuard` below makes
  *  this fail to compile if it ever drifts from the `commandVariants` union, so
  *  the two stay in lockstep without duplicating the payload mapping. */
-export const DaemonCommandKind = S.Literal(
+export const DaemonCommandKind = S.Literals([
   "connect",
   "connect_device_code",
   "cancel_connect",
@@ -751,7 +751,7 @@ export const DaemonCommandKind = S.Literal(
   "list_local_sessions",
   "local_rescan",
   "set_local_key",
-);
+]);
 type TDaemonCommandKindLiteral = S.Schema.Type<typeof DaemonCommandKind>;
 // Bidirectional assignability assertion: the literal and the union's
 // discriminant must be the SAME set. Adding a kind to `commandVariants` without
@@ -766,19 +766,19 @@ void _kindDriftGuard;
 
 /** One control command delivered to the daemon over its relay socket.
  *  `id` is `daemon_commands.id` (bigserial), stringified for the wire. */
-export const DaemonCommand = S.Union(
+export const DaemonCommand = S.Union([
   ...commandVariants({
     id: S.String,
     replay_session_id: S.optional(ReplaySessionId),
   }),
-);
+]);
 export type TDaemonCommand = S.Schema.Type<typeof DaemonCommand>;
 
 /** POST /api/daemon/cmd (dashboard → cloud) — enqueue for a target key
  *  (`key_id` must belong to the session user). */
-export const DaemonCmdRequest = S.Union(
+export const DaemonCmdRequest = S.Union([
   ...commandVariants({ key_id: S.String }),
-);
+]);
 export type TDaemonCmdRequest = S.Schema.Type<typeof DaemonCmdRequest>;
 
 /** A command result the daemon reports back over its relay socket (the
@@ -787,7 +787,7 @@ export const DaemonCommandAck = S.Struct({
   id: S.String,
   /** `ack` confirms that the daemon dequeued the command. Terminal outcomes
    * retain the previous ack shape for older relay binaries. */
-  status: S.Literal("ack", "done", "not_done", "error"),
+  status: S.Literals(["ack", "done", "not_done", "error"]),
   result: S.optional(S.Unknown),
 });
 export type TDaemonCommandAck = S.Schema.Type<typeof DaemonCommandAck>;
@@ -797,17 +797,17 @@ export type TDaemonCommandAck = S.Schema.Type<typeof DaemonCommandAck>;
 /** Per-provider auth-status on the daemon wire.
  *  `connected` = signed in; `disconnected` = unexpected loss; `signed_out` =
  *  user-initiated logout (sticky until the next successful login). */
-export const DaemonProviderAuthStatus = S.Literal(
+export const DaemonProviderAuthStatus = S.Literals([
   "connected",
   "disconnected",
   "signed_out",
-);
+]);
 export type TDaemonProviderAuthStatus = S.Schema.Type<
   typeof DaemonProviderAuthStatus
 >;
 
 /** Latest model-list outcome for a connected oauth provider (UI live signal). */
-export const DaemonModelsStatus = S.Literal("ok", "unavailable");
+export const DaemonModelsStatus = S.Literals(["ok", "unavailable"]);
 export type TDaemonModelsStatus = S.Schema.Type<typeof DaemonModelsStatus>;
 
 /**
@@ -815,7 +815,7 @@ export type TDaemonModelsStatus = S.Schema.Type<typeof DaemonModelsStatus>;
  * listModels null tokens; unknown `http_*` collapses to `http_error` on the
  * wire. Never paths, bodies, or headers.
  */
-export const DaemonModelsReason = S.Literal(
+export const DaemonModelsReason = S.Literals([
   "token_unavailable",
   "version_unresolved",
   "empty_after_filter",
@@ -828,7 +828,7 @@ export const DaemonModelsReason = S.Literal(
   "http_502",
   "http_503",
   "http_error",
-);
+]);
 export type TDaemonModelsReason = S.Schema.Type<typeof DaemonModelsReason>;
 
 export const DaemonProviderConnection = S.Struct({
@@ -901,7 +901,7 @@ export const DaemonProviderConnection = S.Struct({
          *  the browser, then poll) or `paste_code` (claude headless login:
          *  surface URL, then a paste-back input for the code the hosted
          *  callback page displays). Absent ⇒ `device_code`. */
-        mode: S.optional(S.Literal("device_code", "paste_code")),
+        mode: S.optional(S.Literals(["device_code", "paste_code"])),
         /** Relay command id of the login that produced this snapshot (same
          *  value as `auth.login.*` `flow_id`). The browser `req_id` lives on
          *  `command_lifecycle`, not here. Absent on daemons predating auth
@@ -947,7 +947,7 @@ export const DaemonProviderConnection = S.Struct({
    *  rows may share one `provider` with distinct indexes. Absent ⇒ 0. */
   account_index: S.optional(AccountIndex),
   /** User label for the account slot, when set. */
-  account_label: S.optional(S.String.pipe(S.maxLength(64))),
+  account_label: S.optional(S.String.check(S.isMaxLength(64))),
   /** True on the slot the user pinned first in routing for this provider. */
   account_pinned: S.optional(S.Boolean),
   /**
@@ -982,12 +982,12 @@ export const PENDING_AUTH_TTL_MS = 10 * 60_000;
 // Outcome of the daemon's last cloud bootstrap — drives the dashboard's
 // 3-state Providers UI: needs a key (`no_key`/`invalid_key`) → show the
 // API-key picker; `unreachable` → retry hint; `ok` → provider cards.
-export const DaemonCloudState = S.Literal(
+export const DaemonCloudState = S.Literals([
   "ok",
   "no_key",
   "invalid_key",
   "unreachable",
-);
+]);
 export type TDaemonCloudState = S.Schema.Type<typeof DaemonCloudState>;
 
 /**
@@ -1047,7 +1047,7 @@ export const DaemonStatus = S.Struct({
    *  unit hardening may still confine the service), `error` (setup failed —
    *  fail-open, surfaced so an unconfined daemon is visible, not silent).
    *  Absent on daemons too old to report it. */
-  sandbox: S.optional(S.Literal("enforced", "off", "unsupported", "error")),
+  sandbox: S.optional(S.Literals(["enforced", "off", "unsupported", "error"])),
   connections: S.Array(DaemonProviderConnection),
   /** The openllm CLI on this box. Absent on daemons too old to report it. */
   cli: S.optional(DaemonCliState),
@@ -1072,7 +1072,7 @@ export const DaemonStatus = S.Struct({
     S.Array(
       S.Struct({
         /** Local daemon session id; independent of the mux SessionId validator. */
-        id: S.String.pipe(S.minLength(1), S.maxLength(128)),
+        id: S.String.check(S.isMinLength(1), S.isMaxLength(128)),
         // Same closed vocabulary as the mux `SessionStreamOpenPayload.cli`.
         cli: DeviceSessionCli,
         started_at_ms: S.Number,
@@ -1088,17 +1088,17 @@ export const DaemonStatus = S.Struct({
         last_exit_reason: S.optional(SessionExitReason),
         /** Vendor resume id when known (local history / resume spawn). */
         vendor_session_id: S.optional(
-          S.NullOr(S.String.pipe(S.maxLength(128))),
+          S.NullOr(S.String.check(S.isMaxLength(128))),
         ),
       }),
-    ).pipe(S.maxItems(32)),
+    ).check(S.isMaxLength(32)),
   ),
   /**
    * Local model servers discovered on this device (no key material —
    * `has_key` only). Absent on daemons too old to probe. Bounded so a
    * noisy scan cannot bloat fleet status.
    */
-  local_servers: S.optional(S.Array(LocalServerState).pipe(S.maxItems(64))),
+  local_servers: S.optional(S.Array(LocalServerState).check(S.isMaxLength(64))),
 });
 export type TDaemonStatus = S.Schema.Type<typeof DaemonStatus>;
 

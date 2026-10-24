@@ -7,13 +7,13 @@ import { parseVideoGenerationInput } from "./videos";
  * prompts, images, audio bytes, or speech text.
  */
 
-export const MediaDefaultSurface = S.Literal(
+export const MediaDefaultSurface = S.Literals([
   "image",
   "image_edit",
   "transcription",
   "speech",
   "video",
-);
+]);
 export type TMediaDefaultSurface = S.Schema.Type<typeof MediaDefaultSurface>;
 
 /**
@@ -22,12 +22,12 @@ export type TMediaDefaultSurface = S.Schema.Type<typeof MediaDefaultSurface>;
  * did not positively prove a compatible encoding — restricted
  * subscription models must not be assumed compatible.
  */
-export const MediaAudioInputFormat = S.Literal(
+export const MediaAudioInputFormat = S.Literals([
   "pcm_s16le_16khz_mono",
   "wav_pcm16_16khz_mono",
   "webm_opus",
   "unknown",
-);
+]);
 export type TMediaAudioInputFormat = S.Schema.Type<
   typeof MediaAudioInputFormat
 >;
@@ -60,8 +60,8 @@ export type TMediaDefaultRequest = S.Schema.Type<typeof MediaDefaultRequest>;
 
 export const MEDIA_DEFAULT_PLAN_QUERY_KEY = "media_default";
 
-const decodeConstraints = S.decodeUnknownEither(MediaDefaultConstraints);
-const decodeRequest = S.decodeUnknownEither(MediaDefaultRequest);
+const decodeConstraints = S.decodeUnknownResult(MediaDefaultConstraints);
+const decodeRequest = S.decodeUnknownResult(MediaDefaultRequest);
 
 const utf8ByteLength = (value: string): number =>
   new TextEncoder().encode(value).byteLength;
@@ -273,8 +273,8 @@ const pickConstraints = (
         ? { input_format: rec.input_format }
         : {}),
   });
-  if (parsed._tag === "Left") return "invalid";
-  const value = parsed.right;
+  if (parsed._tag === "Failure") return "invalid";
+  const value = parsed.success;
   return Object.keys(value).length > 0 ? value : undefined;
 };
 
@@ -314,14 +314,14 @@ export const mediaDefaultRequestFromBody = (
     if (constraints === "invalid") return null;
     const request: TMediaDefaultRequest =
       constraints === undefined ? { surface } : { surface, constraints };
-    return decodeRequest(request)._tag === "Right" ? request : null;
+    return decodeRequest(request)._tag === "Success" ? request : null;
   }
   if (audioForSurface !== undefined) {
     const constraints = pickConstraints({}, audioForSurface);
     if (constraints === "invalid") return null;
     const request: TMediaDefaultRequest =
       constraints === undefined ? { surface } : { surface, constraints };
-    return decodeRequest(request)._tag === "Right" ? request : null;
+    return decodeRequest(request)._tag === "Success" ? request : null;
   }
   return { surface };
 };
@@ -330,8 +330,8 @@ export const encodeMediaDefaultPlanQuery = (
   request: TMediaDefaultRequest,
 ): string | null => {
   const decoded = decodeRequest(request);
-  if (decoded._tag === "Left") return null;
-  const json = JSON.stringify(decoded.right);
+  if (decoded._tag === "Failure") return null;
+  const json = JSON.stringify(decoded.success);
   if (utf8ByteLength(json) > MEDIA_DEFAULT_PLAN_JSON_MAX_BYTES) return null;
   return `${MEDIA_DEFAULT_PLAN_QUERY_KEY}=${encodeURIComponent(json)}`;
 };
@@ -349,8 +349,8 @@ export const decodeMediaDefaultPlanQuery = (
     return null;
   }
   const decoded = decodeRequest(parsed);
-  if (decoded._tag === "Left") return null;
-  const json = JSON.stringify(decoded.right);
+  if (decoded._tag === "Failure") return null;
+  const json = JSON.stringify(decoded.success);
   if (utf8ByteLength(json) > MEDIA_DEFAULT_PLAN_JSON_MAX_BYTES) return null;
-  return decoded.right;
+  return decoded.success;
 };

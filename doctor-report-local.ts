@@ -49,7 +49,7 @@ export const DOCTOR_LOCAL_OPT_OUT_FILENAME =
   "doctor-report.local.json" as const;
 
 export const DoctorLocalReportRequest = S.Struct({
-  dry_run: S.optionalWith(S.Boolean, { default: () => false }),
+  dry_run: S.optional(S.Boolean),
   reporter_cli_version: S.optional(VersionStamp),
 });
 export type TDoctorLocalReportRequest = S.Schema.Type<
@@ -62,9 +62,9 @@ export const DOCTOR_LOCAL_UNAVAILABLE_REASONS = [
   "capability_missing",
 ] as const;
 
-export const DoctorLocalUnavailableReason = S.Literal(
+export const DoctorLocalUnavailableReason = S.Literals([
   ...DOCTOR_LOCAL_UNAVAILABLE_REASONS,
-);
+]);
 export type TDoctorLocalUnavailableReason = S.Schema.Type<
   typeof DoctorLocalUnavailableReason
 >;
@@ -73,15 +73,15 @@ export const DoctorLocalReportResult = S.Struct({
   nothing_new: S.Boolean,
   dry_run: S.Boolean,
   report_id: S.optional(OpaqueId),
-  accepted_count: S.Number.pipe(S.finite(), S.int(), S.greaterThanOrEqualTo(0)),
-  skipped_count: S.Number.pipe(S.finite(), S.int(), S.greaterThanOrEqualTo(0)),
-  gap_count: S.Number.pipe(S.finite(), S.int(), S.greaterThanOrEqualTo(0)),
-  legacy_records_skipped: S.Number.pipe(
-    S.finite(),
-    S.int(),
-    S.greaterThanOrEqualTo(0),
+  accepted_count: S.Number.check(S.isFinite(), S.isInt(), S.isGreaterThanOrEqualTo(0)),
+  skipped_count: S.Number.check(S.isFinite(), S.isInt(), S.isGreaterThanOrEqualTo(0)),
+  gap_count: S.Number.check(S.isFinite(), S.isInt(), S.isGreaterThanOrEqualTo(0)),
+  legacy_records_skipped: S.Number.check(
+    S.isFinite(),
+    S.isInt(),
+    S.isGreaterThanOrEqualTo(0),
   ),
-  daemon_versions: S.Array(VersionStamp).pipe(S.maxItems(16)),
+  daemon_versions: S.Array(VersionStamp).check(S.isMaxLength(16)),
   pending: S.Boolean,
   unavailable_reason: S.optional(DoctorLocalUnavailableReason),
 });
@@ -113,7 +113,7 @@ export const DOCTOR_UPLOAD_BLOCKERS = [
   "cloud_revoked",
 ] as const;
 
-export const DoctorUploadBlocker = S.Literal(...DOCTOR_UPLOAD_BLOCKERS);
+export const DoctorUploadBlocker = S.Literals(DOCTOR_UPLOAD_BLOCKERS);
 export type TDoctorUploadBlocker = S.Schema.Type<typeof DoctorUploadBlocker>;
 
 export const DOCTOR_UPLOAD_ATTEMPT_OUTCOMES = [
@@ -124,9 +124,9 @@ export const DOCTOR_UPLOAD_ATTEMPT_OUTCOMES = [
   "error",
 ] as const;
 
-export const DoctorUploadAttemptOutcome = S.Literal(
+export const DoctorUploadAttemptOutcome = S.Literals([
   ...DOCTOR_UPLOAD_ATTEMPT_OUTCOMES,
-);
+]);
 export type TDoctorUploadAttemptOutcome = S.Schema.Type<
   typeof DoctorUploadAttemptOutcome
 >;
@@ -151,8 +151,13 @@ export type TDoctorReportingStatus = S.Schema.Type<
 
 export const parseDoctorLocalReportRequest = (
   input: unknown,
-): TDoctorLocalReportRequest =>
-  S.decodeUnknownSync(DoctorLocalReportRequest)(input, STRICT_DOCTOR_PARSE);
+): TDoctorLocalReportRequest => {
+  const decoded = S.decodeUnknownSync(DoctorLocalReportRequest)(
+    input,
+    STRICT_DOCTOR_PARSE,
+  );
+  return { ...decoded, dry_run: decoded.dry_run ?? false };
+};
 
 export const parseDoctorLocalReportResult = (
   input: unknown,

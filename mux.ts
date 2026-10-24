@@ -6,7 +6,8 @@
  * these payload schemas. The 16-byte channel-id envelope (`mux2`) tags each
  * binary message, so one WebSocket can carry several channels concurrently.
  */
-import { Either, Schema as S } from "effect";
+import * as Result from "effect/Result";
+import { Schema as S } from "effect";
 import {
   DeviceSessionCli,
   SessionTitleField,
@@ -121,7 +122,7 @@ export const relayProtocolVersionOf = (frame: {
  * Validated by the SERVING DAEMON at stream open (mux); the relay never
  * decodes it.
  */
-export const TunnelSurface = S.Literal(
+export const TunnelSurface = S.Literals([
   "chat_completions",
   "messages",
   "responses",
@@ -133,7 +134,7 @@ export const TunnelSurface = S.Literal(
   "video_create",
   "video_retrieve",
   "video_content",
-);
+]);
 export type TTunnelSurface = S.Schema.Type<typeof TunnelSurface>;
 
 export const MEDIA_HTTP_TUNNEL_SURFACES = [
@@ -290,11 +291,11 @@ export const isAllowedTunnelRequestContentType = (raw: string): boolean => {
   return false;
 };
 
-export const TunnelAccept = S.Literal(...ALLOWED_TUNNEL_ACCEPT);
-export const TunnelRequestContentType = S.String.pipe(
-  S.maxLength(TUNNEL_CONTENT_TYPE_MAX),
-  S.filter(isAllowedTunnelRequestContentType, {
-    message: () => "unsupported tunnel content-type",
+export const TunnelAccept = S.Literals(ALLOWED_TUNNEL_ACCEPT);
+export const TunnelRequestContentType = S.String.check(
+  S.isMaxLength(TUNNEL_CONTENT_TYPE_MAX),
+  S.makeFilter(isAllowedTunnelRequestContentType, {
+    message: "unsupported tunnel content-type",
   }),
 );
 
@@ -335,7 +336,7 @@ export const MEDIA_PERSIST_ERRORS = [
   "ingest_failed",
 ] as const;
 export type TMediaPersistError = (typeof MEDIA_PERSIST_ERRORS)[number];
-export const MediaPersistError = S.Literal(...MEDIA_PERSIST_ERRORS);
+export const MediaPersistError = S.Literals(MEDIA_PERSIST_ERRORS);
 
 const isMediaPersistError = (value: string): value is TMediaPersistError =>
   (MEDIA_PERSIST_ERRORS as ReadonlyArray<string>).includes(value);
@@ -351,13 +352,13 @@ export const TunnelForwardHeaders = S.Struct({
   media_persistence: S.optional(S.Literal(MEDIA_PERSISTENCE_BROWSER)),
   content_type: S.optional(TunnelRequestContentType),
   accept: S.optional(TunnelAccept),
-  anthropic_version: S.optional(S.String.pipe(S.maxLength(32))),
+  anthropic_version: S.optional(S.String.check(S.isMaxLength(32))),
   // Preserve whole flags; the mux codec bounds the complete OPEN payload.
   anthropic_beta: S.optional(S.String),
-  user_agent: S.optional(S.String.pipe(S.maxLength(512))),
+  user_agent: S.optional(S.String.check(S.isMaxLength(512))),
   /** Opaque video job id for GET retrieve/content mux follow-up. */
   video_id: S.optional(
-    S.String.pipe(S.maxLength(256), S.pattern(/^[A-Za-z0-9._-]+$/)),
+    S.String.check(S.isMaxLength(256), S.isPattern(/^[A-Za-z0-9._-]+$/)),
   ),
 });
 export type TTunnelForwardHeaders = S.Schema.Type<typeof TunnelForwardHeaders>;
@@ -372,19 +373,19 @@ export const TUNNEL_CHAIN_MAX = 4096;
 
 export const TunnelResponseHeaders = S.Struct({
   media_url: S.optional(
-    S.String.pipe(S.maxLength(TUNNEL_MEDIA_URL_MAX_LENGTH)),
+    S.String.check(S.isMaxLength(TUNNEL_MEDIA_URL_MAX_LENGTH)),
   ),
   media_persistence: S.optional(S.Literal(MEDIA_PERSISTENCE_BROWSER)),
   /** Why `media_url` is absent — see {@link MEDIA_ERROR_RESPONSE_HEADER}. */
   media_error: S.optional(MediaPersistError),
-  content_type: S.optional(S.String.pipe(S.maxLength(128))),
+  content_type: S.optional(S.String.check(S.isMaxLength(128))),
   is_sse: S.optional(S.Boolean),
   /** Winning hop id — maps to {@link OPENLLM_RESOLVED_MODEL_HEADER}. */
   resolved_model: S.optional(
-    S.String.pipe(S.maxLength(TUNNEL_RESOLVED_MODEL_MAX)),
+    S.String.check(S.isMaxLength(TUNNEL_RESOLVED_MODEL_MAX)),
   ),
   /** Comma-separated attempted hops — maps to {@link OPENLLM_CHAIN_HEADER}. */
-  chain: S.optional(S.String.pipe(S.maxLength(TUNNEL_CHAIN_MAX))),
+  chain: S.optional(S.String.check(S.isMaxLength(TUNNEL_CHAIN_MAX))),
 });
 export type TTunnelResponseHeaders = S.Schema.Type<
   typeof TunnelResponseHeaders
@@ -468,25 +469,25 @@ export const tunnelResponseHeadersFromHttp = (
  * decodes it.
  */
 export const SESSION_ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
-export const SessionId = S.String.pipe(S.pattern(SESSION_ID_PATTERN));
+export const SessionId = S.String.check(S.isPattern(SESSION_ID_PATTERN));
 export type TSessionId = S.Schema.Type<typeof SessionId>;
 
 /** Terminal cols/rows on session open + resize (mux). */
-export const TerminalDimension = S.Number.pipe(S.int(), S.between(1, 1024));
+export const TerminalDimension = S.Number.check(S.isInt(), S.isBetween({ minimum: 1, maximum: 1024 }));
 export type TTerminalDimension = S.Schema.Type<typeof TerminalDimension>;
 
 /** A channel-level admission failure. */
-export const ChannelOpenError = S.Literal(
+export const ChannelOpenError = S.Literals([
   "daemon_offline",
   "not_capable",
   "unauthorized",
   "channel_exists",
   "overloaded",
-);
+]);
 export type TChannelOpenError = S.Schema.Type<typeof ChannelOpenError>;
 
 /** A channel-level teardown reason. */
-export const ChannelCloseReason = S.Literal(
+export const ChannelCloseReason = S.Literals([
   "done",
   "channel_exists",
   "consumer_gone",
@@ -494,7 +495,7 @@ export const ChannelCloseReason = S.Literal(
   "relay_restart",
   "protocol_error",
   "overloaded",
-);
+]);
 export type TChannelCloseReason = S.Schema.Type<typeof ChannelCloseReason>;
 
 /** Consumer-initiated inference stream OPEN payload. */
@@ -503,7 +504,7 @@ export const TunnelStreamOpenPayload = S.Struct({
   method: S.Literal("POST"),
   surface: TunnelSurface,
   headers: S.optional(TunnelForwardHeaders),
-  consumer: S.optional(S.Literal("browser", "daemon")),
+  consumer: S.optional(S.Literals(["browser", "daemon"])),
 });
 export type TTunnelStreamOpenPayload = S.Schema.Type<
   typeof TunnelStreamOpenPayload
@@ -516,7 +517,7 @@ export const SessionStreamOpenPayload = S.Struct({
   cli: DeviceSessionCli,
   cols: TerminalDimension,
   rows: TerminalDimension,
-  mode: S.Literal("spawn", "attach", "continue"),
+  mode: S.Literals(["spawn", "attach", "continue"]),
   title: S.optional(SessionTitleField),
   /** When true, launch via `openllm -d <client>` for CLIs that support it. */
   dangerous: S.optional(S.Boolean),
@@ -526,44 +527,44 @@ export const SessionStreamOpenPayload = S.Struct({
    * Live OpenLLM PTYs rebind via `mode:"attach"` instead.
    */
   resume_session_id: S.optional(
-    S.String.pipe(S.minLength(1), S.maxLength(128)),
+    S.String.check(S.isMinLength(1), S.isMaxLength(128)),
   ),
   /**
    * Absolute cwd for spawn/continue. Validated on the daemon (must exist
    * as a directory). Omitted → `$HOME` for new sessions.
    */
-  cwd: S.optional(S.String.pipe(S.minLength(1), S.maxLength(1024))),
+  cwd: S.optional(S.String.check(S.isMinLength(1), S.isMaxLength(1024))),
 });
 export type TSessionStreamOpenPayload = S.Schema.Type<
   typeof SessionStreamOpenPayload
 >;
 
 /** JSON payload of a mux OPEN frame. */
-export const StreamOpenPayload = S.Union(
+export const StreamOpenPayload = S.Union([
   TunnelStreamOpenPayload,
   SessionStreamOpenPayload,
   RealtimeStreamOpenPayload,
-);
+]);
 export type TStreamOpenPayload = S.Schema.Type<typeof StreamOpenPayload>;
 
 /** JSON payload of a mux CTRL frame. Unknown control tags are intentionally
  * not accepted here so callers can drop them for forward compatibility. */
-export const StreamCtrlPayload = S.Union(
+export const StreamCtrlPayload = S.Union([
   S.Struct({
     t: S.Literal("open_ack"),
     ok: S.Boolean,
     live: S.optional(S.Boolean),
     /** Daemon-minted, monotonically increasing session-open generation. */
-    generation: S.optional(S.Number.pipe(S.int(), S.nonNegative())),
-    initial_credit: S.optional(S.Number.pipe(S.int(), S.nonNegative())),
+    generation: S.optional(S.Number.check(S.isInt(), S.isGreaterThanOrEqualTo(0))),
+    initial_credit: S.optional(S.Number.check(S.isInt(), S.isGreaterThanOrEqualTo(0))),
     /** Present on nacks (`ok:false`) — same vocabulary as `StreamResetCode`
      * session-open failures (`cli_not_installed`, `session_busy`, …). */
-    error: S.optional(S.String.pipe(S.maxLength(64))),
-    message: S.optional(S.String.pipe(S.maxLength(256))),
+    error: S.optional(S.String.check(S.isMaxLength(64))),
+    message: S.optional(S.String.check(S.isMaxLength(256))),
   }),
   S.Struct({
     t: S.Literal("res_head"),
-    status: S.Number.pipe(S.int(), S.between(200, 599)),
+    status: S.Number.check(S.isInt(), S.isBetween({ minimum: 200, maximum: 599 })),
     res_headers: S.optional(TunnelResponseHeaders),
   }),
   S.Struct({
@@ -576,17 +577,17 @@ export const StreamCtrlPayload = S.Union(
    * dropped by the parser on older peers. */
   S.Struct({ t: S.Literal("focus") }),
   S.Struct({ t: S.Literal("replay_done") }),
-  S.Struct({ t: S.Literal("close"), intent: S.Literal("detach", "kill") }),
+  S.Struct({ t: S.Literal("close"), intent: S.Literals(["detach", "kill"]) }),
   /** Realtime (`kind:"realtime"`) liveness — either peer may send this while
    * NDJSON event traffic is naturally quiet (e.g. waiting on the user).
    * Carries no data; its arrival IS the signal. */
   S.Struct({ t: S.Literal("heartbeat") }),
-);
+]);
 export type TStreamCtrlPayload = S.Schema.Type<typeof StreamCtrlPayload>;
 
 /** Per-stream failure codes. Channel admission errors deliberately do not live
  * here; those use `ChannelOpenError`. */
-export const StreamResetCode = S.Literal(
+export const StreamResetCode = S.Literals([
   "tunnel_refused",
   "tunnel_busy",
   "invalid_tunnel",
@@ -627,19 +628,22 @@ export const StreamResetCode = S.Literal(
    * credential. Never retryable by simply reconnecting — the caller needs a
    * plan the cloud actually signed for this provider/model. */
   "realtime_policy_refused",
-);
+]);
 export type TStreamResetCode = S.Schema.Type<typeof StreamResetCode>;
 
 /** JSON payload of a mux RESET frame. */
 export const StreamResetPayload = S.Struct({
   code: StreamResetCode,
-  message: S.optional(S.String.pipe(S.maxLength(256))),
+  message: S.optional(S.String.check(S.isMaxLength(256))),
 });
 export type TStreamResetPayload = S.Schema.Type<typeof StreamResetPayload>;
 
-const parse = <T>(schema: S.Schema<T, T, never>, value: unknown): T | null => {
-  const result = S.decodeUnknownEither(schema)(value);
-  return Either.isRight(result) ? result.right : null;
+const parse = <T>(
+  schema: S.ConstraintDecoder<T>,
+  value: unknown,
+): T | null => {
+  const result = S.decodeUnknownResult(schema)(value);
+  return Result.isSuccess(result) ? result.success : null;
 };
 
 const hasOnlyKeys = (

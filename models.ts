@@ -3,7 +3,7 @@ import { LocalProviderVariant } from "./local-provider";
 import { OptionalVideoReferences } from "./media-input";
 import { ModelSettingDefinitions } from "./model-settings";
 
-export const ModelCapability = S.Literal(
+export const ModelCapability = S.Literals([
   "chat",
   "embedding",
   "transcription",
@@ -17,7 +17,7 @@ export const ModelCapability = S.Literal(
   "json_mode",
   "streaming",
   "reasoning",
-);
+]);
 export type TModelCapability = S.Schema.Type<typeof ModelCapability>;
 
 /**
@@ -95,7 +95,7 @@ export type TModelAudioSupport = S.Schema.Type<typeof ModelAudioSupport>;
 /** Canonical reference fields shared by request schemas. */
 export const VideoReferenceInputs = S.Struct({
   input_image: S.optional(
-    S.String.pipe(S.minLength(1)).annotations({
+    S.String.check(S.isMinLength(1)).annotations({
       description:
         "Starting-frame image as an HTTPS URL or base64 image data URL (for example data:image/png;base64,...). Not subject guidance. MIME is detected from PNG, JPEG, GIF, or WebP bytes; the provider validates its accepted formats.",
     }),
@@ -111,7 +111,7 @@ export const VideoReferenceInputs = S.Struct({
 });
 
 /** Finite receipt vocabulary; not an author-maintained model allowlist. */
-export const VideoInputMode = S.Literal(
+export const VideoInputMode = S.Literals([
   "text",
   "starting_image",
   "subject_images",
@@ -120,7 +120,7 @@ export const VideoInputMode = S.Literal(
   "starting_image+voices",
   "subject_images+voices",
   "starting_image+subject_images+voices",
-);
+]);
 export type TVideoInputMode = S.Schema.Type<typeof VideoInputMode>;
 
 // Built-in default-chain tiers. When a user has no fallback group with
@@ -131,7 +131,7 @@ export type TVideoInputMode = S.Schema.Type<typeof VideoInputMode>;
 // entries.
 export const DEFAULT_TIER_ALIASES = ["ultra", "plus", "lite"] as const;
 
-export const DefaultTier = S.Literal(...DEFAULT_TIER_ALIASES);
+export const DefaultTier = S.Literals([...DEFAULT_TIER_ALIASES]);
 export type TDefaultTier = S.Schema.Type<typeof DefaultTier>;
 
 /** Chat tiers plus the one implicit media default class (not a user alias). */
@@ -140,7 +140,7 @@ export const DEFAULT_CHAIN_CLASSES = [
   ...DEFAULT_TIER_ALIASES,
   MEDIA_DEFAULT_CLASS,
 ] as const;
-export const DefaultChainClass = S.Literal(...DEFAULT_CHAIN_CLASSES);
+export const DefaultChainClass = S.Literals([...DEFAULT_CHAIN_CLASSES]);
 export type TDefaultChainClass = S.Schema.Type<typeof DefaultChainClass>;
 
 /**
@@ -151,19 +151,19 @@ export type TDefaultChainClass = S.Schema.Type<typeof DefaultChainClass>;
  * aliases: mixed chains are neither a subscription guarantee nor
  * API-key-only.
  */
-export const ModelProviderType = S.Literal("subscription", "api_key", "local");
+export const ModelProviderType = S.Literals(["subscription", "api_key", "local"]);
 export type TModelProviderType = S.Schema.Type<typeof ModelProviderType>;
 
 export const ModelCard = S.Struct({
   id: S.String,
-  object: S.Literal("model"),
+  object: S.Literals(["model"]),
   created: S.Number,
   owned_by: S.String,
 });
 export type TModelCard = S.Schema.Type<typeof ModelCard>;
 
 export const ModelList = S.Struct({
-  object: S.Literal("list"),
+  object: S.Literals(["list"]),
   data: S.Array(ModelCard),
 });
 export type TModelList = S.Schema.Type<typeof ModelList>;
@@ -228,7 +228,7 @@ export const ExtendedModelCard = S.extend(
 export type TExtendedModelCard = S.Schema.Type<typeof ExtendedModelCard>;
 
 export const ExtendedModelList = S.Struct({
-  object: S.Literal("list"),
+  object: S.Literals(["list"]),
   data: S.Array(ExtendedModelCard),
 });
 export type TExtendedModelList = S.Schema.Type<typeof ExtendedModelList>;
@@ -285,8 +285,8 @@ export type TSubscriptionMeter = S.Schema.Type<typeof SubscriptionMeter>;
  */
 export const ModelCaps = S.Struct({
   deniedParams: S.optional(S.Array(S.String)),
-  maxTokensField: S.optional(S.Literal("max_tokens", "max_completion_tokens")),
-  temperature: S.optional(S.Literal("only-1", "clamp-0-1", "drop")),
+  maxTokensField: S.optional(S.Literals(["max_tokens", "max_completion_tokens"])),
+  temperature: S.optional(S.Literals(["only-1", "clamp-0-1", "drop"])),
 
   // ─── Chat ──────────────────────────────────────────────────────────
   /**
@@ -300,7 +300,7 @@ export const ModelCaps = S.Struct({
    * manufactures a local validation error the upstream might accept.
    */
   thinkingModes: S.optional(
-    S.Array(S.Literal("enabled", "adaptive", "disabled")),
+    S.Array(S.Literals(["enabled", "adaptive", "disabled"])),
   ),
 
   /**
@@ -317,7 +317,7 @@ export const ModelCaps = S.Struct({
    * invents a restriction the upstream might not have.
    */
   reasoningContexts: S.optional(
-    S.Array(S.Literal("auto", "current_turn", "all_turns")),
+    S.Array(S.Literals(["auto", "current_turn", "all_turns"])),
   ),
 
   // ─── Image ─────────────────────────────────────────────────────────
@@ -369,7 +369,7 @@ export const ModelCaps = S.Struct({
    * cannot carry (a `predict`-family id handed to a `generateContent`
    * adapter) WITHOUT any claim about that model's availability.
    */
-  nativeWire: S.optional(S.Literal("generateContent", "predict")),
+  nativeWire: S.optional(S.Literals(["generateContent", "predict"])),
   /**
    * Output resolutions this specific model serves.
    */
@@ -452,7 +452,7 @@ export const ModelCaps = S.Struct({
    * Absent keeps each consumer's existing default, so adopting this is
    * incremental and never changes a count until a card declares one.
    */
-  tokenizer: S.optional(S.Literal("claude", "o200k")),
+  tokenizer: S.optional(S.Literals(["claude", "o200k"])),
 });
 export type TModelCaps = S.Schema.Type<typeof ModelCaps>;
 
@@ -551,9 +551,9 @@ export const mergeObservedModelCaps = (
  * Tier keys mirror the billing tiers (`free` / `trial` / `pro`).
  */
 export const IncludedUsage = S.Struct({
-  free: S.Number.pipe(S.int(), S.nonNegative()),
-  trial: S.Number.pipe(S.int(), S.nonNegative()),
-  pro: S.Number.pipe(S.int(), S.nonNegative()),
+  free: S.Int.check(S.isGreaterThanOrEqualTo(0)),
+  trial: S.Int.check(S.isGreaterThanOrEqualTo(0)),
+  pro: S.Int.check(S.isGreaterThanOrEqualTo(0)),
 });
 export type TIncludedUsage = S.Schema.Type<typeof IncludedUsage>;
 
@@ -622,7 +622,7 @@ export const ExtendedModel = S.Struct({
    * the public `/v1/models` card — the card projects the effective window.
    */
   alternative_input_limits: S.optional(
-    S.Array(S.Number.pipe(S.int(), S.positive())),
+    S.Array(S.Int.check(S.isGreaterThan(0))),
   ),
   /**
    * Codex v2 multi-agent models (gpt-5.6 sol/terra) emit a hierarchical
@@ -695,8 +695,8 @@ export type TAliasMap = S.Schema.Type<typeof AliasMap>;
 // real list observed is OpenAI's at ~122 entries.
 export const ProviderModelEntry = S.Struct({
   /** Upstream model id, e.g. `gpt-5.2` — NOT the catalog `provider/model` id. */
-  provider_model_id: S.String.pipe(S.minLength(1), S.maxLength(128)),
-  display_name: S.optional(S.String.pipe(S.maxLength(256))),
+  provider_model_id: S.String.check(S.isMinLength(1), S.isMaxLength(128)),
+  display_name: S.optional(S.String.check(S.isMaxLength(256))),
   created: S.optional(S.Number),
   context_window: S.optional(S.Number),
   /**

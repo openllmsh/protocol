@@ -16,7 +16,7 @@ import { DefaultTier, ExtendedModel } from "./models";
  * Defined here (not in `./credentials`) to keep the dependency
  * direction one-way (`credentials.ts` may depend on `./config`).
  */
-export const CustomApiWireFormat = S.Literal("openai", "anthropic");
+export const CustomApiWireFormat = S.Literals(["openai", "anthropic"]);
 export type TCustomApiWireFormat = S.Schema.Type<typeof CustomApiWireFormat>;
 
 /**
@@ -41,12 +41,12 @@ export type TCustomApiWireFormat = S.Schema.Type<typeof CustomApiWireFormat>;
  * flow. Use the built-in `google/*` catalog entries on the API-keys
  * tab when you want direct Google AI Studio access.
  */
-export const CustomApiModelKind = S.Literal(
+export const CustomApiModelKind = S.Literals([
   "chat_openai",
   "chat_anthropic",
   "embeddings",
   "image_openai",
-);
+]);
 export type TCustomApiModelKind = S.Schema.Type<typeof CustomApiModelKind>;
 
 export const FallbackGroup = S.Struct({
@@ -123,16 +123,16 @@ export type TSubscriptionPlanSelection = S.Schema.Type<
   typeof SubscriptionPlanSelection
 >;
 
-export const ContextOverflowStrategy = S.Literal(
+export const ContextOverflowStrategy = S.Literals([
   "hop_to_larger_context",
   "compact_in_place",
-);
+]);
 export type TContextOverflowStrategy = S.Schema.Type<
   typeof ContextOverflowStrategy
 >;
 
 /** The thresholds a usage alert can be set to, in percent of the budget. */
-export const UsageAlertThresholdPct = S.Literal(50, 80, 90);
+export const UsageAlertThresholdPct = S.Literals([50, 80, 90]);
 export type TUsageAlertThresholdPct = S.Schema.Type<
   typeof UsageAlertThresholdPct
 >;

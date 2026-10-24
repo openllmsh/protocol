@@ -17,36 +17,36 @@ import { ReasoningEffort } from "./chat";
 
 // ─── Request ─────────────────────────────────────────────────────────
 
-const ResponsesInputContentPart = S.Union(
-  S.Struct({ type: S.Literal("input_text"), text: S.String }),
-  S.Struct({ type: S.Literal("output_text"), text: S.String }),
+const ResponsesInputContentPart = S.Union([
+  S.Struct({ type: S.Literals(["input_text"]), text: S.String }),
+  S.Struct({ type: S.Literals(["output_text"]), text: S.String }),
   S.Struct({
-    type: S.Literal("input_image"),
+    type: S.Literals(["input_image"]),
     image_url: S.String,
-    detail: S.optional(S.Literal("auto", "low", "high")),
+    detail: S.optional(S.Literals(["auto", "low", "high"])),
   }),
   S.Struct({
-    type: S.Literal("input_file"),
+    type: S.Literals(["input_file"]),
     filename: S.optional(S.String),
     // Data URL (`data:<mime>;base64,<b64>`) — same encoding as the
     // canonical chat `file` part's `file_data`.
     file_data: S.optional(S.String),
     file_id: S.optional(S.NullOr(S.String)),
   }),
-);
+]);
 
 // `type` is optional on message items, as in the OpenAI Responses API: an
 // input item carrying only `role` + `content` is a message. Every other item
 // kind has a required, distinct `type`, so the union still discriminates.
 const ResponsesMessageItem = S.Struct({
-  type: S.optional(S.Literal("message")),
-  role: S.Literal("user", "assistant", "system", "developer"),
+  type: S.optional(S.Literals(["message"])),
+  role: S.Literals(["user", "assistant", "system", "developer"]),
   // Responses allows a bare string or an array of typed parts.
-  content: S.Union(S.String, S.Array(ResponsesInputContentPart)),
+  content: S.Union([S.String, S.Array(ResponsesInputContentPart)]),
 });
 
 const ResponsesFunctionCallItem = S.Struct({
-  type: S.Literal("function_call"),
+  type: S.Literals(["function_call"]),
   call_id: S.String,
   name: S.String,
   /** Codex namespace-scoped tools (MCP servers, …) name their group here. */
@@ -56,9 +56,9 @@ const ResponsesFunctionCallItem = S.Struct({
 });
 
 const ResponsesFunctionCallOutputItem = S.Struct({
-  type: S.Literal("function_call_output"),
+  type: S.Literals(["function_call_output"]),
   call_id: S.String,
-  output: S.Union(S.String, S.Array(ResponsesInputContentPart)),
+  output: S.Union([S.String, S.Array(ResponsesInputContentPart)]),
 });
 
 /**
@@ -67,7 +67,7 @@ const ResponsesFunctionCallOutputItem = S.Struct({
  * the canonical assistant's `reasoning_items` so it round-trips intact.
  */
 const ResponsesReasoningItem = S.Struct({
-  type: S.Literal("reasoning"),
+  type: S.Literals(["reasoning"]),
   id: S.optional(S.String),
   summary: S.optional(S.Unknown),
   content: S.optional(S.Unknown),
@@ -103,33 +103,33 @@ const ResponsesToolDef = S.Struct(
  * opaque so nested namespaces and freeform custom tools round-trip intact.
  */
 const ResponsesAdditionalToolsItem = S.Struct({
-  type: S.Literal("additional_tools"),
-  role: S.Literal("developer"),
+  type: S.Literals(["additional_tools"]),
+  role: S.Literals(["developer"]),
   tools: S.Array(ResponsesToolDef),
 });
 
-export const ResponsesInputItem = S.Union(
+export const ResponsesInputItem = S.Union([
   ResponsesMessageItem,
   ResponsesFunctionCallItem,
   ResponsesFunctionCallOutputItem,
   ResponsesReasoningItem,
   ResponsesAdditionalToolsItem,
-);
+]);
 export type TResponsesAdditionalToolsItem = S.Schema.Type<
   typeof ResponsesAdditionalToolsItem
 >;
 export type TResponsesInputItem = S.Schema.Type<typeof ResponsesInputItem>;
 
-const ResponsesToolChoice = S.Union(
-  S.Literal("auto", "none", "required"),
-  S.Struct({ type: S.Literal("function"), name: S.String }),
-);
+const ResponsesToolChoice = S.Union([
+  S.Literals(["auto", "none", "required"]),
+  S.Struct({ type: S.Literals(["function"]), name: S.String }),
+]);
 
 export const ResponsesRequest = S.Struct({
   model: S.String,
   service_tier: S.optional(S.Unknown),
   // `input` is either a bare prompt string or the ordered item array.
-  input: S.Union(S.String, S.Array(ResponsesInputItem)),
+  input: S.Union([S.String, S.Array(ResponsesInputItem)]),
   instructions: S.optional(S.NullishOr(S.String)),
   // Nullish, not just optional: Codex emits explicit `null`s for unset fields.
   tools: S.optional(S.NullishOr(S.Array(ResponsesToolDef))),
@@ -168,42 +168,42 @@ export type TResponsesRequest = S.Schema.Type<typeof ResponsesRequest>;
 // ─── Response (non-streaming) ────────────────────────────────────────
 
 const ResponsesOutputTextPart = S.Struct({
-  type: S.Literal("output_text"),
+  type: S.Literals(["output_text"]),
   text: S.String,
   annotations: S.optional(S.Array(S.Unknown)),
 });
 
 const ResponsesOutputMessage = S.Struct({
-  type: S.Literal("message"),
+  type: S.Literals(["message"]),
   id: S.String,
-  role: S.Literal("assistant"),
-  status: S.Literal("completed", "in_progress", "incomplete"),
+  role: S.Literals(["assistant"]),
+  status: S.Literals(["completed", "in_progress", "incomplete"]),
   content: S.Array(ResponsesOutputTextPart),
 });
 
 const ResponsesOutputFunctionCall = S.Struct({
-  type: S.Literal("function_call"),
+  type: S.Literals(["function_call"]),
   id: S.String,
   call_id: S.String,
   name: S.String,
   /** Set for Codex namespace-scoped tools; Codex routes the call by it. */
   namespace: S.optional(S.String),
   arguments: S.String,
-  status: S.optional(S.Literal("completed", "in_progress", "incomplete")),
+  status: S.optional(S.Literals(["completed", "in_progress", "incomplete"])),
 });
 
 const ResponsesOutputReasoning = S.Struct({
-  type: S.Literal("reasoning"),
+  type: S.Literals(["reasoning"]),
   id: S.String,
   summary: S.Array(S.Unknown),
   encrypted_content: S.optional(S.NullishOr(S.String)),
 });
 
-export const ResponsesOutputItem = S.Union(
+export const ResponsesOutputItem = S.Union([
   ResponsesOutputMessage,
   ResponsesOutputFunctionCall,
   ResponsesOutputReasoning,
-);
+]);
 export type TResponsesOutputItem = S.Schema.Type<typeof ResponsesOutputItem>;
 
 export const ResponsesUsage = S.Struct({
@@ -214,9 +214,9 @@ export const ResponsesUsage = S.Struct({
 
 export const ResponsesResponse = S.Struct({
   id: S.String,
-  object: S.Literal("response"),
+  object: S.Literals(["response"]),
   created_at: S.Number,
-  status: S.Literal("completed", "incomplete", "failed", "in_progress"),
+  status: S.Literals(["completed", "incomplete", "failed", "in_progress"]),
   model: S.String,
   output: S.Array(ResponsesOutputItem),
   usage: S.optional(ResponsesUsage),

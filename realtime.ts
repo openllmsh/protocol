@@ -19,7 +19,8 @@
  * `realtimeStream`, which import the bounds and parsers below rather than
  * duplicating them.
  */
-import { Either, Schema as S } from "effect";
+import * as Result from "effect/Result";
+import { Schema as S } from "effect";
 import { GROK_TTS_VOICES } from "./audio";
 import { REALTIME_MODEL_IDS } from "./realtime-generated";
 
@@ -80,11 +81,11 @@ export type TRealtimeProvider = S.Schema.Type<typeof RealtimeProvider>;
  * `bun run check:realtime-generated` fails on drift. Widening the set is a
  * catalog change, not a client toggle.
  */
-export const RealtimeModel = S.Literal(...REALTIME_MODEL_IDS);
+export const RealtimeModel = S.Literals(REALTIME_MODEL_IDS);
 export type TRealtimeModel = S.Schema.Type<typeof RealtimeModel>;
 
 /** Reuses the verified Grok TTS voice list — never duplicate that literal. */
-export const RealtimeVoice = S.Literal(...GROK_TTS_VOICES);
+export const RealtimeVoice = S.Literals(GROK_TTS_VOICES);
 export type TRealtimeVoice = S.Schema.Type<typeof RealtimeVoice>;
 
 /** Only PCM16 at 24kHz was exercised on the realtime connection. */
@@ -131,9 +132,9 @@ export type TRealtimeSessionUpdateEvent = S.Schema.Type<
 
 const RealtimeInputTextContent = S.Struct({
   type: S.Literal("input_text"),
-  text: S.String.pipe(
-    S.minLength(1),
-    S.maxLength(REALTIME_MAX_INPUT_TEXT_LENGTH),
+  text: S.String.check(
+    S.isMinLength(1),
+    S.isMaxLength(REALTIME_MAX_INPUT_TEXT_LENGTH),
   ),
 });
 
@@ -143,9 +144,9 @@ export const RealtimeConversationItemCreateEvent = S.Struct({
   item: S.Struct({
     type: S.Literal("message"),
     role: S.Literal("user"),
-    content: S.Array(RealtimeInputTextContent).pipe(
-      S.minItems(1),
-      S.maxItems(1),
+    content: S.Array(RealtimeInputTextContent).check(
+      S.isMinLength(1),
+      S.isMaxLength(1),
     ),
   }),
 });
@@ -162,11 +163,11 @@ export type TRealtimeResponseCreateEvent = S.Schema.Type<
 
 /** The entire supported client→server vocabulary. Anything else fails to
  *  parse and is dropped rather than forwarded upstream. */
-export const RealtimeClientEvent = S.Union(
+export const RealtimeClientEvent = S.Union([
   RealtimeSessionUpdateEvent,
   RealtimeConversationItemCreateEvent,
   RealtimeResponseCreateEvent,
-);
+]);
 export type TRealtimeClientEvent = S.Schema.Type<typeof RealtimeClientEvent>;
 
 // ---------------------------------------------------------------------------
@@ -186,11 +187,11 @@ export const RealtimeResponseCreatedEvent = S.Struct({
 export const RealtimeResponseOutputAudioDeltaEvent = S.Struct({
   type: S.Literal("response.output_audio.delta"),
   /** Base64-encoded PCM16/24kHz chunk. */
-  delta: S.String.pipe(S.minLength(1), S.maxLength(REALTIME_MAX_EVENT_BYTES)),
+  delta: S.String.check(S.isMinLength(1), S.isMaxLength(REALTIME_MAX_EVENT_BYTES)),
 });
 export const RealtimeResponseOutputAudioTranscriptDeltaEvent = S.Struct({
   type: S.Literal("response.output_audio_transcript.delta"),
-  delta: S.String.pipe(S.maxLength(REALTIME_MAX_EVENT_BYTES)),
+  delta: S.String.check(S.isMaxLength(REALTIME_MAX_EVENT_BYTES)),
 });
 export const RealtimeResponseOutputAudioDoneEvent = S.Struct({
   type: S.Literal("response.output_audio.done"),
@@ -203,15 +204,15 @@ export const RealtimeResponseDoneEvent = S.Struct({
  *  from a mux-level RESET, which ends the whole stream). */
 export const RealtimeErrorEvent = S.Struct({
   type: S.Literal("error"),
-  code: S.String.pipe(S.minLength(1), S.maxLength(64)),
-  message: S.optional(S.String.pipe(S.maxLength(256))),
+  code: S.String.check(S.isMinLength(1), S.isMaxLength(64)),
+  message: S.optional(S.String.check(S.isMaxLength(256))),
 });
 export type TRealtimeErrorEvent = S.Schema.Type<typeof RealtimeErrorEvent>;
 
 /** The entire supported server→client vocabulary. An unrecognized vendor
  *  event (or a shape that doesn't match one of these) is DROPPED by the
  *  daemon, never relayed verbatim — see `realtime-session.ts`. */
-export const RealtimeServerEvent = S.Union(
+export const RealtimeServerEvent = S.Union([
   RealtimeSessionCreatedEvent,
   RealtimeSessionUpdatedEvent,
   RealtimeResponseCreatedEvent,
@@ -220,12 +221,15 @@ export const RealtimeServerEvent = S.Union(
   RealtimeResponseOutputAudioDoneEvent,
   RealtimeResponseDoneEvent,
   RealtimeErrorEvent,
-);
+]);
 export type TRealtimeServerEvent = S.Schema.Type<typeof RealtimeServerEvent>;
 
-const parse = <T>(schema: S.Schema<T, T, never>, value: unknown): T | null => {
-  const result = S.decodeUnknownEither(schema)(value);
-  return Either.isRight(result) ? result.right : null;
+const parse = <T>(
+  schema: S.ConstraintDecoder<T>,
+  value: unknown,
+): T | null => {
+  const result = S.decodeUnknownResult(schema)(value);
+  return Result.isSuccess(result) ? result.success : null;
 };
 
 export const parseRealtimeClientEvent = (

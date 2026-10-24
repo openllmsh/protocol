@@ -10,14 +10,14 @@ export type TOpenAIProviderOptions = S.Schema.Type<
   typeof OpenAIProviderOptions
 >;
 
-export const OpenAIEndpointKind = S.Literal(
+export const OpenAIEndpointKind = S.Literals([
   "chat",
   "embeddings",
   "images",
   "videos",
   "audio_transcription",
   "audio_speech",
-);
+]);
 export type TOpenAIEndpointKind = S.Schema.Type<typeof OpenAIEndpointKind>;
 
 // ─── Anthropic tool shape (request side) ─────────────────────────────────────
@@ -55,7 +55,7 @@ const AnthropicTextBlock = S.Struct({
   cache_control: S.optional(S.NullOr(AnthropicCacheControl)),
 });
 
-const AnthropicImageSource = S.Union(
+const AnthropicImageSource = S.Union([
   S.Struct({
     type: S.Literal("base64"),
     media_type: S.String,
@@ -64,7 +64,7 @@ const AnthropicImageSource = S.Union(
   S.Struct({ type: S.Literal("url"), url: S.String }),
   // Files API reference (beta `files-api-2025-04-14`).
   S.Struct({ type: S.Literal("file"), file_id: S.String }),
-);
+]);
 
 const AnthropicImageBlock = S.Struct({
   type: S.Literal("image"),
@@ -73,7 +73,7 @@ const AnthropicImageBlock = S.Struct({
 });
 
 /** PDF / plain-text / custom-content document attachments. */
-const AnthropicDocumentSource = S.Union(
+const AnthropicDocumentSource = S.Union([
   S.Struct({
     type: S.Literal("base64"),
     media_type: S.String,
@@ -90,7 +90,7 @@ const AnthropicDocumentSource = S.Union(
   S.Struct({ type: S.Literal("content"), content: S.Unknown }),
   // Files API reference (beta `files-api-2025-04-14`).
   S.Struct({ type: S.Literal("file"), file_id: S.String }),
-);
+]);
 
 const AnthropicDocumentBlock = S.Struct({
   type: S.Literal("document"),
@@ -149,18 +149,18 @@ const AnthropicToolResultBlock = S.Struct({
   // A tool_result may carry image / document / search_result blocks
   // alongside text (e.g. a tool returning a screenshot or a retrieved
   // document) — all normal, documented Anthropic shapes.
-  content: S.Union(
+  content: S.Union([
     S.String,
     S.Array(
-      S.Union(
+      S.Union([
         AnthropicTextBlock,
         AnthropicImageBlock,
         AnthropicDocumentBlock,
         AnthropicSearchResultBlock,
         AnthropicToolReferenceBlock,
-      ),
+      ]),
     ),
-  ),
+  ]),
   is_error: S.optional(S.Boolean),
   cache_control: S.optional(S.NullOr(AnthropicCacheControl)),
 });
@@ -279,7 +279,7 @@ const AnthropicRedactedThinkingBlock = S.Struct({
   data: S.String,
 });
 
-export const AnthropicContentBlock = S.Union(
+export const AnthropicContentBlock = S.Union([
   AnthropicTextBlock,
   AnthropicImageBlock,
   AnthropicDocumentBlock,
@@ -301,7 +301,7 @@ export const AnthropicContentBlock = S.Union(
   AnthropicToolReferenceBlock,
   AnthropicBrowserStateBlock,
   AnthropicRedactedThinkingBlock,
-);
+]);
 export type TAnthropicContentBlock = S.Schema.Type<
   typeof AnthropicContentBlock
 >;
@@ -320,19 +320,19 @@ export const AnthropicMessage = S.Struct({
   //   - Cross-provider fallback hop: `splitAnthropicMessage` in
   //     `adapters/messages/request.ts` maps the inline system turn to
   //     the canonical `system` role for the non-Anthropic upstream.
-  role: S.Literal("user", "assistant", "system"),
-  content: S.Union(S.String, S.Array(AnthropicContentBlock)),
+  role: S.Literals(["user", "assistant", "system"]),
+  content: S.Union([S.String, S.Array(AnthropicContentBlock)]),
 });
 export type TAnthropicMessage = S.Schema.Type<typeof AnthropicMessage>;
 
-const AnthropicSystemBlock = S.Union(S.String, S.Array(AnthropicTextBlock));
+const AnthropicSystemBlock = S.Union([S.String, S.Array(AnthropicTextBlock)]);
 
 // `disable_parallel_tool_use` is documented on auto / any / tool (never on
 // `none`). Modelled rather than merely tolerated because it is the one
 // tool_choice field with a canonical counterpart — OpenAI's
 // `parallel_tool_calls` — so the adapters map it in both directions
 // instead of silently discarding the client's intent on a cross-wire hop.
-const AnthropicToolChoice = S.Union(
+const AnthropicToolChoice = S.Union([
   S.Struct({
     type: S.Literal("auto"),
     disable_parallel_tool_use: S.optional(S.Boolean),
@@ -347,14 +347,14 @@ const AnthropicToolChoice = S.Union(
     disable_parallel_tool_use: S.optional(S.Boolean),
   }),
   S.Struct({ type: S.Literal("none") }),
-);
+]);
 
 /**
  * Extended-thinking knob. `enabled` carries an explicit budget;
  * `adaptive` lets Claude 4.6+ decide the budget itself (paired with
  * `output_config.effort` to set the target effort level).
  */
-export const AnthropicThinking = S.Union(
+export const AnthropicThinking = S.Union([
   S.Struct({
     type: S.Literal("enabled"),
     budget_tokens: S.Number,
@@ -366,7 +366,7 @@ export const AnthropicThinking = S.Union(
   // gateway 400 a supported configuration before dispatch, on both the
   // cloud handler and the daemon listener.
   S.Struct({ type: S.Literal("disabled") }),
-);
+]);
 export type TAnthropicThinking = S.Schema.Type<typeof AnthropicThinking>;
 
 /**
@@ -374,14 +374,14 @@ export type TAnthropicThinking = S.Schema.Type<typeof AnthropicThinking>;
  * `output_config.effort`. Only honoured by Claude 4.6+; other models
  * 400 if this is set (see `providers/anthropic/adaptive-thinking.ts`).
  */
-export const AnthropicEffort = S.Literal(
+export const AnthropicEffort = S.Literals([
   "minimal",
   "low",
   "medium",
   "high",
   "xhigh",
   "max",
-);
+]);
 export type TAnthropicEffort = S.Schema.Type<typeof AnthropicEffort>;
 
 export const AnthropicOutputConfig = S.Struct({
@@ -425,7 +425,7 @@ export type TAnthropicCountTokensRequest = S.Schema.Type<
 
 // ─── Anthropic wire types — response ─────────────────────────────────────────
 
-export const AnthropicStopReason = S.Literal(
+export const AnthropicStopReason = S.Literals([
   "end_turn",
   "max_tokens",
   "stop_sequence",
@@ -438,7 +438,7 @@ export const AnthropicStopReason = S.Literal(
   // the whole usage trailer with it, so a cross-wire stream ended with no
   // stop reason and zero tokens.
   "model_context_window_exceeded",
-);
+]);
 export type TAnthropicStopReason = S.Schema.Type<typeof AnthropicStopReason>;
 
 /** Server-tool activity counters. Clients (Claude Code's WebSearch) read
@@ -528,14 +528,14 @@ const AnthropicCitationsDelta = S.Struct({
 const AnthropicContentBlockDeltaEvent = S.Struct({
   type: S.Literal("content_block_delta"),
   index: S.Number,
-  delta: S.Union(
+  delta: S.Union([
     AnthropicTextDelta,
     AnthropicInputJsonDelta,
     AnthropicThinkingDelta,
     AnthropicSignatureDelta,
     AnthropicCompactionDelta,
     AnthropicCitationsDelta,
-  ),
+  ]),
 });
 
 const AnthropicContentBlockStopEvent = S.Struct({
@@ -570,7 +570,7 @@ const AnthropicErrorEvent = S.Struct({
   error: S.Struct({ type: S.String, message: S.String }),
 });
 
-export const AnthropicStreamEvent = S.Union(
+export const AnthropicStreamEvent = S.Union([
   AnthropicMessageStartEvent,
   AnthropicContentBlockStartEvent,
   AnthropicContentBlockDeltaEvent,
@@ -579,7 +579,7 @@ export const AnthropicStreamEvent = S.Union(
   AnthropicMessageStopEvent,
   AnthropicPingEvent,
   AnthropicErrorEvent,
-);
+]);
 export type TAnthropicStreamEvent = S.Schema.Type<typeof AnthropicStreamEvent>;
 
 // ─── Anthropic provider options ──────────────────────────────────────────────
@@ -608,10 +608,10 @@ const GoogleImageInlineData = S.Struct({
   data: S.String,
 });
 
-const GoogleImagePart = S.Union(
+const GoogleImagePart = S.Union([
   S.Struct({ text: S.String }),
   S.Struct({ inlineData: GoogleImageInlineData }),
-);
+]);
 
 const GoogleImageCandidate = S.Struct({
   content: S.optional(
@@ -680,7 +680,7 @@ export const OpenAIVideoJob = S.Struct({
   status: S.String,
   created_at: S.optional(S.Number),
   progress: S.optional(S.NullOr(S.Number)),
-  seconds: S.optional(S.Union(S.String, S.Number)),
+  seconds: S.optional(S.Union([S.String, S.Number])),
   size: S.optional(S.String),
   error: S.optional(
     S.NullOr(
@@ -791,7 +791,7 @@ export const BedrockTitanV2Request = S.Struct({
   inputText: S.String,
   dimensions: S.optional(S.Number),
   normalize: S.optional(S.Boolean),
-  embeddingTypes: S.optional(S.Array(S.Literal("float", "binary"))),
+  embeddingTypes: S.optional(S.Array(S.Literals(["float", "binary"]))),
 });
 export type TBedrockTitanV2Request = S.Schema.Type<
   typeof BedrockTitanV2Request

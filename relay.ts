@@ -22,18 +22,18 @@ import { ReplaySessionId } from "./replay-session";
 /** `origin` is the cloud `/v1/*` proxy dialing in as a FLEET consumer
  *  (origin-side tunneling): it may only open mux channels, and the relay
  *  stamps its channels `consumer:"daemon"` exactly like a peer daemon's. */
-export const RelayRole = S.Literal("daemon", "watcher", "origin");
+export const RelayRole = S.Literals(["daemon", "watcher", "origin"]);
 export type TRelayRole = S.Schema.Type<typeof RelayRole>;
 
 /** Bounded, open-vocabulary capability advertisement limits. */
 export const RELAY_CAP_MAX_ITEMS = 32;
 export const RELAY_CAP_MAX_LENGTH = 64;
-const RelayCapability = S.String.pipe(
-  S.minLength(1),
-  S.maxLength(RELAY_CAP_MAX_LENGTH),
+const RelayCapability = S.String.check(
+  S.isMinLength(1),
+  S.isMaxLength(RELAY_CAP_MAX_LENGTH),
 );
-const RelayCapabilities = S.Array(RelayCapability).pipe(
-  S.maxItems(RELAY_CAP_MAX_ITEMS),
+const RelayCapabilities = S.Array(RelayCapability).check(
+  S.isMaxLength(RELAY_CAP_MAX_ITEMS),
 );
 
 /**
@@ -43,11 +43,11 @@ const RelayCapabilities = S.Array(RelayCapability).pipe(
  */
 const CHANNEL_ID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
-export const ChannelId = S.String.pipe(S.pattern(CHANNEL_ID_PATTERN));
+export const ChannelId = S.String.check(S.isPattern(CHANNEL_ID_PATTERN));
 export type TChannelId = S.Schema.Type<typeof ChannelId>;
 
 /** Bounded open-vocabulary peer errors and refusal reasons. */
-const RelayFreeString = S.String.pipe(S.minLength(1), S.maxLength(200));
+const RelayFreeString = S.String.check(S.isMinLength(1), S.isMaxLength(200));
 
 /** The port the in-sandbox WS server listens on — declared in `ports` at
  *  `Sandbox.getOrCreate` (cloud) and bound by the relay. A fixed internal
@@ -169,9 +169,9 @@ export const RelayTicketClaims = S.Struct({
   key_id: S.optional(S.String),
   exp: S.Number,
   /** Relay sandbox audience, e.g. `daemon-relay-production`. */
-  aud: S.String.pipe(S.minLength(1), S.maxLength(128)),
+  aud: S.String.check(S.isMinLength(1), S.isMaxLength(128)),
   /** Unique ticket id (base64url) — single-use within the TTL window. */
-  jti: S.String.pipe(S.minLength(16), S.maxLength(64)),
+  jti: S.String.check(S.isMinLength(16), S.isMaxLength(64)),
 });
 export type TRelayTicketClaims = S.Schema.Type<typeof RelayTicketClaims>;
 
@@ -186,7 +186,7 @@ export const RELAY_TICKET_SEED_LABEL = "openllm-relay-ticket-ed25519-seed-v1";
  *  `RTCIceServer` so browser and daemon feed it to their peer connections
  *  verbatim. */
 export const IceServer = S.Struct({
-  urls: S.Union(S.String, S.Array(S.String)),
+  urls: S.Union([S.String, S.Array(S.String)]),
   username: S.optional(S.String),
   credential: S.optional(S.String),
 });
@@ -250,7 +250,7 @@ export const RelayWelcomeFrame = S.Struct({
   caps: S.optional(RelayCapabilities),
   /** Per-serving-daemon capability snapshots, parallel to `snapshot`. */
   snapshot_caps: S.optional(
-    S.Record({ key: S.String, value: RelayCapabilities }),
+    S.Record(S.String, RelayCapabilities),
   ),
 });
 export type TRelayWelcomeFrame = S.Schema.Type<typeof RelayWelcomeFrame>;
@@ -414,14 +414,14 @@ export const RelayChannelOpenFrame = S.Struct({
    * hop so the serving daemon skips seedgate (no vault DEK on the consumer).
    * Omitted / `browser` is the default seed-gated path.
    */
-  consumer: S.optional(S.Literal("browser", "daemon")),
+  consumer: S.optional(S.Literals(["browser", "daemon"])),
   /**
    * Seed-gated device grant (base64 envelope). Present when the serving
    * daemon advertises `seedgate1`. Relay re-encodes via Schema — must be
    * on the schema so it survives forward; never verified by the relay.
    * Bounded so a peer cannot ship an arbitrarily large grant past re-encode.
    */
-  grant: S.optional(S.String.pipe(S.maxLength(DEVICE_GRANT_B64_MAX))),
+  grant: S.optional(S.String.check(S.isMaxLength(DEVICE_GRANT_B64_MAX))),
 });
 export type TRelayChannelOpenFrame = S.Schema.Type<
   typeof RelayChannelOpenFrame
@@ -496,8 +496,8 @@ export const RelayRtcOfferFrame = S.Struct({
   type: S.Literal("rtc_offer"),
   channel_id: ChannelId,
   key_id: S.String,
-  sdp: S.String.pipe(S.maxLength(RTC_SDP_MAX)),
-  fingerprint_proof: S.String.pipe(S.maxLength(RTC_FINGERPRINT_PROOF_B64_MAX)),
+  sdp: S.String.check(S.isMaxLength(RTC_SDP_MAX)),
+  fingerprint_proof: S.String.check(S.isMaxLength(RTC_FINGERPRINT_PROOF_B64_MAX)),
 });
 export type TRelayRtcOfferFrame = S.Schema.Type<typeof RelayRtcOfferFrame>;
 
@@ -505,8 +505,8 @@ export type TRelayRtcOfferFrame = S.Schema.Type<typeof RelayRtcOfferFrame>;
 export const RelayRtcAnswerFrame = S.Struct({
   type: S.Literal("rtc_answer"),
   channel_id: ChannelId,
-  sdp: S.String.pipe(S.maxLength(RTC_SDP_MAX)),
-  fingerprint_proof: S.String.pipe(S.maxLength(RTC_FINGERPRINT_PROOF_B64_MAX)),
+  sdp: S.String.check(S.isMaxLength(RTC_SDP_MAX)),
+  fingerprint_proof: S.String.check(S.isMaxLength(RTC_FINGERPRINT_PROOF_B64_MAX)),
 });
 export type TRelayRtcAnswerFrame = S.Schema.Type<typeof RelayRtcAnswerFrame>;
 
@@ -517,7 +517,7 @@ export type TRelayRtcAnswerFrame = S.Schema.Type<typeof RelayRtcAnswerFrame>;
 export const RelayRtcIceFrame = S.Struct({
   type: S.Literal("rtc_ice"),
   channel_id: ChannelId,
-  candidate: S.String.pipe(S.maxLength(RTC_ICE_CANDIDATE_MAX)),
+  candidate: S.String.check(S.isMaxLength(RTC_ICE_CANDIDATE_MAX)),
 });
 export type TRelayRtcIceFrame = S.Schema.Type<typeof RelayRtcIceFrame>;
 
@@ -527,14 +527,14 @@ export type TRelayRtcIceFrame = S.Schema.Type<typeof RelayRtcIceFrame>;
  * a failed pre-mux handshake (cache the failure — it will not recover on this
  * immediate retry). `proof_open_failed` means the offer was sealed to a stale
  * daemon X25519 key; consumers should refresh the cloud identity projection. */
-export const RtcNackReason = S.Literal(
+export const RtcNackReason = S.Literals([
   "seedgate",
   "overloaded",
   "disabled",
   "not_capable",
   "handshake_failed",
   "proof_open_failed",
-);
+]);
 export type TRtcNackReason = S.Schema.Type<typeof RtcNackReason>;
 
 /** Normalize a forward-compatible peer refusal to a generic retryable refusal. */
@@ -621,7 +621,7 @@ export type TRelayAuthFrame = S.Schema.Type<typeof RelayAuthFrame>;
  *  DB `command_seq` cursor. See `control-channel.ts` +
  *  `docs/proposals/daemon-owned-state-stateless-relay.md`. `auth` (daemon →
  *  relay → watcher) is the subscription-login FSM; it is not a CommandState. */
-export const RelayFrame = S.Union(
+export const RelayFrame = S.Union([
   RelayHelloFrame,
   RelayWelcomeFrame,
   RelayCommandFrame,
@@ -643,5 +643,5 @@ export const RelayFrame = S.Union(
   RelayMovedFrame,
   RelayPingFrame,
   RelayPongFrame,
-);
+]);
 export type TRelayFrame = S.Schema.Type<typeof RelayFrame>;

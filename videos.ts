@@ -5,7 +5,7 @@ import { VideoInputMode, VideoReferenceInputs } from "./models";
 export const VIDEO_INPUT_ERROR =
   "Invalid video input. Use only canonical video fields; input_image is a starting frame, reference_images are subject references, and reference_voices are voice IDs. Unknown fields (including input_reference) are not supported.";
 
-const ReferenceCount = S.Number.pipe(S.int(), S.nonNegative());
+const ReferenceCount = S.Int.check(S.isGreaterThanOrEqualTo(0));
 /** Metadata only: counts of inputs, never URLs, bytes, or browser media IDs. */
 export const VideoInputReceipt = S.Struct({
   mode: VideoInputMode,
@@ -90,14 +90,14 @@ export const VideoGenerationInput = S.Struct({
 });
 export type TVideoGenerationInput = S.Schema.Type<typeof VideoGenerationInput>;
 
-const decodeVideoInput = S.decodeUnknownEither(VideoGenerationInput);
+const decodeVideoInput = S.decodeUnknownResult(VideoGenerationInput);
 /** Safe diagnostics intentionally never include Effect's raw actual values. */
 export const parseVideoGenerationInput = (
   body: unknown,
 ): TVideoGenerationInput => {
   const result = decodeVideoInput(body);
-  if (result._tag === "Left") throw new Error(VIDEO_INPUT_ERROR);
-  return result.right;
+  if (result._tag === "Failure") throw new Error(VIDEO_INPUT_ERROR);
+  return result.success;
 };
 
 /** Privacy-safe provider diagnostics; preserve corrective text, never attachment material. */
@@ -118,12 +118,12 @@ export const redactVideoErrorText = (
     .replace(/\b[A-Za-z0-9+/]{128,}={0,2}/g, "[redacted-bytes]");
 };
 
-export const VideoJobStatus = S.Literal(
+export const VideoJobStatus = S.Literals([
   "queued",
   "in_progress",
   "completed",
   "failed",
-);
+]);
 export type TVideoJobStatus = S.Schema.Type<typeof VideoJobStatus>;
 
 const VideoJobError = S.Struct({
@@ -133,14 +133,14 @@ const VideoJobError = S.Struct({
 
 export const VideoDeleted = S.Struct({
   id: S.String,
-  object: S.Literal("video.deleted"),
+  object: S.Literals(["video.deleted"]),
   deleted: S.Boolean,
 });
 export type TVideoDeleted = S.Schema.Type<typeof VideoDeleted>;
 
 export const VideoJob = S.Struct({
   id: S.String,
-  object: S.Literal("video"),
+  object: S.Literals(["video"]),
   created_at: S.Number,
   status: VideoJobStatus,
   model: S.String,

@@ -27,7 +27,7 @@ export const CHANGELOG_KINDS = [
   "removed",
   "security",
 ] as const;
-export const ChangelogKind = S.Literal(...CHANGELOG_KINDS);
+export const ChangelogKind = S.Literals([...CHANGELOG_KINDS]);
 export type TChangelogKind = S.Schema.Type<typeof ChangelogKind>;
 
 /** Product areas an entry can be filtered by. Closed for the same reason. */
@@ -38,7 +38,7 @@ export const CHANGELOG_TAGS = [
   "app",
   "billing",
 ] as const;
-export const ChangelogTag = S.Literal(...CHANGELOG_TAGS);
+export const ChangelogTag = S.Literals([...CHANGELOG_TAGS]);
 export type TChangelogTag = S.Schema.Type<typeof ChangelogTag>;
 
 /** Title limit: a short line starting with a verb. */
@@ -56,21 +56,23 @@ export const CHANGELOG_ACTION_MAX = 180;
  * it is a hazard.
  */
 export const changelogText = (max: number): S.Schema<string> =>
-  S.String.pipe(
-    S.filter((value) => !/[\p{Cc}\p{Zl}\p{Zp}]/u.test(value), {
-      message: () => "must be a single line without control characters",
-    }),
-    S.filter((value) => value.trim() === value, {
-      message: () => "must not start or end with whitespace",
-    }),
-    S.minLength(1),
-    S.maxLength(max),
+  S.String.check(
+    S.makeFilter(
+      (value: string) => !/[\p{Cc}\p{Zl}\p{Zp}]/u.test(value),
+      { message: () => "must be a single line without control characters" },
+    ),
+    S.makeFilter(
+      (value: string) => value.trim() === value,
+      { message: () => "must not start or end with whitespace" },
+    ),
+    S.isMinLength(1),
+    S.isMaxLength(max),
   );
 
 /** URL segment: lowercase words joined by single hyphens. */
-export const ChangelogSlug = S.String.pipe(
-  S.pattern(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
-  S.maxLength(96),
+export const ChangelogSlug = S.String.check(
+  S.isPattern(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
+  S.isMaxLength(96),
 );
 
 /**
@@ -78,10 +80,10 @@ export const ChangelogSlug = S.String.pipe(
  * entry's date is the day the change reached users, not the day it was
  * written up, so it carries no time of day.
  */
-export const ChangelogDate = S.String.pipe(
-  S.pattern(/^\d{4}-\d{2}-\d{2}$/),
-  S.filter(
-    (value) => {
+export const ChangelogDate = S.String.check(
+  S.isPattern(/^\d{4}-\d{2}-\d{2}$/),
+  S.makeFilter(
+    (value: string) => {
       const parsed = new Date(`${value}T00:00:00Z`);
       return (
         !Number.isNaN(parsed.getTime()) &&
@@ -93,14 +95,14 @@ export const ChangelogDate = S.String.pipe(
 );
 
 /** A stable release version, bare `x.y.z`: prereleases never become entries. */
-export const ChangelogVersion = S.String.pipe(
-  S.pattern(/^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$/),
+export const ChangelogVersion = S.String.check(
+  S.isPattern(/^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$/),
 );
 
 /** The entry's one outbound link; https only. */
-export const ChangelogHref = S.String.pipe(
-  S.filter(
-    (value) => {
+export const ChangelogHref = S.String.check(
+  S.makeFilter(
+    (value: string) => {
       try {
         return new URL(value).protocol === "https:";
       } catch {
@@ -129,8 +131,8 @@ const ChangelogEntryFields = S.Struct({
   action: S.optional(changelogText(CHANGELOG_ACTION_MAX)),
 });
 
-export const ChangelogEntry = ChangelogEntryFields.pipe(
-  S.filter((entry) => {
+export const ChangelogEntry = ChangelogEntryFields.check(
+  S.makeFilter((entry: S.Schema.Type<typeof ChangelogEntryFields>) => {
     if (entry.kind === "breaking" && entry.action === undefined) {
       return {
         path: ["action"],

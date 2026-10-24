@@ -1,10 +1,10 @@
 import { Schema as S } from "effect";
 
-export const ServiceTier = S.Literal("auto", "default", "flex", "priority");
+export const ServiceTier = S.Literals(["auto", "default", "flex", "priority"]);
 export type TServiceTier = S.Schema.Type<typeof ServiceTier>;
 
 /** Positive token-count budget (user pin or catalog alternative). */
-export const InputTokenLimit = S.Number.pipe(S.int(), S.positive());
+export const InputTokenLimit = S.Int.check(S.isGreaterThan(0));
 export type TInputTokenLimit = S.Schema.Type<typeof InputTokenLimit>;
 
 /** Sparse user overrides. Add named, schema-checked settings here as they ship. */

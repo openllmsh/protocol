@@ -9,22 +9,22 @@ export const ImageSize = S.String;
 export type TImageSize = S.Schema.Type<typeof ImageSize>;
 
 /** Output container for the GPT-image families. DALL·E models reject it. */
-export const ImageOutputFormat = S.Literal("png", "jpeg", "webp");
+export const ImageOutputFormat = S.Literals(["png", "jpeg", "webp"]);
 export type TImageOutputFormat = S.Schema.Type<typeof ImageOutputFormat>;
 
 /** Content-moderation level; GPT-image families only. */
-export const ImageModeration = S.Literal("low", "auto");
+export const ImageModeration = S.Literals(["low", "auto"]);
 export type TImageModeration = S.Schema.Type<typeof ImageModeration>;
 
 export const ImageGenerationRequest = S.Struct({
   model: S.String,
   prompt: S.String,
-  n: S.optional(S.Number.pipe(S.int(), S.positive())),
+  n: S.optional(S.Int.check(S.isGreaterThan(0))),
   size: S.optional(ImageSize),
   quality: S.optional(S.String),
-  style: S.optional(S.Literal("vivid", "natural")),
-  response_format: S.optional(S.Literal("url", "b64_json")),
-  background: S.optional(S.Literal("transparent", "opaque", "auto")),
+  style: S.optional(S.Literals(["vivid", "natural"])),
+  response_format: S.optional(S.Literals(["url", "b64_json"])),
+  background: S.optional(S.Literals(["transparent", "opaque", "auto"])),
   user: S.optional(S.String),
   /**
    * GPT-image output controls. Previously unmodelled, so Effect's default
@@ -34,7 +34,7 @@ export const ImageGenerationRequest = S.Struct({
    * vendors with their own model ids stay unvalidated and keep working.
    */
   output_format: S.optional(ImageOutputFormat),
-  output_compression: S.optional(S.Number.pipe(S.int())),
+  output_compression: S.optional(S.Int),
   moderation: S.optional(ImageModeration),
   /**
    * Streaming controls. The gateway serves BOTH modes: `stream: true` answers
@@ -48,7 +48,7 @@ export const ImageGenerationRequest = S.Struct({
    */
   stream: S.optional(S.Boolean),
   partial_images: S.optional(
-    S.Number.pipe(S.int(), S.greaterThanOrEqualTo(0), S.lessThanOrEqualTo(3)),
+    S.Int.check(S.isGreaterThanOrEqualTo(0), S.isLessThanOrEqualTo(3)),
   ),
 });
 export type TImageGenerationRequest = S.Schema.Type<
@@ -159,7 +159,7 @@ export const ImageGenerationResponse = S.Struct({
   /** Optional per the spec — DALL·E responses carry no usage block. */
   usage: S.optional(ImageGenUsage),
   /** Echoes of the settings actually used; preserved rather than dropped. */
-  background: S.optional(S.Literal("transparent", "opaque")),
+  background: S.optional(S.Literals(["transparent", "opaque"])),
   output_format: S.optional(ImageOutputFormat),
   size: S.optional(ImageSize),
   quality: S.optional(S.String),
@@ -205,7 +205,7 @@ export type TImagesUsage = S.Schema.Type<typeof ImagesUsage>;
  * than drift.
  */
 export const ImageStreamPartialEvent = S.Struct({
-  type: S.Literal("image_generation.partial_image"),
+  type: S.Literals(["image_generation.partial_image"]),
   b64_json: S.String,
   created_at: S.Number,
   size: S.optional(ImageSize),
@@ -219,7 +219,7 @@ export type TImageStreamPartialEvent = S.Schema.Type<
 >;
 
 export const ImageStreamCompletedEvent = S.Struct({
-  type: S.Literal("image_generation.completed"),
+  type: S.Literals(["image_generation.completed"]),
   b64_json: S.String,
   created_at: S.Number,
   size: S.optional(ImageSize),
@@ -242,10 +242,10 @@ export type TImageStreamCompletedEvent = S.Schema.Type<
   typeof ImageStreamCompletedEvent
 >;
 
-export const ImageStreamEvent = S.Union(
+export const ImageStreamEvent = S.Union([
   ImageStreamPartialEvent,
   ImageStreamCompletedEvent,
-);
+]);
 export type TImageStreamEvent = S.Schema.Type<typeof ImageStreamEvent>;
 
 /** SSE event NAME for an image stream event — the spec frames by `type`. */
@@ -266,10 +266,10 @@ export const ImageEditRequest = S.Struct({
   model: S.String,
   prompt: S.String,
   image: ImageEditReference,
-  n: S.optional(S.Number.pipe(S.int(), S.positive())),
+  n: S.optional(S.Int.check(S.isGreaterThan(0))),
   size: S.optional(ImageSize),
   quality: S.optional(S.String),
-  response_format: S.optional(S.Literal("url", "b64_json")),
+  response_format: S.optional(S.Literals(["url", "b64_json"])),
 });
 export type TImageEditRequest = S.Schema.Type<typeof ImageEditRequest>;
 
@@ -281,11 +281,11 @@ export const ImageEditInput = S.Struct({
 });
 export type TImageEditInput = S.Schema.Type<typeof ImageEditInput>;
 
-export const ImageEditParseErrorCode = S.Literal(
+export const ImageEditParseErrorCode = S.Literals([
   "image_edit_mask_unsupported",
   "image_edit_multi_reference_unsupported",
   "image_edit_invalid",
-);
+]);
 export type TImageEditParseErrorCode = S.Schema.Type<
   typeof ImageEditParseErrorCode
 >;
@@ -299,4 +299,4 @@ export type TImageEditParseResult =
   | { readonly ok: true; readonly request: TImageEditRequest }
   | { readonly ok: false; readonly error: TImageEditParseFailure };
 
-export const decodeImageEditRequest = S.decodeUnknownEither(ImageEditRequest);
+export const decodeImageEditRequest = S.decodeUnknownResult(ImageEditRequest);

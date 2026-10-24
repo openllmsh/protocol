@@ -13,12 +13,12 @@ export const VENDOR_CLI_INSTALL_CLOCK_SKEW_MS = 60_000;
 
 /** Metadata for vendor installers started by OpenLLM, not external installs. */
 export const VendorCliInstall = S.Struct({
-  attempt_id: S.String.pipe(S.minLength(1), S.maxLength(128)),
-  stage: S.Literal("installing", "awaiting_detection", "failed", "interrupted"),
-  started_at_ms: S.NonNegativeInt,
-  updated_at_ms: S.NonNegativeInt,
+  attempt_id: S.String.check(S.isMinLength(1), S.isMaxLength(128)),
+  stage: S.Literals(["installing", "awaiting_detection", "failed", "interrupted"]),
+  started_at_ms: S.Int.check(S.isGreaterThanOrEqualTo(0)),
+  updated_at_ms: S.Int.check(S.isGreaterThanOrEqualTo(0)),
   reason: S.optional(
-    S.Literal("installer_failed", "interrupted", "detection_timeout"),
+    S.Literals(["installer_failed", "interrupted", "detection_timeout"]),
   ),
 });
 export type TVendorCliInstall = S.Schema.Type<typeof VendorCliInstall>;

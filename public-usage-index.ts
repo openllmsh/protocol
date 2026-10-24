@@ -18,11 +18,11 @@ import { PROVIDER_TIER_METHODOLOGY_VERSION } from "./provider-tier";
 export const PUBLIC_USAGE_VALUE_METHODOLOGY_VERSION =
   PROVIDER_TIER_METHODOLOGY_VERSION;
 
-export const PublicUsageMetric = S.Literal(
+export const PublicUsageMetric = S.Literals([
   "model_popularity",
   "provider_popularity",
   "value",
-);
+]);
 export type TPublicUsageMetric = S.Schema.Type<typeof PublicUsageMetric>;
 
 export const PublicUsagePopularityMetrics = S.Struct({
@@ -49,10 +49,10 @@ export type TPublicUsageValueMetrics = S.Schema.Type<
 >;
 
 /** The exact figures stored per non-marker rollup row in `metrics` jsonb. */
-export const PublicUsageIndexMetrics = S.Union(
+export const PublicUsageIndexMetrics = S.Union([
   PublicUsagePopularityMetrics,
   PublicUsageValueMetrics,
-);
+]);
 export type TPublicUsageIndexMetrics = S.Schema.Type<
   typeof PublicUsageIndexMetrics
 >;
@@ -79,28 +79,28 @@ export type TPublicUsageIndexMarkerMetrics = S.Schema.Type<
  * The metric-specific portion of a stored row. This makes a row's sibling
  * `metric` column the discriminator for its otherwise unrelated JSON payload.
  */
-export const PublicUsageIndexStoredMetric = S.Union(
+export const PublicUsageIndexStoredMetric = S.Union([
   S.Struct({
-    metric: S.Literal("model_popularity"),
+    metric: S.Literals(["model_popularity"]),
     subject: S.String,
     metrics: PublicUsagePopularityMetrics,
   }),
   S.Struct({
-    metric: S.Literal("provider_popularity"),
+    metric: S.Literals(["provider_popularity"]),
     subject: S.String,
     metrics: PublicUsagePopularityMetrics,
   }),
   S.Struct({
-    metric: S.Literal("value"),
+    metric: S.Literals(["value"]),
     subject: S.String,
     metrics: PublicUsageValueMetrics,
   }),
   S.Struct({
     metric: PublicUsageMetric,
-    subject: S.Literal(PUBLIC_USAGE_INDEX_BUCKET_MARKER),
+    subject: S.Literals([PUBLIC_USAGE_INDEX_BUCKET_MARKER]),
     metrics: PublicUsageIndexMarkerMetrics,
   }),
-);
+]);
 export type TPublicUsageIndexStoredMetric = S.Schema.Type<
   typeof PublicUsageIndexStoredMetric
 >;
@@ -115,11 +115,11 @@ const PublicUsageIndexRowBase = S.Struct({
 });
 
 /** One rollup row, matching the `public_usage_index` table. */
-export const PublicUsageIndexRow = S.Union(
+export const PublicUsageIndexRow = S.Union([
   S.extend(
     PublicUsageIndexRowBase,
     S.Struct({
-      metric: S.Literal("model_popularity"),
+      metric: S.Literals(["model_popularity"]),
       subject: S.String,
       metrics: PublicUsagePopularityMetrics,
     }),
@@ -127,7 +127,7 @@ export const PublicUsageIndexRow = S.Union(
   S.extend(
     PublicUsageIndexRowBase,
     S.Struct({
-      metric: S.Literal("provider_popularity"),
+      metric: S.Literals(["provider_popularity"]),
       subject: S.String,
       metrics: PublicUsagePopularityMetrics,
     }),
@@ -135,7 +135,7 @@ export const PublicUsageIndexRow = S.Union(
   S.extend(
     PublicUsageIndexRowBase,
     S.Struct({
-      metric: S.Literal("value"),
+      metric: S.Literals(["value"]),
       subject: S.String,
       metrics: PublicUsageValueMetrics,
     }),
@@ -144,11 +144,11 @@ export const PublicUsageIndexRow = S.Union(
     PublicUsageIndexRowBase,
     S.Struct({
       metric: PublicUsageMetric,
-      subject: S.Literal(PUBLIC_USAGE_INDEX_BUCKET_MARKER),
+      subject: S.Literals([PUBLIC_USAGE_INDEX_BUCKET_MARKER]),
       metrics: PublicUsageIndexMarkerMetrics,
     }),
   ),
-);
+]);
 export type TPublicUsageIndexRow = S.Schema.Type<typeof PublicUsageIndexRow>;
 
 /** Factual caption describing what the figures measure (not a legal hedge). */
@@ -316,7 +316,7 @@ export const PublicUsageIndexResponse = S.Struct({
     provider: PeriodWindow,
     value: PeriodWindow,
   }),
-  caption: S.Literal(PUBLIC_USAGE_INDEX_CAPTION),
+  caption: S.Literals([PUBLIC_USAGE_INDEX_CAPTION]),
   /**
    * Shared with {@link PUBLIC_USAGE_VALUE_METHODOLOGY_VERSION}. Emit the
    * constant; merge compares it literally before combining `value_by_tier`.

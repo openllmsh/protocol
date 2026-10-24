@@ -5,7 +5,7 @@ import { Schema as S } from "effect";
  * and Responses `reasoning.effort` so Codex values like `xhigh` decode
  * on both inbound surfaces. Downstream providers may still clamp.
  */
-export const ReasoningEffort = S.Literal(
+export const ReasoningEffort = S.Literals([
   "minimal",
   "low",
   "medium",
@@ -13,7 +13,7 @@ export const ReasoningEffort = S.Literal(
   "xhigh",
   "max",
   "none",
-);
+]);
 export type TReasoningEffort = S.Schema.Type<typeof ReasoningEffort>;
 
 const FunctionCall = S.Struct({
@@ -23,7 +23,7 @@ const FunctionCall = S.Struct({
 
 const ToolCall = S.Struct({
   id: S.String,
-  type: S.Literal("function"),
+  type: S.Literals(["function"]),
   function: FunctionCall,
 });
 export type TToolCall = S.Schema.Type<typeof ToolCall>;
@@ -35,29 +35,29 @@ export type TToolCall = S.Schema.Type<typeof ToolCall>;
  * including it a cacheable prefix on the Anthropic wire. Dropping it
  * silently disables prompt caching → ~10x token cost on agent loops.
  */
-const CacheControl = S.Struct({ type: S.Literal("ephemeral") });
+const CacheControl = S.Struct({ type: S.Literals(["ephemeral"]) });
 export type TCacheControl = S.Schema.Type<typeof CacheControl>;
 
 const TextPart = S.Struct({
-  type: S.Literal("text"),
+  type: S.Literals(["text"]),
   text: S.String,
   cache_control: S.optional(S.NullOr(CacheControl)),
 });
 
 const ImageUrlPart = S.Struct({
-  type: S.Literal("image_url"),
+  type: S.Literals(["image_url"]),
   image_url: S.Struct({
     url: S.String,
-    detail: S.optional(S.Literal("auto", "low", "high")),
+    detail: S.optional(S.Literals(["auto", "low", "high"])),
   }),
   cache_control: S.optional(S.NullOr(CacheControl)),
 });
 
 const InputAudioPart = S.Struct({
-  type: S.Literal("input_audio"),
+  type: S.Literals(["input_audio"]),
   input_audio: S.Struct({
     data: S.String,
-    format: S.Literal("wav", "mp3"),
+    format: S.Literals(["wav", "mp3"]),
   }),
 });
 
@@ -70,7 +70,7 @@ const InputAudioPart = S.Struct({
  * cross-provider hops.
  */
 const FilePart = S.Struct({
-  type: S.Literal("file"),
+  type: S.Literals(["file"]),
   file: S.Struct({
     file_data: S.optional(S.String),
     file_id: S.optional(S.String),
@@ -81,19 +81,19 @@ const FilePart = S.Struct({
 });
 export type TFilePart = S.Schema.Type<typeof FilePart>;
 
-const ContentPart = S.Union(TextPart, ImageUrlPart, InputAudioPart, FilePart);
+const ContentPart = S.Union([TextPart, ImageUrlPart, InputAudioPart, FilePart]);
 
-const MessageContent = S.Union(S.String, S.Array(ContentPart));
+const MessageContent = S.Union([S.String, S.Array(ContentPart)]);
 
 const SystemMessage = S.Struct({
-  role: S.Literal("system"),
+  role: S.Literals(["system"]),
   content: MessageContent,
   name: S.optional(S.String),
   cache_control: S.optional(S.NullOr(CacheControl)),
 });
 
 const UserMessage = S.Struct({
-  role: S.Literal("user"),
+  role: S.Literals(["user"]),
   content: MessageContent,
   name: S.optional(S.String),
   cache_control: S.optional(S.NullOr(CacheControl)),
@@ -136,7 +136,7 @@ export type TServerSearchCall = S.Schema.Type<typeof ServerSearchCall>;
  * a previously-served request is a regression whatever the spec says.
  */
 const AssistantMessage = S.Struct({
-  role: S.Literal("assistant"),
+  role: S.Literals(["assistant"]),
   content: S.optional(S.NullOr(MessageContent)),
   name: S.optional(S.String),
   tool_calls: S.optional(S.Array(ToolCall)),
@@ -157,18 +157,18 @@ const AssistantMessage = S.Struct({
 });
 
 const ToolMessage = S.Struct({
-  role: S.Literal("tool"),
+  role: S.Literals(["tool"]),
   content: MessageContent,
   tool_call_id: S.String,
   cache_control: S.optional(S.NullOr(CacheControl)),
 });
 
-export const ChatMessage = S.Union(
+export const ChatMessage = S.Union([
   SystemMessage,
   UserMessage,
   AssistantMessage,
   ToolMessage,
-);
+]);
 export type TChatMessage = S.Schema.Type<typeof ChatMessage>;
 
 const FunctionDef = S.Struct({
@@ -179,25 +179,25 @@ const FunctionDef = S.Struct({
 });
 
 const Tool = S.Struct({
-  type: S.Literal("function"),
+  type: S.Literals(["function"]),
   function: FunctionDef,
   cache_control: S.optional(S.NullOr(CacheControl)),
 });
 
-const ToolChoiceLiteral = S.Literal("none", "auto", "required");
+const ToolChoiceLiteral = S.Literals(["none", "auto", "required"]);
 
 const ToolChoiceFunction = S.Struct({
-  type: S.Literal("function"),
+  type: S.Literals(["function"]),
   function: S.Struct({ name: S.String }),
 });
 
-const ToolChoice = S.Union(ToolChoiceLiteral, ToolChoiceFunction);
+const ToolChoice = S.Union([ToolChoiceLiteral, ToolChoiceFunction]);
 
-const ResponseFormat = S.Union(
-  S.Struct({ type: S.Literal("text") }),
-  S.Struct({ type: S.Literal("json_object") }),
+const ResponseFormat = S.Union([
+  S.Struct({ type: S.Literals(["text"]) }),
+  S.Struct({ type: S.Literals(["json_object"]) }),
   S.Struct({
-    type: S.Literal("json_schema"),
+    type: S.Literals(["json_schema"]),
     json_schema: S.Struct({
       name: S.String,
       description: S.optional(S.String),
@@ -205,7 +205,7 @@ const ResponseFormat = S.Union(
       strict: S.optional(S.Boolean),
     }),
   }),
-);
+]);
 
 export const ChatCompletionRequest = S.Struct({
   model: S.String,
@@ -215,7 +215,7 @@ export const ChatCompletionRequest = S.Struct({
   top_k: S.optional(S.Number),
   n: S.optional(S.Number),
   stream: S.optional(S.Boolean),
-  stop: S.optional(S.Union(S.String, S.Array(S.String))),
+  stop: S.optional(S.Union([S.String, S.Array(S.String)])),
   max_tokens: S.optional(S.Number),
   max_completion_tokens: S.optional(S.Number),
   presence_penalty: S.optional(S.Number),
@@ -338,13 +338,13 @@ export const Usage = S.Struct({
 });
 export type TUsage = S.Schema.Type<typeof Usage>;
 
-const FinishReason = S.Literal(
+const FinishReason = S.Literals([
   "stop",
   "length",
   "content_filter",
   "tool_calls",
   "function_call",
-);
+]);
 
 const ChatChoice = S.Struct({
   index: S.Number,
@@ -355,7 +355,7 @@ const ChatChoice = S.Struct({
 
 export const ChatCompletionResponse = S.Struct({
   id: S.String,
-  object: S.Literal("chat.completion"),
+  object: S.Literals(["chat.completion"]),
   created: S.Number,
   model: S.String,
   choices: S.Array(ChatChoice),
@@ -393,7 +393,7 @@ export type TChatCompletionResponse = S.Schema.Type<
 // `S.optional(...)` to accept (1) absent, (2) explicit-null, and
 // (3) the wanted type. Every nullable-by-OpenAI field uses it.
 const ChatChunkDelta = S.Struct({
-  role: S.optional(S.NullishOr(S.Literal("assistant"))),
+  role: S.optional(S.NullishOr(S.Literals(["assistant"]))),
   content: S.optional(S.NullishOr(S.String)),
   tool_calls: S.optional(
     S.NullishOr(
@@ -402,7 +402,7 @@ const ChatChunkDelta = S.Struct({
           index: S.Number,
           id: S.optional(S.NullishOr(S.String)),
           type: S.optional(
-            S.NullishOr(S.Literal("function", "builtin_function")),
+            S.NullishOr(S.Literals(["function", "builtin_function"])),
           ),
           function: S.optional(
             S.NullishOr(
@@ -437,7 +437,7 @@ const ChatChunkChoice = S.Struct({
 
 export const ChatCompletionChunk = S.Struct({
   id: S.String,
-  object: S.Literal("chat.completion.chunk"),
+  object: S.Literals(["chat.completion.chunk"]),
   created: S.Number,
   model: S.String,
   choices: S.Array(ChatChunkChoice),

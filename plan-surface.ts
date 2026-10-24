@@ -31,7 +31,7 @@ export const PLAN_SURFACE_QUERY_KEY = "surface";
 export const PlanSurface = MediaDefaultSurface;
 export type TPlanSurface = TMediaDefaultSurface;
 
-const decodeSurface = S.decodeUnknownEither(PlanSurface);
+const decodeSurface = S.decodeUnknownResult(PlanSurface);
 
 export const encodePlanSurfaceQueryValue = (surface: TPlanSurface): string =>
   surface;
@@ -53,7 +53,7 @@ export const decodePlanSurfaceQuery = (
   const raw = params.get(PLAN_SURFACE_QUERY_KEY);
   if (raw === null || raw.length === 0) return { kind: "absent" };
   const decoded = decodeSurface(raw);
-  return decoded._tag === "Right"
-    ? { kind: "surface", surface: decoded.right }
+  return decoded._tag === "Success"
+    ? { kind: "surface", surface: decoded.success }
     : { kind: "invalid" };
 };

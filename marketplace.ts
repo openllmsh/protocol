@@ -8,14 +8,14 @@ import { Schema as S } from "effect";
  * Only `remote` (hosted MCP over HTTP) is delivered today; `package` and
  * `download` are reserved for the daemon pipeline (P3).
  */
-export const MarketplaceEntryKind = S.Literal("remote", "package", "download");
+export const MarketplaceEntryKind = S.Literals(["remote", "package", "download"]);
 export type TMarketplaceEntryKind = S.Schema.Type<typeof MarketplaceEntryKind>;
 
 /** How access is provided — the pipeline acts on this, never on the vendor. */
-export const MarketplacePolicy = S.Literal("byok", "oauth", "none");
+export const MarketplacePolicy = S.Literals(["byok", "oauth", "none"]);
 export type TMarketplacePolicy = S.Schema.Type<typeof MarketplacePolicy>;
 
-export const MarketplaceTier = S.Literal("free", "pro");
+export const MarketplaceTier = S.Literals(["free", "pro"]);
 export type TMarketplaceTier = S.Schema.Type<typeof MarketplaceTier>;
 
 /** A field the UI asks the user for. `secret` fields are vault-encrypted. */
@@ -35,7 +35,7 @@ export type TMarketplaceConfigField = S.Schema.Type<
  * `{{config:<key>}}` placeholders, filled at launch.
  */
 export const MarketplaceMcp = S.Struct({
-  transport: S.Literal("http", "sse", "stdio"),
+  transport: S.Literals(["http", "sse", "stdio"]),
   url: S.optional(S.String),
   headers: S.optional(S.Record({ key: S.String, value: S.String })),
   command: S.optional(S.String),
@@ -59,7 +59,7 @@ export type TMarketplaceMcp = S.Schema.Type<typeof MarketplaceMcp>;
  */
 export const MarketplaceIncludedUsage = S.Struct({
   /** What one unit is, as shown to users. Each MCP `tools/call` is metered. */
-  unit: S.Literal("tool_calls", "tokens"),
+  unit: S.Literals(["tool_calls", "tokens"]),
   free: S.Number,
   trial: S.Number,
   pro: S.Number,
@@ -101,7 +101,7 @@ export type TMarketplaceEntry = S.Schema.Type<typeof MarketplaceEntry>;
  */
 export const MarketplaceLaunchServer = S.Struct({
   id: S.String,
-  transport: S.Literal("http", "sse", "stdio"),
+  transport: S.Literals(["http", "sse", "stdio"]),
   url: S.optional(S.String),
   headers: S.optional(S.Record({ key: S.String, value: S.String })),
   command: S.optional(S.String),

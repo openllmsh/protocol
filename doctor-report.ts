@@ -1,6 +1,6 @@
-import type { Either } from "effect";
+import type * as Result from "effect/Result";
 import { Schema as S } from "effect";
-import type { ParseError } from "effect/ParseResult";
+import type { SchemaError } from "effect/Schema";
 import type { TAuthLoginFailedCode } from "./auth";
 import { AuthLoginFailedCode } from "./auth";
 import type {
@@ -28,9 +28,9 @@ import { SubscriptionProviderSlug } from "./subscription-provider";
 
 export const DOCTOR_REPORT_SCHEMA_VERSION = 3 as const;
 
-export const DoctorReportSchemaVersion = S.Literal(
+export const DoctorReportSchemaVersion = S.Literals([
   DOCTOR_REPORT_SCHEMA_VERSION,
-);
+]);
 export type TDoctorReportSchemaVersion = S.Schema.Type<
   typeof DoctorReportSchemaVersion
 >;
@@ -44,11 +44,11 @@ export const STRICT_DOCTOR_PARSE = {
 export const DOCTOR_OPAQUE_ID_PATTERN =
   /^(?:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|[0-9a-f]{16,64})$/;
 
-export const OpaqueId = S.String.pipe(S.pattern(DOCTOR_OPAQUE_ID_PATTERN));
+export const OpaqueId = S.String.check(S.isPattern(DOCTOR_OPAQUE_ID_PATTERN));
 export type TOpaqueId = S.Schema.Type<typeof OpaqueId>;
 
 export const DOCTOR_SCOPE_HASH_PREFIX = "openllm-doctor-scope-v1" as const;
-export const DoctorScopeLabel = S.Literal("origin", "account");
+export const DoctorScopeLabel = S.Literals(["origin", "account"]);
 export type TDoctorScopeLabel = S.Schema.Type<typeof DoctorScopeLabel>;
 
 /** Opaque origin/account scope: sha256 hex truncated to 32 chars. */
@@ -68,45 +68,45 @@ export const opaqueDoctorScope = doctorReportingScopeId;
 export const DOCTOR_VERSION_STAMP_PATTERN =
   /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z.-]{1,32})?$/;
 
-export const VersionStamp = S.String.pipe(
-  S.maxLength(64),
-  S.pattern(DOCTOR_VERSION_STAMP_PATTERN),
+export const VersionStamp = S.String.check(
+  S.isMaxLength(64),
+  S.isPattern(DOCTOR_VERSION_STAMP_PATTERN),
 );
 export type TVersionStamp = S.Schema.Type<typeof VersionStamp>;
 
 export const DOCTOR_EPOCH_MS_MAX = 4_102_444_800_000;
 
-export const EpochMs = S.Number.pipe(
-  S.finite(),
-  S.int(),
-  S.greaterThanOrEqualTo(0),
-  S.lessThanOrEqualTo(DOCTOR_EPOCH_MS_MAX),
+export const EpochMs = S.Number.check(
+  S.isFinite(),
+  S.isInt(),
+  S.isGreaterThanOrEqualTo(0),
+  S.isLessThanOrEqualTo(DOCTOR_EPOCH_MS_MAX),
 );
-const FiniteMs = S.Number.pipe(
-  S.finite(),
-  S.greaterThanOrEqualTo(0),
-  S.lessThanOrEqualTo(86_400_000),
+const FiniteMs = S.Number.check(
+  S.isFinite(),
+  S.isGreaterThanOrEqualTo(0),
+  S.isLessThanOrEqualTo(86_400_000),
 );
-const FiniteCount = S.Number.pipe(
-  S.finite(),
-  S.int(),
-  S.greaterThanOrEqualTo(0),
-  S.lessThanOrEqualTo(1_000_000),
+const FiniteCount = S.Number.check(
+  S.isFinite(),
+  S.isInt(),
+  S.isGreaterThanOrEqualTo(0),
+  S.isLessThanOrEqualTo(1_000_000),
 );
-const BoundedExitCode = S.Number.pipe(
-  S.finite(),
-  S.int(),
-  S.greaterThanOrEqualTo(-1),
-  S.lessThanOrEqualTo(255),
+const BoundedExitCode = S.Number.check(
+  S.isFinite(),
+  S.isInt(),
+  S.isGreaterThanOrEqualTo(-1),
+  S.isLessThanOrEqualTo(255),
 );
 
-export const DoctorPlatform = S.Literal("darwin", "linux", "win32");
+export const DoctorPlatform = S.Literals(["darwin", "linux", "win32"]);
 export type TDoctorPlatform = S.Schema.Type<typeof DoctorPlatform>;
 
-export const DoctorArchitecture = S.Literal("arm64", "x64");
+export const DoctorArchitecture = S.Literals(["arm64", "x64"]);
 export type TDoctorArchitecture = S.Schema.Type<typeof DoctorArchitecture>;
 
-export const DoctorSeverity = S.Literal("info", "warn", "error");
+export const DoctorSeverity = S.Literals(["info", "warn", "error"]);
 export type TDoctorSeverity = S.Schema.Type<typeof DoctorSeverity>;
 
 export const DOCTOR_SCOPE_FALLBACK = "daemon" as const;
@@ -140,12 +140,12 @@ export const DoctorEventTimings = S.Struct({
 export type TDoctorEventTimings = S.Schema.Type<typeof DoctorEventTimings>;
 
 /** Closed launcher-kind vocabulary for doctor (no raw paths). */
-export const DoctorLauncherKind = S.Literal(
+export const DoctorLauncherKind = S.Literals([
   "binary",
   "script",
   "shim",
   "wrapper",
-);
+]);
 export type TDoctorLauncherKind = S.Schema.Type<typeof DoctorLauncherKind>;
 
 /**
@@ -161,7 +161,7 @@ export const DOCTOR_LAUNCHER_ADAPTERS = [
   "volta",
   "proto",
 ] as const;
-export const DoctorLauncherAdapter = S.Literal(...DOCTOR_LAUNCHER_ADAPTERS);
+export const DoctorLauncherAdapter = S.Literals(DOCTOR_LAUNCHER_ADAPTERS);
 export type TDoctorLauncherAdapter = (typeof DOCTOR_LAUNCHER_ADAPTERS)[number];
 
 export const DoctorCachedHealth = S.Struct({
@@ -177,18 +177,18 @@ export type TDoctorCachedHealth = S.Schema.Type<typeof DoctorCachedHealth>;
  * keys still rejects them (`onExcessProperty: error`) — uploaders must strip
  * on 422 rather than treating keep-v3 as fully backward compatible.
  */
-export const DoctorAuthOperationKind = S.Literal(
+export const DoctorAuthOperationKind = S.Literals([
   "login",
   "logout",
   "verify",
   "status_probe",
   "status_publish",
-);
+]);
 export type TDoctorAuthOperationKind = S.Schema.Type<
   typeof DoctorAuthOperationKind
 >;
 
-export const DoctorAuthPhase = S.Literal(
+export const DoctorAuthPhase = S.Literals([
   "readiness_wait",
   "readiness",
   "start",
@@ -201,17 +201,17 @@ export const DoctorAuthPhase = S.Literal(
   "verify_wait",
   "verify",
   "terminal",
-);
+]);
 export type TDoctorAuthPhase = S.Schema.Type<typeof DoctorAuthPhase>;
 
-export const DoctorAuthOutcome = S.Literal(
+export const DoctorAuthOutcome = S.Literals([
   "succeeded",
   "failed",
   "cancelled",
   "abandoned",
   "timeout",
   "unknown",
-);
+]);
 export type TDoctorAuthOutcome = S.Schema.Type<typeof DoctorAuthOutcome>;
 
 /**
@@ -225,11 +225,11 @@ export type TDoctorAuthStatusCorrelation = S.Schema.Type<
   typeof DoctorAuthStatusCorrelation
 >;
 
-const DoctorStatusSeq = S.Number.pipe(
-  S.finite(),
-  S.int(),
-  S.greaterThanOrEqualTo(0),
-  S.lessThanOrEqualTo(1_000_000_000),
+const DoctorStatusSeq = S.Number.check(
+  S.isFinite(),
+  S.isInt(),
+  S.isGreaterThanOrEqualTo(0),
+  S.isLessThanOrEqualTo(1_000_000_000),
 );
 
 /**
@@ -237,7 +237,7 @@ const DoctorStatusSeq = S.Number.pipe(
  * origins reject these keys (`onExcessProperty: error`) so uploaders strip on
  * 422 alongside the auth outcome ledger. Never raw stderr/path/meta.
  */
-export const DoctorStoreOperation = S.Literal(
+export const DoctorStoreOperation = S.Literals([
   "create",
   "settings",
   "unlock",
@@ -245,43 +245,43 @@ export const DoctorStoreOperation = S.Literal(
   "restore",
   "grant",
   "recreate",
-);
+]);
 export type TDoctorStoreOperation = S.Schema.Type<typeof DoctorStoreOperation>;
 
-export const DoctorStoreStage = S.Literal("staging", "final", "recovery");
+export const DoctorStoreStage = S.Literals(["staging", "final", "recovery"]);
 export type TDoctorStoreStage = S.Schema.Type<typeof DoctorStoreStage>;
 
-export const DoctorStoreResult = S.Literal(
+export const DoctorStoreResult = S.Literals([
   "succeeded",
   "failed",
   "timed_out",
   "aborted",
   "peer_won",
   "skipped",
-);
+]);
 export type TDoctorStoreResult = S.Schema.Type<typeof DoctorStoreResult>;
 
 /** macOS product version (`27.0.1`) / build (`26A434`), read from
  *  SystemVersion.plist. Platform facts only — same sensitivity as `platform`. */
-export const DoctorOsVersion = S.String.pipe(
-  S.pattern(/^\d{1,3}(?:\.\d{1,3}){0,2}$/),
+export const DoctorOsVersion = S.String.check(
+  S.isPattern(/^\d{1,3}(?:\.\d{1,3}){0,2}$/),
 );
-export const DoctorOsBuild = S.String.pipe(S.pattern(/^[0-9A-Za-z]{1,16}$/));
+export const DoctorOsBuild = S.String.check(S.isPattern(/^[0-9A-Za-z]{1,16}$/));
 
-export const DoctorStoreExitCode = S.Number.pipe(
-  S.finite(),
-  S.int(),
-  S.greaterThanOrEqualTo(0),
-  S.lessThanOrEqualTo(255),
+export const DoctorStoreExitCode = S.Number.check(
+  S.isFinite(),
+  S.isInt(),
+  S.isGreaterThanOrEqualTo(0),
+  S.isLessThanOrEqualTo(255),
 );
 export type TDoctorStoreExitCode = S.Schema.Type<typeof DoctorStoreExitCode>;
 
 /** Mapped from local classifier tokens (`-25293`, `-25295`, passphrase). */
-export const DoctorStoreClassifier = S.Literal(
+export const DoctorStoreClassifier = S.Literals([
   "auth_failed",
   "invalid_keychain",
   "passphrase_refused",
-);
+]);
 export type TDoctorStoreClassifier = S.Schema.Type<
   typeof DoctorStoreClassifier
 >;
@@ -293,7 +293,7 @@ export type TDoctorStoreClassifier = S.Schema.Type<
  * leaves the machine. Lets a remote diagnosis separate "the sandbox denied a read
  * of the user's mise config" and "the CLI crashed" without raw stderr.
  */
-export const DoctorFailureSignature = S.Literal(
+export const DoctorFailureSignature = S.Literals([
   "mise_permission_denied",
   "mise_error",
   "launcher_write_denied",
@@ -306,7 +306,7 @@ export const DoctorFailureSignature = S.Literal(
   "manager_unresolved",
   "no_output",
   "unclassified",
-);
+]);
 export type TDoctorFailureSignature = S.Schema.Type<
   typeof DoctorFailureSignature
 >;
@@ -470,7 +470,7 @@ export type TDoctorOutcomeLedger = {
 };
 
 const decodeOptionalLiteral = <A>(
-  schema: S.Schema<A, A>,
+  schema: S.ConstraintDecoder<A>,
   value: unknown,
 ): A | undefined => {
   if (value === undefined) return undefined;
@@ -656,7 +656,7 @@ export const stripDoctorOutcomeLedger = (report: {
   };
 };
 
-const BuildRevision = S.String.pipe(S.pattern(/^[0-9a-f]{7,64}$/));
+const BuildRevision = S.String.check(S.isPattern(/^[0-9a-f]{7,64}$/));
 
 export const DoctorReportEvent = S.Struct({
   event_id: OpaqueId,
@@ -666,8 +666,8 @@ export const DoctorReportEvent = S.Struct({
   platform: DoctorPlatform,
   architecture: DoctorArchitecture,
   severity: DoctorSeverity,
-  scope: S.String.pipe(S.maxLength(32), S.minLength(1)),
-  message: S.String.pipe(S.maxLength(240), S.minLength(1)),
+  scope: S.String.check(S.isMaxLength(32), S.isMinLength(1)),
+  message: S.String.check(S.isMaxLength(240), S.isMinLength(1)),
   correlation_id: S.optional(OpaqueId),
   replay_session_id: S.optional(ReplaySessionId),
   timings: S.optional(DoctorEventTimings),
@@ -705,9 +705,9 @@ export const DoctorReport = S.Struct({
   reporter_cli_version: S.optional(VersionStamp),
   cursor_gap_count: FiniteCount,
   suppressed_event_count: FiniteCount,
-  events: S.Array(DoctorReportEvent).pipe(
-    S.minItems(1),
-    S.maxItems(DOCTOR_REPORT_MAX_EVENTS),
+  events: S.Array(DoctorReportEvent).check(
+    S.isMinLength(1),
+    S.isMaxLength(DOCTOR_REPORT_MAX_EVENTS),
   ),
   health: S.optional(DoctorCachedHealth),
 });
@@ -715,21 +715,21 @@ export type TDoctorReport = S.Schema.Type<typeof DoctorReport>;
 
 export const DoctorReportAck = S.Struct({
   report_id: OpaqueId,
-  accepted_event_ids: S.Array(OpaqueId).pipe(
-    S.minItems(1),
-    S.maxItems(DOCTOR_REPORT_MAX_EVENTS),
+  accepted_event_ids: S.Array(OpaqueId).check(
+    S.isMinLength(1),
+    S.isMaxLength(DOCTOR_REPORT_MAX_EVENTS),
   ),
 });
 export type TDoctorReportAck = S.Schema.Type<typeof DoctorReportAck>;
 
-export const DoctorReportRejectCode = S.Literal(
+export const DoctorReportRejectCode = S.Literals([
   "diagnostics_disabled",
   "unauthorized",
   "invalid",
   "oversize",
   "rate_limited",
   "unavailable",
-);
+]);
 export type TDoctorReportRejectCode = S.Schema.Type<
   typeof DoctorReportRejectCode
 >;
@@ -884,22 +884,22 @@ export const parseDoctorReportAck = (input: unknown): TDoctorReportAck =>
 export const parseDoctorReportReject = (input: unknown): TDoctorReportReject =>
   S.decodeUnknownSync(DoctorReportReject)(input, STRICT_DOCTOR_PARSE);
 
-/** Effect Either success-first: `Either<A, E>` = Right<A> | Left<E>. */
-export type TDoctorReportDecode = Either.Either<TDoctorReport, ParseError>;
-export type TDoctorReportEventDecode = Either.Either<
+/** Effect result success-first: `Result<A, E>` = Success<A> | Failure<E>. */
+export type TDoctorReportDecode = Result.Result<TDoctorReport, SchemaError>;
+export type TDoctorReportEventDecode = Result.Result<
   TDoctorReportEvent,
-  ParseError
+  SchemaError
 >;
 
 export const decodeDoctorReportEither = (input: unknown): TDoctorReportDecode =>
-  S.decodeUnknownEither(DoctorReport)(
+  S.decodeUnknownResult(DoctorReport)(
     prepareReport(input),
     STRICT_DOCTOR_PARSE,
   );
 export const decodeDoctorReportEventEither = (
   input: unknown,
 ): TDoctorReportEventDecode =>
-  S.decodeUnknownEither(DoctorReportEvent)(
+  S.decodeUnknownResult(DoctorReportEvent)(
     prepareEvent(input),
     STRICT_DOCTOR_PARSE,
   );

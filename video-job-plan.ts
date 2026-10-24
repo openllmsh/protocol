@@ -9,12 +9,12 @@ export const VIDEO_JOB_PLAN_QUERY_KEY = "video_job";
 export const VIDEO_JOB_PLAN_JSON_MAX_BYTES = 512;
 
 export const VideoJobPlanRequest = S.Struct({
-  model: S.String.pipe(S.minLength(1), S.maxLength(128)),
-  provider: S.String.pipe(S.minLength(1), S.maxLength(64)),
+  model: S.String.check(S.isMinLength(1), S.isMaxLength(128)),
+  provider: S.String.check(S.isMinLength(1), S.isMaxLength(64)),
 });
 export type TVideoJobPlanRequest = S.Schema.Type<typeof VideoJobPlanRequest>;
 
-const decodeRequest = S.decodeUnknownEither(VideoJobPlanRequest);
+const decodeRequest = S.decodeUnknownResult(VideoJobPlanRequest);
 
 const utf8ByteLength = (value: string): number =>
   new TextEncoder().encode(value).byteLength;
@@ -23,8 +23,8 @@ export const encodeVideoJobPlanQuery = (
   request: TVideoJobPlanRequest,
 ): string | null => {
   const decoded = decodeRequest(request);
-  if (decoded._tag === "Left") return null;
-  const json = JSON.stringify(decoded.right);
+  if (decoded._tag === "Failure") return null;
+  const json = JSON.stringify(decoded.success);
   if (utf8ByteLength(json) > VIDEO_JOB_PLAN_JSON_MAX_BYTES) return null;
   return `${VIDEO_JOB_PLAN_QUERY_KEY}=${encodeURIComponent(json)}`;
 };
@@ -42,6 +42,6 @@ export const decodeVideoJobPlanQuery = (
     return null;
   }
   const decoded = decodeRequest(parsed);
-  if (decoded._tag === "Left") return null;
-  return decoded.right;
+  if (decoded._tag === "Failure") return null;
+  return decoded.success;
 };

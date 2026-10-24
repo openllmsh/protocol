@@ -220,7 +220,7 @@ export const ChatCompletionRequest = S.Struct({
   max_completion_tokens: S.optional(S.Number),
   presence_penalty: S.optional(S.Number),
   frequency_penalty: S.optional(S.Number),
-  logit_bias: S.optional(S.Record({ key: S.String, value: S.Number })),
+  logit_bias: S.optional(S.Record(S.String, S.Number)),
   logprobs: S.optional(S.Boolean),
   top_logprobs: S.optional(S.Number),
   seed: S.optional(S.Number),
@@ -300,7 +300,7 @@ export const ChatCompletionRequest = S.Struct({
   // can translate the same range of efforts that `gpt-5` / Claude
   // canonical clients ship). `none` explicitly disables thinking.
   reasoning_effort: S.optional(ReasoningEffort),
-  metadata: S.optional(S.Record({ key: S.String, value: S.String })),
+  metadata: S.optional(S.Record(S.String, S.String)),
   /**
    * OpenAI prompt-cache routing hint. A stable value across the turns of one
    * conversation routes them to the same cache machine, raising the cache-hit

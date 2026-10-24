@@ -599,62 +599,62 @@ const commandVariants = <F extends S.Struct.Fields>(addressing: F) =>
   [
     S.Struct({
       ...addressing,
-      kind: S.Literal("connect"),
+      kind: S.Literals(["connect"]),
       payload: ProviderPayload,
     }),
     S.Struct({
       ...addressing,
-      kind: S.Literal("connect_device_code"),
+      kind: S.Literals(["connect_device_code"]),
       payload: ProviderPayload,
     }),
     S.Struct({
       ...addressing,
-      kind: S.Literal("cancel_connect"),
+      kind: S.Literals(["cancel_connect"]),
       payload: CancelConnectPayload,
     }),
     S.Struct({
       ...addressing,
-      kind: S.Literal("logout"),
+      kind: S.Literals(["logout"]),
       payload: ProviderPayload,
     }),
     S.Struct({
       ...addressing,
-      kind: S.Literal("submit_login_code"),
+      kind: S.Literals(["submit_login_code"]),
       payload: SubmitLoginCodePayload,
     }),
     S.Struct({
       ...addressing,
-      kind: S.Literal("add_account"),
+      kind: S.Literals(["add_account"]),
       payload: AddAccountPayload,
     }),
     S.Struct({
       ...addressing,
-      kind: S.Literal("remove_account"),
+      kind: S.Literals(["remove_account"]),
       payload: RemoveAccountPayload,
     }),
     S.Struct({
       ...addressing,
-      kind: S.Literal("pin_account"),
+      kind: S.Literals(["pin_account"]),
       payload: PinAccountPayload,
     }),
     S.Struct({
       ...addressing,
-      kind: S.Literal("set_auto_update"),
+      kind: S.Literals(["set_auto_update"]),
       payload: SetAutoUpdatePayload,
     }),
     S.Struct({
       ...addressing,
-      kind: S.Literal("refresh"),
+      kind: S.Literals(["refresh"]),
       payload: S.optional(RefreshPayload),
     }),
     S.Struct({
       ...addressing,
-      kind: S.Literal("status"),
+      kind: S.Literals(["status"]),
       payload: S.optional(EmptyPayload),
     }),
     S.Struct({
       ...addressing,
-      kind: S.Literal("update"),
+      kind: S.Literals(["update"]),
       payload: S.optional(EmptyPayload),
     }),
     // Drop every cached signed plan tuple NOW. The dashboard enqueues this
@@ -664,7 +664,7 @@ const commandVariants = <F extends S.Struct.Fields>(addressing: F) =>
     // reorders" friction). Payload-less and idempotent.
     S.Struct({
       ...addressing,
-      kind: S.Literal("bust_plan_cache"),
+      kind: S.Literals(["bust_plan_cache"]),
       payload: S.optional(EmptyPayload),
     }),
     // Force a live model-list re-report NOW. The daemon's model-report
@@ -678,7 +678,7 @@ const commandVariants = <F extends S.Struct.Fields>(addressing: F) =>
     // idempotent.
     S.Struct({
       ...addressing,
-      kind: S.Literal("refresh_models"),
+      kind: S.Literals(["refresh_models"]),
       payload: S.optional(EmptyPayload),
     }),
     // Automatic, non-force model discovery. Distinct kind — never an
@@ -689,7 +689,7 @@ const commandVariants = <F extends S.Struct.Fields>(addressing: F) =>
     // advertises the kind.
     S.Struct({
       ...addressing,
-      kind: S.Literal("refresh_models_due"),
+      kind: S.Literals(["refresh_models_due"]),
       payload: S.optional(EmptyPayload),
     }),
     // List vendor-local sessions on this machine for one device CLI
@@ -697,7 +697,7 @@ const commandVariants = <F extends S.Struct.Fields>(addressing: F) =>
     // rides on the command ack / lifecycle.result for the picker.
     S.Struct({
       ...addressing,
-      kind: S.Literal("list_local_sessions"),
+      kind: S.Literals(["list_local_sessions"]),
       payload: ListLocalSessionsPayload,
     }),
     // Re-probe well-known (and user-added) local model-server ports NOW.
@@ -705,7 +705,7 @@ const commandVariants = <F extends S.Struct.Fields>(addressing: F) =>
     // Payload-less and idempotent; older daemons ignore the unknown kind.
     S.Struct({
       ...addressing,
-      kind: S.Literal("local_rescan"),
+      kind: S.Literals(["local_rescan"]),
       payload: S.optional(EmptyPayload),
     }),
     // Set or clear the API key for one local model-server port. The key is
@@ -713,7 +713,7 @@ const commandVariants = <F extends S.Struct.Fields>(addressing: F) =>
     // sees plaintext. Empty `sealed` clears. Older daemons ignore the kind.
     S.Struct({
       ...addressing,
-      kind: S.Literal("set_local_key"),
+      kind: S.Literals(["set_local_key"]),
       payload: SetLocalKeyPayload,
     }),
   ] as const;

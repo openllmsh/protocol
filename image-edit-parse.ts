@@ -1,4 +1,4 @@
-import { Either } from "effect";
+import { Result } from "effect";
 import type {
   TImageEditParseFailure,
   TImageEditParseResult,
@@ -148,13 +148,13 @@ export const parseImageEditInput = (raw: unknown): TImageEditParseResult => {
   }
 
   const decoded = decodeImageEditRequest(candidate);
-  if (Either.isLeft(decoded)) {
+  if (Result.isFailure(decoded)) {
     return fail(
       "image_edit_invalid",
       "Image edit request is missing required fields or has invalid types.",
     );
   }
-  return { ok: true, request: decoded.right };
+  return { ok: true, request: decoded.success };
 };
 
 export type TImageEditMultipartFile = {

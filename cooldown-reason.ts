@@ -1,6 +1,6 @@
 import { Schema as S } from "effect";
 
-export const CooldownReason = S.Literal(
+export const CooldownReason = S.Literals([
   "network",
   "timeout",
   "rate_limit",
@@ -14,7 +14,7 @@ export const CooldownReason = S.Literal(
   "context_overflow",
   "content_filter",
   "upstream_rejection",
-);
+]);
 export type TCooldownReason = S.Schema.Type<typeof CooldownReason>;
 
 export type THopAction =

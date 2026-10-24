@@ -29,14 +29,14 @@ import { Schema as S } from "effect";
  * controlled integration API a hop drives, not a generic "CLI"/"SDK"
  * bucket. Closed: a new variant is a deliberate, reviewable schema change.
  */
-export const BridgeVariant = S.Literal(
+export const BridgeVariant = S.Literals([
   "stream-json",
   "agent-sdk",
   "sdk-facade",
   "acp",
   "app-server",
   "msp",
-);
+]);
 export type TBridgeVariant = S.Schema.Type<typeof BridgeVariant>;
 
 /**
@@ -80,10 +80,10 @@ export const ExecutionSelectionBridge = S.Struct({
   variant: BridgeVariant,
   capture: S.Boolean,
 });
-export const ExecutionSelection = S.Union(
+export const ExecutionSelection = S.Union([
   ExecutionSelectionHandrolled,
   ExecutionSelectionBridge,
-);
+]);
 export type TExecutionSelection = S.Schema.Type<typeof ExecutionSelection>;
 
 export const executionSelectionHandrolled = (): TExecutionSelection => ({

@@ -8,17 +8,17 @@ export const STATUS_CHECK_FAILED_DETAIL = "status check failed";
  * daemons and persisted blobs remain valid; consumers must run
  * {@link normalizeProviderConnection} rather than reading `status` alone.
  */
-export const DaemonProviderObservation = S.Literal(
+export const DaemonProviderObservation = S.Literals([
   "connected",
   "signed_out",
   "disconnected",
   "unknown",
-);
+]);
 export type TDaemonProviderObservation = S.Schema.Type<
   typeof DaemonProviderObservation
 >;
 
-export const DaemonProviderReasonCode = S.Literal(
+export const DaemonProviderReasonCode = S.Literals([
   "probe_timeout",
   "probe_failed",
   "keychain_unavailable",
@@ -27,7 +27,7 @@ export const DaemonProviderReasonCode = S.Literal(
   /** Host CLI is a shebang script whose interpreter is missing on the spawn PATH. */
   "cli_runtime_missing",
   "credential_absent",
-);
+]);
 export type TDaemonProviderReasonCode = S.Schema.Type<
   typeof DaemonProviderReasonCode
 >;
@@ -42,10 +42,10 @@ export type TDaemonProviderObservationResult = {
  * 401. Distinct from {@link DaemonProviderReasonCode} so it never rewrites
  * `status` / `observation`.
  */
-export const AuthRefreshCooldownReason = S.Literal(
+export const AuthRefreshCooldownReason = S.Literals([
   "refresh_abandoned",
   "refresh_failed",
-);
+]);
 export type TAuthRefreshCooldownReason = S.Schema.Type<
   typeof AuthRefreshCooldownReason
 >;

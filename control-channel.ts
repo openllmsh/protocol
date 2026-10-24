@@ -44,18 +44,18 @@ export const RELAY_PROTOCOL_VERSION = 3;
  * Subscription login is NOT a CommandState. See `auth.ts` (`auth.login.*` /
  * `auth.session.lost`) — do not overload this union with auth phases.
  */
-export const CommandState = S.Literal(
+export const CommandState = S.Literals([
   "pending",
   "ack",
   "done",
   "not_done",
   "error",
-);
+]);
 export type TCommandState = S.Schema.Type<typeof CommandState>;
 
 /** The terminal subset of `CommandState` — the states a command finally rests
  *  in. `pending`/`ack` are transient. */
-export const TerminalCommandState = S.Literal("done", "not_done", "error");
+export const TerminalCommandState = S.Literals(["done", "not_done", "error"]);
 export type TTerminalCommandState = S.Schema.Type<typeof TerminalCommandState>;
 
 /**

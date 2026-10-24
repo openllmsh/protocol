@@ -94,20 +94,20 @@ export type TModelAudioSupport = S.Schema.Type<typeof ModelAudioSupport>;
 
 /** Canonical reference fields shared by request schemas. */
 export const VideoReferenceInputs = S.Struct({
-  input_image: S.optional(
-    S.String.check(S.isMinLength(1)).annotations({
+  input_image: S.optionalKey(
+    S.String.check(S.isMinLength(1)).pipe(S.annotate({
       description:
         "Starting-frame image as an HTTPS URL or base64 image data URL (for example data:image/png;base64,...). Not subject guidance. MIME is detected from PNG, JPEG, GIF, or WebP bytes; the provider validates its accepted formats.",
-    }),
+    })),
   ),
-  reference_images: OptionalVideoReferences.annotations({
+  reference_images: OptionalVideoReferences.pipe(S.annotate({
     description:
       "Optional ordered subject-reference images as HTTPS URLs or base64 image data URLs. Omit when unused; do not send a dummy empty array. References guide identity/appearance, not the first frame. Every input is preserved; the provider validates format and count limits.",
-  }),
-  reference_voices: OptionalVideoReferences.annotations({
+  })),
+  reference_voices: OptionalVideoReferences.pipe(S.annotate({
     description:
       "Optional provider voice IDs for reference guidance. Omit when unused; do not send a dummy empty array.",
-  }),
+  })),
 });
 
 /** Finite receipt vocabulary; not an author-maintained model allowlist. */
@@ -174,9 +174,8 @@ export type TModelList = S.Schema.Type<typeof ModelList>;
 // ignore the extra fields and parse only `id` + `object`; the dashboard
 // gets a strongly-typed list it can group/filter without a second
 // network round-trip against /api/credentials + the global catalog.
-export const ExtendedModelCard = S.extend(
-  ModelCard,
-  S.Struct({
+export const ExtendedModelCard = S.Struct({
+  ...ModelCard.fields,
     provider: S.String,
     provider_model_id: S.String,
     display_name: S.String,
@@ -223,8 +222,7 @@ export const ExtendedModelCard = S.extend(
     // the same value here so those clients get per-model limits with no
     // bespoke provider. Equals `max_input_tokens` when present.
     meta: S.optional(S.Struct({ n_ctx: S.optional(S.Number) })),
-  }),
-);
+});
 export type TExtendedModelCard = S.Schema.Type<typeof ExtendedModelCard>;
 
 export const ExtendedModelList = S.Struct({
@@ -243,10 +241,11 @@ export const ModelPricing = S.Struct({
 });
 export type TModelPricing = S.Schema.Type<typeof ModelPricing>;
 
-export const PricingEntry = S.extend(
-  ModelPricing,
-  S.Struct({ model_id: S.String, provider: S.String }),
-);
+export const PricingEntry = S.Struct({
+  ...ModelPricing.fields,
+  model_id: S.String,
+  provider: S.String,
+});
 export type TPricingEntry = S.Schema.Type<typeof PricingEntry>;
 
 export const SubscriptionMeter = S.Struct({
@@ -434,7 +433,7 @@ export const ModelCaps = S.Struct({
    * that takes a ratio rather than pixels.
    */
   mediaImageSizeAspectRatios: S.optional(
-    S.Record({ key: S.String, value: S.String }),
+    S.Record(S.String, S.String),
   ),
   /** Inclusive bounds on the image count per request. */
   mediaImageCountRange: S.optional(S.Struct({ min: S.Number, max: S.Number })),
@@ -680,7 +679,7 @@ export const ExtendedModel = S.Struct({
 });
 export type TExtendedModel = S.Schema.Type<typeof ExtendedModel>;
 
-export const AliasMap = S.Record({ key: S.String, value: S.String });
+export const AliasMap = S.Record(S.String, S.String);
 export type TAliasMap = S.Schema.Type<typeof AliasMap>;
 
 // One model as reported by a provider's own list endpoint (e.g. OpenAI
@@ -714,8 +713,11 @@ export type TProviderModelEntry = S.Schema.Type<typeof ProviderModelEntry>;
 // Payload of one `model_cache` row: the live model list one writer
 // (daemon for subscription providers, cloud for API-key providers)
 // observed for a single provider.
-export const ProviderModelList = S.Array(ProviderModelEntry).pipe(
-  S.maxItems(1000),
+export const ProviderModelList = S.Array(ProviderModelEntry).check(
+  S.makeFilter(
+    (models: ReadonlyArray<TProviderModelEntry>): boolean => models.length <= 1000,
+    { message: "must contain at most 1000 entries" },
+  ),
 );
 export type TProviderModelList = S.Schema.Type<typeof ProviderModelList>;
 

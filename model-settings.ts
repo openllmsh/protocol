@@ -19,10 +19,7 @@ export const ModelSettings = S.Struct({
 });
 export type TModelSettings = S.Schema.Type<typeof ModelSettings>;
 
-export const ModelSettingsOverrides = S.Record({
-  key: S.String,
-  value: ModelSettings,
-});
+export const ModelSettingsOverrides = S.Record(S.String, ModelSettings);
 export type TModelSettingsOverrides = S.Schema.Type<
   typeof ModelSettingsOverrides
 >;

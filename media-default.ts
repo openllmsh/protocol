@@ -35,9 +35,9 @@ export type TMediaAudioInputFormat = S.Schema.Type<
 export const MEDIA_DEFAULT_CONSTRAINT_STRING_MAX = 64;
 export const MEDIA_DEFAULT_PLAN_JSON_MAX_BYTES = 2048;
 
-const BoundedConstraintString = S.String.pipe(
-  S.minLength(1),
-  S.maxLength(MEDIA_DEFAULT_CONSTRAINT_STRING_MAX),
+const BoundedConstraintString = S.String.check(
+  S.isMinLength(1),
+  S.isMaxLength(MEDIA_DEFAULT_CONSTRAINT_STRING_MAX),
 );
 
 export const MediaDefaultConstraints = S.Struct({

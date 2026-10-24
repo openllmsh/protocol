@@ -17,7 +17,7 @@ import { DaemonProviderReasonCode } from "./provider-status";
 //
 // See `docs/audit/2026-08-21-subscription-auth-login-trigger-finalize.md` §6.
 
-export const AuthLoginFailedCode = S.Literal(
+export const AuthLoginFailedCode = S.Literals([
   "not_installed",
   "spawn_denied",
   /** The isolated credential store wasn't ready; no vendor CLI was spawned. */
@@ -27,10 +27,10 @@ export const AuthLoginFailedCode = S.Literal(
   "poll_expired",
   "relay_disconnected",
   "user_cancelled",
-);
+]);
 export type TAuthLoginFailedCode = S.Schema.Type<typeof AuthLoginFailedCode>;
 
-export const AuthLoginMode = S.Literal("browser", "device_code", "paste_code");
+export const AuthLoginMode = S.Literals(["browser", "device_code", "paste_code"]);
 export type TAuthLoginMode = S.Schema.Type<typeof AuthLoginMode>;
 
 /**
@@ -38,7 +38,7 @@ export type TAuthLoginMode = S.Schema.Type<typeof AuthLoginMode>;
  * Mapped from free-form `conn.detail` at the falling edge — never forward
  * the raw detail string onto the wire or into email.
  */
-export const AuthSessionLostDiagnosticCode = S.Literal(
+export const AuthSessionLostDiagnosticCode = S.Literals([
   "credential_absent",
   "cli_unavailable",
   "store_unreadable",
@@ -46,7 +46,7 @@ export const AuthSessionLostDiagnosticCode = S.Literal(
   "probe_timeout",
   "vendor_revoked_unknown",
   "unclassified",
-);
+]);
 export type TAuthSessionLostDiagnosticCode = S.Schema.Type<
   typeof AuthSessionLostDiagnosticCode
 >;
@@ -127,12 +127,12 @@ export const AuthLivenessDegraded = S.Struct({
 export type TAuthLivenessDegraded = S.Schema.Type<typeof AuthLivenessDegraded>;
 
 /** Discriminated on `event`. */
-export const AuthEvent = S.Union(
+export const AuthEvent = S.Union([
   AuthLoginStarted,
   AuthLoginPrompt,
   AuthLoginSucceeded,
   AuthLoginFailed,
   AuthSessionLost,
   AuthLivenessDegraded,
-);
+]);
 export type TAuthEvent = S.Schema.Type<typeof AuthEvent>;

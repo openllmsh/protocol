@@ -1,11 +1,11 @@
 import { Schema as S } from "effect";
 
-export const RequestStatus = S.Literal(
+export const RequestStatus = S.Literals([
   "success",
   "error",
   "timeout",
   "rate_limited",
-);
+]);
 export type TRequestStatus = S.Schema.Type<typeof RequestStatus>;
 
 export const RequestRow = S.Struct({

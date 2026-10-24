@@ -59,11 +59,11 @@ export const changelogText = (max: number): S.Schema<string> =>
   S.String.check(
     S.makeFilter(
       (value: string) => !/[\p{Cc}\p{Zl}\p{Zp}]/u.test(value),
-      { message: () => "must be a single line without control characters" },
+      { message: "must be a single line without control characters" },
     ),
     S.makeFilter(
       (value: string) => value.trim() === value,
-      { message: () => "must not start or end with whitespace" },
+      { message: "must not start or end with whitespace" },
     ),
     S.isMinLength(1),
     S.isMaxLength(max),
@@ -90,7 +90,7 @@ export const ChangelogDate = S.String.check(
         parsed.toISOString().slice(0, 10) === value
       );
     },
-    { message: () => "must be a real calendar date" },
+    { message: "must be a real calendar date" },
   ),
 );
 
@@ -109,7 +109,7 @@ export const ChangelogHref = S.String.check(
         return false;
       }
     },
-    { message: () => "must be an absolute https URL" },
+    { message: "must be an absolute https URL" },
   ),
 );
 
@@ -132,15 +132,15 @@ const ChangelogEntryFields = S.Struct({
 });
 
 export const ChangelogEntry = ChangelogEntryFields.check(
-  S.makeFilter((entry: S.Schema.Type<typeof ChangelogEntryFields>) => {
+  S.makeFilter((entry: S.Schema.Type<typeof ChangelogEntryFields>): boolean | { readonly path: ReadonlyArray<PropertyKey>; readonly issue: string } => {
     if (entry.kind === "breaking" && entry.action === undefined) {
       return {
         path: ["action"],
-        message: "a breaking entry must say what the user has to do",
+        issue: "a breaking entry must say what the user has to do",
       };
     }
     if (new Set(entry.tags).size !== entry.tags.length) {
-      return { path: ["tags"], message: "tags must not repeat" };
+      return { path: ["tags"], issue: "tags must not repeat" };
     }
     return true;
   }),

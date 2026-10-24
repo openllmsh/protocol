@@ -1,4 +1,4 @@
-import { Schema as S } from "effect";
+import { Effect, Schema as S } from "effect";
 
 /**
  * Marketplace entry — one integration a user can enable. Same shape for the
@@ -20,7 +20,7 @@ export type TMarketplaceTier = S.Schema.Type<typeof MarketplaceTier>;
 
 /** A field the UI asks the user for. `secret` fields are vault-encrypted. */
 export const MarketplaceConfigField = S.Struct({
-  key: S.String.pipe(S.pattern(/^[a-z][a-z0-9_]{0,63}$/)),
+  key: S.String.check(S.isPattern(/^[a-z][a-z0-9_]{0,63}$/)),
   label: S.String,
   secret: S.Boolean,
   required: S.Boolean,
@@ -37,10 +37,10 @@ export type TMarketplaceConfigField = S.Schema.Type<
 export const MarketplaceMcp = S.Struct({
   transport: S.Literals(["http", "sse", "stdio"]),
   url: S.optional(S.String),
-  headers: S.optional(S.Record({ key: S.String, value: S.String })),
+  headers: S.optional(S.Record(S.String, S.String)),
   command: S.optional(S.String),
   args: S.optional(S.Array(S.String)),
-  env: S.optional(S.Record({ key: S.String, value: S.String })),
+  env: S.optional(S.Record(S.String, S.String)),
   /**
    * Upstream tool names never exposed to users — account-owner operations
    * (billing, logs, webhooks, account-wide jobs) that a consumer of the
@@ -72,7 +72,7 @@ export type TMarketplaceIncludedUsage = S.Schema.Type<
 
 export const MarketplaceEntry = S.Struct({
   /** Becomes the client's MCP server name — must not shadow `openllm`. */
-  id: S.String.pipe(S.pattern(/^[a-z][a-z0-9-]{1,47}$/)),
+  id: S.String.check(S.isPattern(/^[a-z][a-z0-9-]{1,47}$/)),
   version: S.String,
   name: S.String,
   description: S.String,
@@ -81,7 +81,9 @@ export const MarketplaceEntry = S.Struct({
   image: S.optional(S.String),
   kind: MarketplaceEntryKind,
   policy: MarketplacePolicy,
-  tier: S.optionalWith(MarketplaceTier, { default: () => "free" as const }),
+  tier: MarketplaceTier.pipe(
+    S.withDecodingDefault(Effect.succeed("free" as const)),
+  ),
   included_usage: S.optional(MarketplaceIncludedUsage),
   /**
    * On for every user until they turn it off — no installation row needed.
@@ -89,9 +91,10 @@ export const MarketplaceEntry = S.Struct({
    */
   default_enabled: S.optional(S.Boolean),
   mcp: MarketplaceMcp,
-  config: S.optionalWith(S.Array(MarketplaceConfigField), {
-    default: () => [],
-  }),
+  config: S.Array(MarketplaceConfigField).pipe(
+    S.optional,
+    S.withDecodingDefault(Effect.succeed([])),
+  ),
 });
 export type TMarketplaceEntry = S.Schema.Type<typeof MarketplaceEntry>;
 
@@ -103,10 +106,10 @@ export const MarketplaceLaunchServer = S.Struct({
   id: S.String,
   transport: S.Literals(["http", "sse", "stdio"]),
   url: S.optional(S.String),
-  headers: S.optional(S.Record({ key: S.String, value: S.String })),
+  headers: S.optional(S.Record(S.String, S.String)),
   command: S.optional(S.String),
   args: S.optional(S.Array(S.String)),
-  env: S.optional(S.Record({ key: S.String, value: S.String })),
+  env: S.optional(S.Record(S.String, S.String)),
   /** Carried from the entry's `mcp.blocked_tools`; the CLI drops these. */
   blocked_tools: S.optional(S.Array(S.String)),
 });

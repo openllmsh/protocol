@@ -891,12 +891,12 @@ export type TDoctorReportEventDecode = Result.Result<
   SchemaError
 >;
 
-export const decodeDoctorReportEither = (input: unknown): TDoctorReportDecode =>
+export const decodeDoctorReportResult = (input: unknown): TDoctorReportDecode =>
   S.decodeUnknownResult(DoctorReport)(
     prepareReport(input),
     STRICT_DOCTOR_PARSE,
   );
-export const decodeDoctorReportEventEither = (
+export const decodeDoctorReportEventResult = (
   input: unknown,
 ): TDoctorReportEventDecode =>
   S.decodeUnknownResult(DoctorReportEvent)(

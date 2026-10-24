@@ -7,7 +7,7 @@ import { Schema as S } from "effect";
  *  - `oauth` — today's subscription providers (vendor-CLI login)
  *  - `local` — loopback model servers (Ollama, LM Studio, …)
  */
-export const LocalProviderVariant = S.Literal("oauth", "local");
+export const LocalProviderVariant = S.Literals(["oauth", "local"]);
 export type TLocalProviderVariant = S.Schema.Type<typeof LocalProviderVariant>;
 
 /**
@@ -15,7 +15,7 @@ export type TLocalProviderVariant = S.Schema.Type<typeof LocalProviderVariant>;
  * address — the ONLY values that can ever reach a daemon delegate or the
  * isolated-CLI installer. The daemon's `TCliProvider` derives from this.
  */
-export const OAuthProviderSlug = S.Literal(
+export const OAuthProviderSlug = S.Literals([
   "claude_code",
   "chatgpt",
   "kimi_code",
@@ -31,11 +31,11 @@ export const OAuthProviderSlug = S.Literal(
   // `agy_acp_server` ACP agent and its own Google sign-in. Never a metered
   // Gemini API key; the BYOK `google` provider is a separate slug.
   "antigravity",
-);
+]);
 export type TOAuthProviderSlug = S.Schema.Type<typeof OAuthProviderSlug>;
 
 /** Well-known local model-server preset slugs (`local_<product>`). */
-export const LocalServerPresetSlug = S.Literal(
+export const LocalServerPresetSlug = S.Literals([
   "local_ollama",
   "local_lmstudio",
   "local_llamacpp",
@@ -43,7 +43,7 @@ export const LocalServerPresetSlug = S.Literal(
   "local_vllm",
   "local_jan",
   "local_textgen",
-);
+]);
 export type TLocalServerPresetSlug = S.Schema.Type<
   typeof LocalServerPresetSlug
 >;

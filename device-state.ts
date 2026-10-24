@@ -48,7 +48,7 @@ export const DeviceState = S.Struct({
   /** Result of the last cloud bootstrap — drives the 3-state Providers UI. */
   cloud_state: DaemonCloudState,
   /** The OS-sandbox posture this daemon booted with. */
-  sandbox: S.optional(S.Literal("enforced", "off", "unsupported", "error")),
+  sandbox: S.optional(S.Literals(["enforced", "off", "unsupported", "error"])),
   /** Loopback port for this daemon's `/v1/*` + `/whoami` surface. */
   port: S.optional(S.Number),
   /** This daemon's X25519 public key (SPKI DER, base64) for cross-machine seal. */
@@ -71,7 +71,7 @@ export type TDeviceState = S.Schema.Type<typeof DeviceState>;
  *  `online`/`device_state` invariant is encoded structurally: `online:true`
  *  ALWAYS carries a `device_state`; `online:false` is the offline flip (the
  *  relay holds no socket for the key) and never carries one. */
-export const RelayDeviceStateFrame = S.Union(
+export const RelayDeviceStateFrame = S.Union([
   S.Struct({
     type: S.Literal("device_state"),
     key_id: S.String,
@@ -83,7 +83,7 @@ export const RelayDeviceStateFrame = S.Union(
     key_id: S.String,
     online: S.Literal(false),
   }),
-);
+]);
 export type TRelayDeviceStateFrame = S.Schema.Type<
   typeof RelayDeviceStateFrame
 >;

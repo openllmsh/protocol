@@ -61,14 +61,14 @@ export const QUOTA_REJECT_PERCENT = 100;
  * served. The only values that may appear on `refresh_failure.reason` —
  * never vendor prose, HTTP bodies, URLs, or exception text.
  */
-export const ProviderUsageRefreshFailureReason = S.Literal(
+export const ProviderUsageRefreshFailureReason = S.Literals([
   "credential_expired",
   "account_changed",
   "rate_limited",
   "authorization_failed",
   "subscription_inactive",
   "fetch_failed",
-);
+]);
 export type TProviderUsageRefreshFailureReason = S.Schema.Type<
   typeof ProviderUsageRefreshFailureReason
 >;
@@ -140,7 +140,7 @@ export const matchesSubscriptionMeter = (
   return meter.aliases?.includes(poolMeterId) ?? false;
 };
 
-export const ProviderUsageSnapshot = S.Union(
+export const ProviderUsageSnapshot = S.Union([
   /**
    * One or more quota windows + an overall status. Claude's
    * shared plan meters (`five_hour` + `seven_day`) and Codex's
@@ -151,7 +151,7 @@ export const ProviderUsageSnapshot = S.Union(
    */
   S.Struct({
     kind: S.Literal("quota"),
-    status: S.Literal("allowed", "allowed_warning", "rejected"),
+    status: S.Literals(["allowed", "allowed_warning", "rejected"]),
     /** Optional plan/tier shown alongside the bars. */
     plan: S.optional(S.String),
     /** Tags tier provenance as `official`, `documented-experimental`, or `private-client`. */
@@ -227,7 +227,7 @@ export const ProviderUsageSnapshot = S.Union(
     reason: S.String,
     link: S.optional(S.String),
   }),
-);
+]);
 export type TProviderUsageSnapshot = S.Schema.Type<
   typeof ProviderUsageSnapshot
 >;

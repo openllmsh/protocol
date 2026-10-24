@@ -86,15 +86,15 @@ const ResponsesReasoningItem = S.Struct({
  * re-emit them intact via the canonical `responses_tools` passthrough. `name`
  * is optional — `web_search` / `image_generation` carry none.
  */
-const ResponsesToolDef = S.Struct(
-  {
+const ResponsesToolDef = S.StructWithRest(
+  S.Struct({
     type: S.String,
     name: S.optional(S.String),
     description: S.optional(S.NullishOr(S.String)),
     parameters: S.optional(S.Unknown),
     strict: S.optional(S.NullishOr(S.Boolean)),
-  },
-  S.Record({ key: S.String, value: S.Unknown }),
+  }),
+  [S.Record(S.String, S.Unknown)],
 );
 
 /**

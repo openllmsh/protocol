@@ -56,7 +56,7 @@ export const FallbackGroup = S.Struct({
 export type TFallbackGroup = S.Schema.Type<typeof FallbackGroup>;
 
 /** LiteLLM-style `[trigger, alternateModels]` rows (`*` = default alternates). */
-export const ModelFallbackBinding = S.Tuple(S.String, S.Array(S.String));
+export const ModelFallbackBinding = S.Tuple([S.String, S.Array(S.String)]);
 export type TModelFallbackBinding = S.Schema.Type<typeof ModelFallbackBinding>;
 
 /**
@@ -73,21 +73,19 @@ export const CustomApiModelLimits = S.Struct({
 });
 
 /** One model returned by the transient custom-endpoint discovery probe. */
-export const CustomApiDiscoveredModel = S.extend(
-  S.Struct({ id: S.String }),
-  CustomApiModelLimits,
-);
+export const CustomApiDiscoveredModel = S.Struct({
+  id: S.String,
+  ...CustomApiModelLimits.fields,
+});
 export type TCustomApiDiscoveredModel = S.Schema.Type<
   typeof CustomApiDiscoveredModel
 >;
 
-export const CustomApiCatalogModel = S.extend(
-  S.Struct({
-    id: S.String,
-    kind: CustomApiModelKind,
-  }),
-  CustomApiModelLimits,
-);
+export const CustomApiCatalogModel = S.Struct({
+  id: S.String,
+  kind: CustomApiModelKind,
+  ...CustomApiModelLimits.fields,
+});
 export type TCustomApiCatalogModel = S.Schema.Type<
   typeof CustomApiCatalogModel
 >;
@@ -231,7 +229,7 @@ export const GlobalConfig = S.Struct({
   terms_url: S.String,
   privacy_url: S.String,
   required_provider_terms: S.Array(RequiredProviderTerm),
-  default_aliases: S.Record({ key: S.String, value: S.String }),
+  default_aliases: S.Record(S.String, S.String),
   model_catalog: S.Array(ExtendedModel),
   search_provider: S.String,
   plugin_allow_list: S.Array(S.String),

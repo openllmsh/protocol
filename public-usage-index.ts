@@ -1,4 +1,4 @@
-import { Schema as S } from "effect";
+import { Effect, Schema as S } from "effect";
 import { PROVIDER_TIER_METHODOLOGY_VERSION } from "./provider-tier";
 
 /**
@@ -116,38 +116,30 @@ const PublicUsageIndexRowBase = S.Struct({
 
 /** One rollup row, matching the `public_usage_index` table. */
 export const PublicUsageIndexRow = S.Union([
-  S.extend(
-    PublicUsageIndexRowBase,
-    S.Struct({
-      metric: S.Literals(["model_popularity"]),
-      subject: S.String,
-      metrics: PublicUsagePopularityMetrics,
-    }),
-  ),
-  S.extend(
-    PublicUsageIndexRowBase,
-    S.Struct({
-      metric: S.Literals(["provider_popularity"]),
-      subject: S.String,
-      metrics: PublicUsagePopularityMetrics,
-    }),
-  ),
-  S.extend(
-    PublicUsageIndexRowBase,
-    S.Struct({
-      metric: S.Literals(["value"]),
-      subject: S.String,
-      metrics: PublicUsageValueMetrics,
-    }),
-  ),
-  S.extend(
-    PublicUsageIndexRowBase,
-    S.Struct({
-      metric: PublicUsageMetric,
-      subject: S.Literals([PUBLIC_USAGE_INDEX_BUCKET_MARKER]),
-      metrics: PublicUsageIndexMarkerMetrics,
-    }),
-  ),
+  S.Struct({
+    ...PublicUsageIndexRowBase.fields,
+    metric: S.Literals(["model_popularity"]),
+    subject: S.String,
+    metrics: PublicUsagePopularityMetrics,
+  }),
+  S.Struct({
+    ...PublicUsageIndexRowBase.fields,
+    metric: S.Literals(["provider_popularity"]),
+    subject: S.String,
+    metrics: PublicUsagePopularityMetrics,
+  }),
+  S.Struct({
+    ...PublicUsageIndexRowBase.fields,
+    metric: S.Literals(["value"]),
+    subject: S.String,
+    metrics: PublicUsageValueMetrics,
+  }),
+  S.Struct({
+    ...PublicUsageIndexRowBase.fields,
+    metric: PublicUsageMetric,
+    subject: S.Literals([PUBLIC_USAGE_INDEX_BUCKET_MARKER]),
+    metrics: PublicUsageIndexMarkerMetrics,
+  }),
 ]);
 export type TPublicUsageIndexRow = S.Schema.Type<typeof PublicUsageIndexRow>;
 
@@ -166,7 +158,7 @@ export const PublicModelPopularity = S.Struct({
    *
    * Decoded with a default — see the note on cross-deployment merging below.
    */
-  provider_slug: S.optionalWith(S.String, { default: () => "" }),
+  provider_slug: S.String.pipe(S.optional, S.withDecodingDefault(Effect.succeed(""))),
   model: S.String,
   users: S.Number,
   user_days: S.Number,
@@ -185,7 +177,7 @@ export const PublicModelPopularity = S.Struct({
    *
    * Decoded with a default — see the note on cross-deployment merging below.
    */
-  is_new: S.optionalWith(S.Boolean, { default: () => false }),
+  is_new: S.Boolean.pipe(S.optional, S.withDecodingDefault(Effect.succeed(false))),
 });
 export type TPublicModelPopularity = S.Schema.Type<
   typeof PublicModelPopularity
@@ -203,13 +195,13 @@ export const PublicProviderPopularity = S.Struct({
    *
    * Decoded with a default — see the note on cross-deployment merging below.
    */
-  provider_slug: S.optionalWith(S.String, { default: () => "" }),
+  provider_slug: S.String.pipe(S.optional, S.withDecodingDefault(Effect.succeed(""))),
   users: S.Number,
   user_days: S.Number,
   requests: S.Number,
   pct_change: S.NullOr(S.Number),
   /** See `PublicModelPopularity.is_new`. */
-  is_new: S.optionalWith(S.Boolean, { default: () => false }),
+  is_new: S.Boolean.pipe(S.optional, S.withDecodingDefault(Effect.succeed(false))),
 });
 export type TPublicProviderPopularity = S.Schema.Type<
   typeof PublicProviderPopularity
@@ -256,7 +248,7 @@ export const PublicValueByTier = S.Struct({
    *
    * Decoded with a default — see the note on cross-deployment merging below.
    */
-  provider_slug: S.optionalWith(S.String, { default: () => "" }),
+  provider_slug: S.String.pipe(S.optional, S.withDecodingDefault(Effect.succeed(""))),
   tier: S.String,
   /** Projected API-equivalent value of the best-calibrated subscription per 30 days. */
   value_usd_30d: S.Number,
@@ -275,7 +267,7 @@ export const PublicValueByTier = S.Struct({
    */
   pct_change: S.NullOr(S.Number),
   /** See `PublicModelPopularity.is_new`. */
-  is_new: S.optionalWith(S.Boolean, { default: () => false }),
+  is_new: S.Boolean.pipe(S.optional, S.withDecodingDefault(Effect.succeed(false))),
   /**
    * Every retained period for this tier, oldest first, INCLUDING the current
    * one — so a consumer plots `history` alone rather than stitching it to the
@@ -286,7 +278,10 @@ export const PublicValueByTier = S.Struct({
    * dropped them. A tier measured for the first time has a single point, which
    * is a fact a chart has to render rather than an error.
    */
-  history: S.optionalWith(S.Array(PublicValuePoint), { default: () => [] }),
+  history: S.Array(PublicValuePoint).pipe(
+    S.optional,
+    S.withDecodingDefault(Effect.succeed([])),
+  ),
 });
 export type TPublicValueByTier = S.Schema.Type<typeof PublicValueByTier>;
 

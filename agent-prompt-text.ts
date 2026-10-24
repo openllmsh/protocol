@@ -15,6 +15,8 @@ const PASTE_END = "\x1b[201~";
 /** Claude wraps a large paste as `<pasted_content id="…">…</pasted_content>`. */
 const PASTED_CONTENT =
   /<pasted_content\b[^>]*>\r?\n?([\s\S]*?)\r?\n?<\/pasted_content\b[^>]*>/gi;
+const WHOLE_PASTED_CONTENT =
+  /^\s*<pasted_content\b[^>]*>\n?([\s\S]*?)\n?<\/pasted_content\b[^>]*>\s*$/i;
 
 /**
  * Make echoed / transcript user-turn text equal what the user typed.
@@ -23,6 +25,8 @@ const PASTED_CONTENT =
 export const normalizeUserPromptText = (raw: string): string => {
   let text = raw.replaceAll(PASTE_START, "").replaceAll(PASTE_END, "");
   text = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
-  text = text.replace(PASTED_CONTENT, "$1");
-  return text.trim();
+  const wholePaste = text.match(WHOLE_PASTED_CONTENT);
+  text =
+    wholePaste === null ? text.replace(PASTED_CONTENT, "$1") : wholePaste[1];
+  return text.trimEnd();
 };

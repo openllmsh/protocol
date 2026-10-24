@@ -50,6 +50,8 @@ export const hasAgentCap = (caps: readonly string[] | undefined): boolean =>
  */
 export const AGENT_MAX_LINE_BYTES = 8 * 1024 * 1024;
 
+const lineEncoder = new TextEncoder();
+
 /** Max characters of one prompt. */
 export const AGENT_MAX_PROMPT_LENGTH = 1024 * 1024;
 
@@ -219,7 +221,14 @@ export const AgentSendCommand = S.Struct({
   attachments: S.optional(
     S.Array(AgentAttachment).check(S.isMaxLength(AGENT_MAX_ATTACHMENTS)),
   ),
-});
+}).check(
+  S.makeFilter(
+    (command) =>
+      lineEncoder.encode(`${JSON.stringify(command)}\n`).byteLength <=
+      AGENT_MAX_LINE_BYTES,
+    { message: "send command exceeds the agent line size bound" },
+  ),
+);
 export type TAgentSendCommand = S.Schema.Type<typeof AgentSendCommand>;
 
 export const AgentInterruptCommand = S.Struct({
@@ -473,7 +482,11 @@ export const AgentTurnAbortedEvent = S.Struct({
   message: S.optional(ShortText),
 });
 
-export const AgentToolStatus = S.Literals(["in_progress", "completed", "failed"]);
+export const AgentToolStatus = S.Literals([
+  "in_progress",
+  "completed",
+  "failed",
+]);
 export type TAgentToolStatus = S.Schema.Type<typeof AgentToolStatus>;
 
 export const AgentNoticeKind = S.Literals([
@@ -509,7 +522,9 @@ export const AgentItem = S.Union([
     /** The user (or a policy) refused the call; optional, additive. */
     denied: S.optional(S.Boolean),
     /** Wall time from call to result, when the engine recorded both. */
-    duration_ms: S.optional(S.Number.check(S.isInt(), S.isGreaterThanOrEqualTo(0))),
+    duration_ms: S.optional(
+      S.Number.check(S.isInt(), S.isGreaterThanOrEqualTo(0)),
+    ),
     /** A shell command's exit status, when the engine reported it. */
     exit_code: S.optional(S.Number.check(S.isInt())),
     /**
@@ -764,7 +779,6 @@ export const parseAgentEvent = (value: unknown): TAgentEvent | null => {
   return Result.isSuccess(result) ? result.success : null;
 };
 
-const lineEncoder = new TextEncoder();
 const lineDecoder = new TextDecoder("utf-8", { fatal: true });
 const NEWLINE = 0x0a;
 

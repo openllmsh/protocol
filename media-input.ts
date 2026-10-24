@@ -31,12 +31,10 @@ const decodeMediaModelSelectionSchema =
  * JavaScript callers can pass `undefined` even though it has no JSON wire
  * representation. Normalize it to an omitted optional key before validation.
  */
-export const decodeMediaModelSelection = (
-  input: { readonly model?: unknown },
-): { readonly model?: string } =>
-  input.model === undefined
-    ? {}
-    : decodeMediaModelSelectionSchema(input);
+export const decodeMediaModelSelection = (input: {
+  readonly model?: unknown;
+}): { readonly model?: string } =>
+  input.model === undefined ? {} : decodeMediaModelSelectionSchema(input);
 
 const VideoReferenceList = S.Array(S.String.check(S.isMinLength(1)));
 /** Empty reference lists carry no guidance; invalid entries and wrong types still fail. */
@@ -48,7 +46,8 @@ export const OptionalVideoReferences = S.optionalKey(VideoReferenceList).pipe(
       ): Option.Option<readonly string[]> =>
         Option.filter(
           value,
-          (references): references is readonly string[] => references.length > 0,
+          (references): references is readonly string[] =>
+            references.length > 0,
         ),
     ),
     encode: SchemaGetter.transform(

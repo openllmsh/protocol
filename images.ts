@@ -136,9 +136,7 @@ const ImageUsageCommon = {
   input_tokens: S.Number,
   output_tokens: S.Number,
   total_tokens: S.Number,
-  input_tokens_details: S.optional(
-    S.Record(S.String, S.Unknown),
-  ),
+  input_tokens_details: S.optional(S.Record(S.String, S.Unknown)),
 } as const;
 
 /**
@@ -147,9 +145,7 @@ const ImageUsageCommon = {
  */
 export const ImageGenUsage = S.Struct({
   ...ImageUsageCommon,
-  output_tokens_details: S.optional(
-    S.Record(S.String, S.Unknown),
-  ),
+  output_tokens_details: S.optional(S.Record(S.String, S.Unknown)),
 });
 export type TImageGenUsage = S.Schema.Type<typeof ImageGenUsage>;
 

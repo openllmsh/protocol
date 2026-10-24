@@ -6,8 +6,9 @@
  * these payload schemas. The 16-byte channel-id envelope (`mux2`) tags each
  * binary message, so one WebSocket can carry several channels concurrently.
  */
-import * as Result from "effect/Result";
+
 import { Schema as S } from "effect";
+import * as Result from "effect/Result";
 import {
   DeviceSessionCli,
   SessionTitleField,
@@ -473,7 +474,10 @@ export const SessionId = S.String.check(S.isPattern(SESSION_ID_PATTERN));
 export type TSessionId = S.Schema.Type<typeof SessionId>;
 
 /** Terminal cols/rows on session open + resize (mux). */
-export const TerminalDimension = S.Number.check(S.isInt(), S.isBetween({ minimum: 1, maximum: 1024 }));
+export const TerminalDimension = S.Number.check(
+  S.isInt(),
+  S.isBetween({ minimum: 1, maximum: 1024 }),
+);
 export type TTerminalDimension = S.Schema.Type<typeof TerminalDimension>;
 
 /** A channel-level admission failure. */
@@ -555,8 +559,12 @@ export const StreamCtrlPayload = S.Union([
     ok: S.Boolean,
     live: S.optional(S.Boolean),
     /** Daemon-minted, monotonically increasing session-open generation. */
-    generation: S.optional(S.Number.check(S.isInt(), S.isGreaterThanOrEqualTo(0))),
-    initial_credit: S.optional(S.Number.check(S.isInt(), S.isGreaterThanOrEqualTo(0))),
+    generation: S.optional(
+      S.Number.check(S.isInt(), S.isGreaterThanOrEqualTo(0)),
+    ),
+    initial_credit: S.optional(
+      S.Number.check(S.isInt(), S.isGreaterThanOrEqualTo(0)),
+    ),
     /** Present on nacks (`ok:false`) — same vocabulary as `StreamResetCode`
      * session-open failures (`cli_not_installed`, `session_busy`, …). */
     error: S.optional(S.String.check(S.isMaxLength(64))),
@@ -564,7 +572,10 @@ export const StreamCtrlPayload = S.Union([
   }),
   S.Struct({
     t: S.Literal("res_head"),
-    status: S.Number.check(S.isInt(), S.isBetween({ minimum: 200, maximum: 599 })),
+    status: S.Number.check(
+      S.isInt(),
+      S.isBetween({ minimum: 200, maximum: 599 }),
+    ),
     res_headers: S.optional(TunnelResponseHeaders),
   }),
   S.Struct({
@@ -638,10 +649,7 @@ export const StreamResetPayload = S.Struct({
 });
 export type TStreamResetPayload = S.Schema.Type<typeof StreamResetPayload>;
 
-const parse = <T>(
-  schema: S.ConstraintDecoder<T>,
-  value: unknown,
-): T | null => {
+const parse = <T>(schema: S.ConstraintDecoder<T>, value: unknown): T | null => {
   const result = S.decodeUnknownResult(schema)(value);
   return Result.isSuccess(result) ? result.success : null;
 };

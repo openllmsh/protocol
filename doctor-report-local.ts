@@ -73,9 +73,21 @@ export const DoctorLocalReportResult = S.Struct({
   nothing_new: S.Boolean,
   dry_run: S.Boolean,
   report_id: S.optional(OpaqueId),
-  accepted_count: S.Number.check(S.isFinite(), S.isInt(), S.isGreaterThanOrEqualTo(0)),
-  skipped_count: S.Number.check(S.isFinite(), S.isInt(), S.isGreaterThanOrEqualTo(0)),
-  gap_count: S.Number.check(S.isFinite(), S.isInt(), S.isGreaterThanOrEqualTo(0)),
+  accepted_count: S.Number.check(
+    S.isFinite(),
+    S.isInt(),
+    S.isGreaterThanOrEqualTo(0),
+  ),
+  skipped_count: S.Number.check(
+    S.isFinite(),
+    S.isInt(),
+    S.isGreaterThanOrEqualTo(0),
+  ),
+  gap_count: S.Number.check(
+    S.isFinite(),
+    S.isInt(),
+    S.isGreaterThanOrEqualTo(0),
+  ),
   legacy_records_skipped: S.Number.check(
     S.isFinite(),
     S.isInt(),

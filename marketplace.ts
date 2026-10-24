@@ -8,7 +8,11 @@ import { Effect, Schema as S } from "effect";
  * Only `remote` (hosted MCP over HTTP) is delivered today; `package` and
  * `download` are reserved for the daemon pipeline (P3).
  */
-export const MarketplaceEntryKind = S.Literals(["remote", "package", "download"]);
+export const MarketplaceEntryKind = S.Literals([
+  "remote",
+  "package",
+  "download",
+]);
 export type TMarketplaceEntryKind = S.Schema.Type<typeof MarketplaceEntryKind>;
 
 /** How access is provided — the pipeline acts on this, never on the vendor. */

@@ -57,14 +57,12 @@ export const CHANGELOG_ACTION_MAX = 180;
  */
 export const changelogText = (max: number): S.Schema<string> =>
   S.String.check(
-    S.makeFilter(
-      (value: string) => !/[\p{Cc}\p{Zl}\p{Zp}]/u.test(value),
-      { message: "must be a single line without control characters" },
-    ),
-    S.makeFilter(
-      (value: string) => value.trim() === value,
-      { message: "must not start or end with whitespace" },
-    ),
+    S.makeFilter((value: string) => !/[\p{Cc}\p{Zl}\p{Zp}]/u.test(value), {
+      message: "must be a single line without control characters",
+    }),
+    S.makeFilter((value: string) => value.trim() === value, {
+      message: "must not start or end with whitespace",
+    }),
     S.isMinLength(1),
     S.isMaxLength(max),
   );
@@ -132,17 +130,26 @@ const ChangelogEntryFields = S.Struct({
 });
 
 export const ChangelogEntry = ChangelogEntryFields.check(
-  S.makeFilter((entry: S.Schema.Type<typeof ChangelogEntryFields>): boolean | { readonly path: ReadonlyArray<PropertyKey>; readonly issue: string } => {
-    if (entry.kind === "breaking" && entry.action === undefined) {
-      return {
-        path: ["action"],
-        issue: "a breaking entry must say what the user has to do",
-      };
-    }
-    if (new Set(entry.tags).size !== entry.tags.length) {
-      return { path: ["tags"], issue: "tags must not repeat" };
-    }
-    return true;
-  }),
+  S.makeFilter(
+    (
+      entry: S.Schema.Type<typeof ChangelogEntryFields>,
+    ):
+      | boolean
+      | {
+          readonly path: ReadonlyArray<PropertyKey>;
+          readonly issue: string;
+        } => {
+      if (entry.kind === "breaking" && entry.action === undefined) {
+        return {
+          path: ["action"],
+          issue: "a breaking entry must say what the user has to do",
+        };
+      }
+      if (new Set(entry.tags).size !== entry.tags.length) {
+        return { path: ["tags"], issue: "tags must not repeat" };
+      }
+      return true;
+    },
+  ),
 );
 export type TChangelogEntry = S.Schema.Type<typeof ChangelogEntry>;

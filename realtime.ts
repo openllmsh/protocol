@@ -19,8 +19,9 @@
  * `realtimeStream`, which import the bounds and parsers below rather than
  * duplicating them.
  */
-import * as Result from "effect/Result";
+
 import { Schema as S } from "effect";
+import * as Result from "effect/Result";
 import { GROK_TTS_VOICES } from "./audio";
 import { REALTIME_MODEL_IDS } from "./realtime-generated";
 
@@ -187,7 +188,10 @@ export const RealtimeResponseCreatedEvent = S.Struct({
 export const RealtimeResponseOutputAudioDeltaEvent = S.Struct({
   type: S.Literal("response.output_audio.delta"),
   /** Base64-encoded PCM16/24kHz chunk. */
-  delta: S.String.check(S.isMinLength(1), S.isMaxLength(REALTIME_MAX_EVENT_BYTES)),
+  delta: S.String.check(
+    S.isMinLength(1),
+    S.isMaxLength(REALTIME_MAX_EVENT_BYTES),
+  ),
 });
 export const RealtimeResponseOutputAudioTranscriptDeltaEvent = S.Struct({
   type: S.Literal("response.output_audio_transcript.delta"),
@@ -224,10 +228,7 @@ export const RealtimeServerEvent = S.Union([
 ]);
 export type TRealtimeServerEvent = S.Schema.Type<typeof RealtimeServerEvent>;
 
-const parse = <T>(
-  schema: S.ConstraintDecoder<T>,
-  value: unknown,
-): T | null => {
+const parse = <T>(schema: S.ConstraintDecoder<T>, value: unknown): T | null => {
   const result = S.decodeUnknownResult(schema)(value);
   return Result.isSuccess(result) ? result.success : null;
 };

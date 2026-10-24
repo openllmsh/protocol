@@ -53,17 +53,21 @@ export const videoInputRequirements = (
   });
 
 /** Clip duration in seconds. Providers validate unsupported values. */
-export const VideoSeconds = S.String.pipe(S.annotate({
-  description:
-    "Requested duration in seconds as a numeric string. Values are not clamped; the provider validates durations accepted by the selected model.",
-}));
+export const VideoSeconds = S.String.pipe(
+  S.annotate({
+    description:
+      "Requested duration in seconds as a numeric string. Values are not clamped; the provider validates durations accepted by the selected model.",
+  }),
+);
 export type TVideoSeconds = S.Schema.Type<typeof VideoSeconds>;
 
 /** Output resolution as "WIDTHxHEIGHT" (e.g. "720x1280"). */
-export const VideoSize = S.String.pipe(S.annotate({
-  description:
-    "Requested output dimensions as WIDTHxHEIGHT (for example 1280x720 or 720x1280). Adapters preserve aspect ratio and resolution intent; the provider validates model-specific sizes.",
-}));
+export const VideoSize = S.String.pipe(
+  S.annotate({
+    description:
+      "Requested output dimensions as WIDTHxHEIGHT (for example 1280x720 or 720x1280). Adapters preserve aspect ratio and resolution intent; the provider validates model-specific sizes.",
+  }),
+);
 export type TVideoSize = S.Schema.Type<typeof VideoSize>;
 
 /** Canonical reference semantics are preserved or rejected, never silently dropped. */
@@ -83,11 +87,13 @@ const { model: _videoGenerationModel, ...videoGenerationInputFields } =
 export const VideoGenerationInput = S.Struct({
   ...videoGenerationInputFields,
   model: OptionalMediaModel,
-}).pipe(S.annotate({
-  description:
-    "Video creation input. Only prompt is required. Send only needed optional keys; omit unused model and reference arrays rather than filling dummy empty strings or arrays.",
-  parseOptions: { onExcessProperty: "error" },
-}));
+}).pipe(
+  S.annotate({
+    description:
+      "Video creation input. Only prompt is required. Send only needed optional keys; omit unused model and reference arrays rather than filling dummy empty strings or arrays.",
+    parseOptions: { onExcessProperty: "error" },
+  }),
+);
 export type TVideoGenerationInput = S.Schema.Type<typeof VideoGenerationInput>;
 
 const decodeVideoInput = S.decodeUnknownResult(VideoGenerationInput, {

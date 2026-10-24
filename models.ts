@@ -95,19 +95,25 @@ export type TModelAudioSupport = S.Schema.Type<typeof ModelAudioSupport>;
 /** Canonical reference fields shared by request schemas. */
 export const VideoReferenceInputs = S.Struct({
   input_image: S.optionalKey(
-    S.String.check(S.isMinLength(1)).pipe(S.annotate({
-      description:
-        "Starting-frame image as an HTTPS URL or base64 image data URL (for example data:image/png;base64,...). Not subject guidance. MIME is detected from PNG, JPEG, GIF, or WebP bytes; the provider validates its accepted formats.",
-    })),
+    S.String.check(S.isMinLength(1)).pipe(
+      S.annotate({
+        description:
+          "Starting-frame image as an HTTPS URL or base64 image data URL (for example data:image/png;base64,...). Not subject guidance. MIME is detected from PNG, JPEG, GIF, or WebP bytes; the provider validates its accepted formats.",
+      }),
+    ),
   ),
-  reference_images: OptionalVideoReferences.pipe(S.annotate({
-    description:
-      "Optional ordered subject-reference images as HTTPS URLs or base64 image data URLs. Omit when unused; do not send a dummy empty array. References guide identity/appearance, not the first frame. Every input is preserved; the provider validates format and count limits.",
-  })),
-  reference_voices: OptionalVideoReferences.pipe(S.annotate({
-    description:
-      "Optional provider voice IDs for reference guidance. Omit when unused; do not send a dummy empty array.",
-  })),
+  reference_images: OptionalVideoReferences.pipe(
+    S.annotate({
+      description:
+        "Optional ordered subject-reference images as HTTPS URLs or base64 image data URLs. Omit when unused; do not send a dummy empty array. References guide identity/appearance, not the first frame. Every input is preserved; the provider validates format and count limits.",
+    }),
+  ),
+  reference_voices: OptionalVideoReferences.pipe(
+    S.annotate({
+      description:
+        "Optional provider voice IDs for reference guidance. Omit when unused; do not send a dummy empty array.",
+    }),
+  ),
 });
 
 /** Finite receipt vocabulary; not an author-maintained model allowlist. */
@@ -151,7 +157,11 @@ export type TDefaultChainClass = S.Schema.Type<typeof DefaultChainClass>;
  * aliases: mixed chains are neither a subscription guarantee nor
  * API-key-only.
  */
-export const ModelProviderType = S.Literals(["subscription", "api_key", "local"]);
+export const ModelProviderType = S.Literals([
+  "subscription",
+  "api_key",
+  "local",
+]);
 export type TModelProviderType = S.Schema.Type<typeof ModelProviderType>;
 
 export const ModelCard = S.Struct({
@@ -176,52 +186,52 @@ export type TModelList = S.Schema.Type<typeof ModelList>;
 // network round-trip against /api/credentials + the global catalog.
 export const ExtendedModelCard = S.Struct({
   ...ModelCard.fields,
-    provider: S.String,
-    provider_model_id: S.String,
-    display_name: S.String,
-    settings: S.optional(ModelSettingDefinitions),
-    capabilities: S.Array(ModelCapability),
-    /**
-     * Optional audio/realtime support advertised on `/v1/models`. Catalog
-     * capability is access, not billing inclusion.
-     */
-    audio_support: S.optional(ModelAudioSupport),
-    // Curated list of dim presets to show in the endpoint picker on
-    // `/config`. Catalog-defined so the UI doesn't have to know which
-    // values are "interesting" — `text-embedding-3-large` could
-    // technically request any dim ≤ 3072, but most users only care
-    // about 256 / 1024 / 1536 / 3072.
-    dimension_presets: S.optional(S.Array(S.Number)),
-    // Token budgets aligned with LiteLLM `model_prices_and_context_window.json`
-    // (`max_input_tokens` / `max_output_tokens`). Exposed on `/v1/models` so
-    // CLI clients (e.g. Claude Code) can size context before auto-compact.
-    max_input_tokens: S.optional(S.Number),
-    max_output_tokens: S.optional(S.Number),
-    /**
-     * Direct-card auth class. Absent on fallback aliases. `api_key` is
-     * not necessarily usage-billed.
-     */
-    provider_type: S.optional(ModelProviderType),
-    /**
-     * Daemon-only variant when `provider_type` is `subscription` (`oauth`)
-     * or `local` (`local`). Absent on API-key cards and mixed aliases.
-     */
-    provider_variant: S.optional(LocalProviderVariant),
-    /**
-     * Catalog default-chain membership + rank, so clients can apply the
-     * same ordering policy as the server without importing the catalog.
-     */
-    default_tiers: S.optional(S.Array(DefaultChainClass)),
-    tier_rank: S.optional(S.Number),
-    /** Prompt/context budget; equals `max_input_tokens` when present. */
-    context_window: S.optional(S.Number),
-    // llama.cpp/Ollama-style context hint mirrored under `meta.n_ctx`.
-    // Some OpenAI-compatible clients read ONLY `meta.n_ctx` for a model's
-    // context window during dynamic model discovery (e.g. goose's declarative
-    // provider engine), ignoring `context_window`/`max_input_tokens`. Mirror
-    // the same value here so those clients get per-model limits with no
-    // bespoke provider. Equals `max_input_tokens` when present.
-    meta: S.optional(S.Struct({ n_ctx: S.optional(S.Number) })),
+  provider: S.String,
+  provider_model_id: S.String,
+  display_name: S.String,
+  settings: S.optional(ModelSettingDefinitions),
+  capabilities: S.Array(ModelCapability),
+  /**
+   * Optional audio/realtime support advertised on `/v1/models`. Catalog
+   * capability is access, not billing inclusion.
+   */
+  audio_support: S.optional(ModelAudioSupport),
+  // Curated list of dim presets to show in the endpoint picker on
+  // `/config`. Catalog-defined so the UI doesn't have to know which
+  // values are "interesting" — `text-embedding-3-large` could
+  // technically request any dim ≤ 3072, but most users only care
+  // about 256 / 1024 / 1536 / 3072.
+  dimension_presets: S.optional(S.Array(S.Number)),
+  // Token budgets aligned with LiteLLM `model_prices_and_context_window.json`
+  // (`max_input_tokens` / `max_output_tokens`). Exposed on `/v1/models` so
+  // CLI clients (e.g. Claude Code) can size context before auto-compact.
+  max_input_tokens: S.optional(S.Number),
+  max_output_tokens: S.optional(S.Number),
+  /**
+   * Direct-card auth class. Absent on fallback aliases. `api_key` is
+   * not necessarily usage-billed.
+   */
+  provider_type: S.optional(ModelProviderType),
+  /**
+   * Daemon-only variant when `provider_type` is `subscription` (`oauth`)
+   * or `local` (`local`). Absent on API-key cards and mixed aliases.
+   */
+  provider_variant: S.optional(LocalProviderVariant),
+  /**
+   * Catalog default-chain membership + rank, so clients can apply the
+   * same ordering policy as the server without importing the catalog.
+   */
+  default_tiers: S.optional(S.Array(DefaultChainClass)),
+  tier_rank: S.optional(S.Number),
+  /** Prompt/context budget; equals `max_input_tokens` when present. */
+  context_window: S.optional(S.Number),
+  // llama.cpp/Ollama-style context hint mirrored under `meta.n_ctx`.
+  // Some OpenAI-compatible clients read ONLY `meta.n_ctx` for a model's
+  // context window during dynamic model discovery (e.g. goose's declarative
+  // provider engine), ignoring `context_window`/`max_input_tokens`. Mirror
+  // the same value here so those clients get per-model limits with no
+  // bespoke provider. Equals `max_input_tokens` when present.
+  meta: S.optional(S.Struct({ n_ctx: S.optional(S.Number) })),
 });
 export type TExtendedModelCard = S.Schema.Type<typeof ExtendedModelCard>;
 
@@ -284,7 +294,9 @@ export type TSubscriptionMeter = S.Schema.Type<typeof SubscriptionMeter>;
  */
 export const ModelCaps = S.Struct({
   deniedParams: S.optional(S.Array(S.String)),
-  maxTokensField: S.optional(S.Literals(["max_tokens", "max_completion_tokens"])),
+  maxTokensField: S.optional(
+    S.Literals(["max_tokens", "max_completion_tokens"]),
+  ),
   temperature: S.optional(S.Literals(["only-1", "clamp-0-1", "drop"])),
 
   // ─── Chat ──────────────────────────────────────────────────────────
@@ -432,9 +444,7 @@ export const ModelCaps = S.Struct({
    * Canonical `WIDTHxHEIGHT` → provider aspect-ratio map, for a surface
    * that takes a ratio rather than pixels.
    */
-  mediaImageSizeAspectRatios: S.optional(
-    S.Record(S.String, S.String),
-  ),
+  mediaImageSizeAspectRatios: S.optional(S.Record(S.String, S.String)),
   /** Inclusive bounds on the image count per request. */
   mediaImageCountRange: S.optional(S.Struct({ min: S.Number, max: S.Number })),
 
@@ -715,7 +725,8 @@ export type TProviderModelEntry = S.Schema.Type<typeof ProviderModelEntry>;
 // observed for a single provider.
 export const ProviderModelList = S.Array(ProviderModelEntry).check(
   S.makeFilter(
-    (models: ReadonlyArray<TProviderModelEntry>): boolean => models.length <= 1000,
+    (models: ReadonlyArray<TProviderModelEntry>): boolean =>
+      models.length <= 1000,
     { message: "must contain at most 1000 entries" },
   ),
 );

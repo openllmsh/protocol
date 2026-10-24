@@ -448,7 +448,11 @@ export const ListLocalSessionsPayload = S.Struct({
   cli: DeviceSessionCli,
   /** Max rows (default 30 server-side; hard cap 100). */
   limit: S.optional(
-    S.Number.check(S.isInt(), S.isGreaterThanOrEqualTo(1), S.isLessThanOrEqualTo(100)),
+    S.Number.check(
+      S.isInt(),
+      S.isGreaterThanOrEqualTo(1),
+      S.isLessThanOrEqualTo(100),
+    ),
   ),
 });
 export type TListLocalSessionsPayload = S.Schema.Type<

@@ -30,7 +30,11 @@ export const AuthLoginFailedCode = S.Literals([
 ]);
 export type TAuthLoginFailedCode = S.Schema.Type<typeof AuthLoginFailedCode>;
 
-export const AuthLoginMode = S.Literals(["browser", "device_code", "paste_code"]);
+export const AuthLoginMode = S.Literals([
+  "browser",
+  "device_code",
+  "paste_code",
+]);
 export type TAuthLoginMode = S.Schema.Type<typeof AuthLoginMode>;
 
 /**

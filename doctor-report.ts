@@ -1,5 +1,5 @@
-import type * as Result from "effect/Result";
 import { Schema as S } from "effect";
+import type * as Result from "effect/Result";
 import type { SchemaError } from "effect/Schema";
 import type { TAuthLoginFailedCode } from "./auth";
 import { AuthLoginFailedCode } from "./auth";

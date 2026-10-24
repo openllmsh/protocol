@@ -249,9 +249,7 @@ export const RelayWelcomeFrame = S.Struct({
   /** Relay capabilities. */
   caps: S.optional(RelayCapabilities),
   /** Per-serving-daemon capability snapshots, parallel to `snapshot`. */
-  snapshot_caps: S.optional(
-    S.Record(S.String, RelayCapabilities),
-  ),
+  snapshot_caps: S.optional(S.Record(S.String, RelayCapabilities)),
 });
 export type TRelayWelcomeFrame = S.Schema.Type<typeof RelayWelcomeFrame>;
 
@@ -497,7 +495,9 @@ export const RelayRtcOfferFrame = S.Struct({
   channel_id: ChannelId,
   key_id: S.String,
   sdp: S.String.check(S.isMaxLength(RTC_SDP_MAX)),
-  fingerprint_proof: S.String.check(S.isMaxLength(RTC_FINGERPRINT_PROOF_B64_MAX)),
+  fingerprint_proof: S.String.check(
+    S.isMaxLength(RTC_FINGERPRINT_PROOF_B64_MAX),
+  ),
 });
 export type TRelayRtcOfferFrame = S.Schema.Type<typeof RelayRtcOfferFrame>;
 
@@ -506,7 +506,9 @@ export const RelayRtcAnswerFrame = S.Struct({
   type: S.Literal("rtc_answer"),
   channel_id: ChannelId,
   sdp: S.String.check(S.isMaxLength(RTC_SDP_MAX)),
-  fingerprint_proof: S.String.check(S.isMaxLength(RTC_FINGERPRINT_PROOF_B64_MAX)),
+  fingerprint_proof: S.String.check(
+    S.isMaxLength(RTC_FINGERPRINT_PROOF_B64_MAX),
+  ),
 });
 export type TRelayRtcAnswerFrame = S.Schema.Type<typeof RelayRtcAnswerFrame>;
 

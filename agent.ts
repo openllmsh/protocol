@@ -30,6 +30,7 @@
  * strictly by the serving daemon.
  */
 import { Either, Schema as S } from "effect";
+import { SESSION_ID_PATTERN } from "./local-session";
 
 /**
  * Capability advertising `kind:"agent"` stream support. Consumers MUST check
@@ -86,8 +87,13 @@ export const AGENT_MAX_ATTACHMENT_BASE64_LENGTH = 6 * 1024 * 1024;
 export const AgentEngine = S.Literal("claude", "codex");
 export type TAgentEngine = S.Schema.Type<typeof AgentEngine>;
 
-/** Agent session id: daemon-minted or a vendor session id for attach/resume. */
-export const AGENT_SESSION_ID_PATTERN = /^[A-Za-z0-9._:-]{1,128}$/;
+/**
+ * Agent session id: daemon-minted (a UUID), the consumer's own record id, or
+ * a vendor session id for attach/resume (Claude / Codex ids are UUIDs). The
+ * id names the session host's registry dir and its attachments dir, so it is
+ * the local session id itself: url-safe, no `.`, so never `.` / `..`.
+ */
+export const AGENT_SESSION_ID_PATTERN = SESSION_ID_PATTERN;
 export const AgentSessionId = S.String.pipe(
   S.pattern(AGENT_SESSION_ID_PATTERN),
 );

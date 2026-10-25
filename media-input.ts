@@ -19,7 +19,9 @@ export const OptionalMediaModel = S.optionalKey(S.String).pipe(
       (value: Option.Option<string>): Option.Option<string> =>
         Option.filter(value, (model): model is string => model.trim() !== ""),
     ),
-    encode: SchemaGetter.transform((model: string): string => model),
+    encode: SchemaGetter.transformOptional(
+      (value: Option.Option<string>): Option.Option<string> => value,
+    ),
   }),
   S.annotateEncoded({ description: optionalMediaModelDescription }),
 );
@@ -50,8 +52,10 @@ export const OptionalVideoReferences = S.optionalKey(VideoReferenceList).pipe(
             references.length > 0,
         ),
     ),
-    encode: SchemaGetter.transform(
-      (references: readonly string[]): readonly string[] => references,
+    encode: SchemaGetter.transformOptional(
+      (
+        value: Option.Option<readonly string[]>,
+      ): Option.Option<readonly string[]> => value,
     ),
   }),
 );

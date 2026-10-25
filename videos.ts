@@ -100,10 +100,25 @@ const decodeVideoInput = S.decodeUnknownResult(VideoGenerationInput, {
   onExcessProperty: "error",
 });
 /** Safe diagnostics intentionally never include Effect's raw actual values. */
+/**
+ * Effect 3's `optional` accepted an explicit `undefined`; Effect 4's
+ * `optionalKey` does not. Treat an `undefined` key as absent, as before, so
+ * in-process callers that spread optional values keep working. `null` and
+ * every other wrong type still fail, and the wire schema stays exact.
+ */
+export const omitUndefinedKeys = (body: unknown): unknown => {
+  if (body === null || typeof body !== "object" || Array.isArray(body)) {
+    return body;
+  }
+  return Object.fromEntries(
+    Object.entries(body).filter(([, value]) => value !== undefined),
+  );
+};
+
 export const parseVideoGenerationInput = (
   body: unknown,
 ): TVideoGenerationInput => {
-  const result = decodeVideoInput(body);
+  const result = decodeVideoInput(omitUndefinedKeys(body));
   if (result._tag === "Failure") throw new Error(VIDEO_INPUT_ERROR);
   return result.success;
 };

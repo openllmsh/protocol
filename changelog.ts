@@ -55,7 +55,7 @@ export const CHANGELOG_ACTION_MAX = 180;
  * break (including U+2028 / U+2029) or control character is always a mistake, and in a subject header
  * it is a hazard.
  */
-export const changelogText = (max: number): S.Schema<string> =>
+export const changelogText = (max: number): S.String =>
   S.String.check(
     S.makeFilter((value: string) => !/[\p{Cc}\p{Zl}\p{Zp}]/u.test(value), {
       message: "must be a single line without control characters",

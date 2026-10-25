@@ -104,8 +104,18 @@ const AgentModel = S.String.pipe(S.minLength(1), S.maxLength(256));
 /** Absolute directory; the daemon validates it exists before starting. */
 const AgentCwd = S.String.pipe(S.minLength(1), S.maxLength(1024));
 
-const ShortText = S.String.pipe(S.maxLength(256));
-const DetailText = S.String.pipe(S.maxLength(16 * 1024));
+/**
+ * Length caps (UTF-16 code units, as `String.length`) of an event's short
+ * label fields (titles, messages, option labels), its detail text, and a tool
+ * call's `tool_name`. An event over one fails to decode and consumers drop it,
+ * so builders clip to these.
+ */
+export const AGENT_SHORT_TEXT_MAX_LENGTH = 256;
+export const AGENT_DETAIL_TEXT_MAX_LENGTH = 16 * 1024;
+export const AGENT_TOOL_NAME_MAX_LENGTH = 128;
+
+const ShortText = S.String.pipe(S.maxLength(AGENT_SHORT_TEXT_MAX_LENGTH));
+const DetailText = S.String.pipe(S.maxLength(AGENT_DETAIL_TEXT_MAX_LENGTH));
 
 // ---------------------------------------------------------------------------
 // Stream OPEN
@@ -497,7 +507,10 @@ export const AgentItem = S.Union(
   }),
   S.Struct({
     kind: S.Literal("tool_call"),
-    tool_name: S.String.pipe(S.minLength(1), S.maxLength(128)),
+    tool_name: S.String.pipe(
+      S.minLength(1),
+      S.maxLength(AGENT_TOOL_NAME_MAX_LENGTH),
+    ),
     title: S.optional(ShortText),
     /** The tool's input as the engine reported it (JSON). */
     input: S.optional(S.Unknown),

@@ -31,6 +31,7 @@
  */
 import { Schema as S } from "effect";
 import * as Result from "effect/Result";
+import { SESSION_ID_PATTERN } from "./local-session";
 
 /**
  * Capability advertising `kind:"agent"` stream support. Consumers MUST check
@@ -89,8 +90,13 @@ export const AGENT_MAX_ATTACHMENT_BASE64_LENGTH = 6 * 1024 * 1024;
 export const AgentEngine = S.Literals(["claude", "codex"]);
 export type TAgentEngine = S.Schema.Type<typeof AgentEngine>;
 
-/** Agent session id: daemon-minted or a vendor session id for attach/resume. */
-export const AGENT_SESSION_ID_PATTERN = /^[A-Za-z0-9._:-]{1,128}$/;
+/**
+ * Agent session id: daemon-minted (a UUID), the consumer's own record id, or
+ * a vendor session id for attach/resume (Claude / Codex ids are UUIDs). The
+ * id names the session host's registry dir and its attachments dir, so it is
+ * the local session id itself: url-safe, no `.`, so never `.` / `..`.
+ */
+export const AGENT_SESSION_ID_PATTERN = SESSION_ID_PATTERN;
 export const AgentSessionId = S.String.check(
   S.isPattern(AGENT_SESSION_ID_PATTERN),
 );
@@ -107,8 +113,18 @@ const AgentModel = S.String.check(S.isMinLength(1), S.isMaxLength(256));
 /** Absolute directory; the daemon validates it exists before starting. */
 const AgentCwd = S.String.check(S.isMinLength(1), S.isMaxLength(1024));
 
-const ShortText = S.String.check(S.isMaxLength(256));
-const DetailText = S.String.check(S.isMaxLength(16 * 1024));
+/**
+ * Length caps (UTF-16 code units, as `String.length`) of an event's short
+ * label fields (titles, messages, option labels), its detail text, and a tool
+ * call's `tool_name`. An event over one fails to decode and consumers drop it,
+ * so builders clip to these.
+ */
+export const AGENT_SHORT_TEXT_MAX_LENGTH = 256;
+export const AGENT_DETAIL_TEXT_MAX_LENGTH = 16 * 1024;
+export const AGENT_TOOL_NAME_MAX_LENGTH = 128;
+
+const ShortText = S.String.check(S.isMaxLength(AGENT_SHORT_TEXT_MAX_LENGTH));
+const DetailText = S.String.check(S.isMaxLength(AGENT_DETAIL_TEXT_MAX_LENGTH));
 
 // ---------------------------------------------------------------------------
 // Stream OPEN
@@ -511,7 +527,10 @@ export const AgentItem = S.Union([
   }),
   S.Struct({
     kind: S.Literal("tool_call"),
-    tool_name: S.String.check(S.isMinLength(1), S.isMaxLength(128)),
+    tool_name: S.String.check(
+      S.isMinLength(1),
+      S.isMaxLength(AGENT_TOOL_NAME_MAX_LENGTH),
+    ),
     title: S.optional(ShortText),
     /** The tool's input as the engine reported it (JSON). */
     input: S.optional(S.Unknown),

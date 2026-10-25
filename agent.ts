@@ -503,9 +503,8 @@ export const AGENT_MAX_QUEUED_PROMPTS = 16;
 export const AgentQueueUpdatedEvent = S.Struct({
   ...eventBase,
   type: S.Literal("queue.updated"),
-  prompts: S.Array(
-    S.String.check(S.isMaxLength(AGENT_MAX_PROMPT_LENGTH)),
-  ).check(S.isMaxLength(AGENT_MAX_QUEUED_PROMPTS)),
+  /** Each clipped to a short line — a preview, not the prompt itself. */
+  prompts: S.Array(ShortText).check(S.isMaxLength(AGENT_MAX_QUEUED_PROMPTS)),
 });
 
 export const AgentTurnCompletedEvent = S.Struct({

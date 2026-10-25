@@ -247,6 +247,19 @@ export const AgentSendCommand = S.Struct({
 );
 export type TAgentSendCommand = S.Schema.Type<typeof AgentSendCommand>;
 
+/**
+ * Deliver the queued prompts NOW instead of after the running turn: the
+ * engine's own send-now (Claude Code's ctrl+enter), which hands them to the
+ * model mid-turn and moves a running command to the background. A daemon
+ * that predates it rejects the line; consumers offer it only after a
+ * `queue.updated` showed the daemon queues.
+ */
+export const AgentSendNowCommand = S.Struct({
+  type: S.Literal("send_now"),
+  id: S.optional(AgentCommandId),
+});
+export type TAgentSendNowCommand = S.Schema.Type<typeof AgentSendNowCommand>;
+
 export const AgentInterruptCommand = S.Struct({
   type: S.Literal("interrupt"),
   id: S.optional(AgentCommandId),
@@ -371,6 +384,7 @@ export const AgentCommand = S.Union([
   AgentStartCommand,
   AgentAttachCommand,
   AgentSendCommand,
+  AgentSendNowCommand,
   AgentInterruptCommand,
   AgentRespondCommand,
   AgentCloseCommand,
@@ -475,6 +489,23 @@ export const AgentTurnStartedEvent = S.Struct({
   attachments: S.optional(
     S.Array(AgentAttachmentMeta).check(S.isMaxLength(AGENT_MAX_ATTACHMENTS)),
   ),
+});
+
+/** Most prompts a session holds behind its running turn. */
+export const AGENT_MAX_QUEUED_PROMPTS = 16;
+
+/**
+ * The prompts waiting behind the running turn, oldest first — the whole
+ * queue, so the latest event is the state. A `send` that lands mid-turn is
+ * queued on the daemon and goes out as the turn ends (or on `send_now`).
+ * Older consumers ignore it.
+ */
+export const AgentQueueUpdatedEvent = S.Struct({
+  ...eventBase,
+  type: S.Literal("queue.updated"),
+  prompts: S.Array(
+    S.String.check(S.isMaxLength(AGENT_MAX_PROMPT_LENGTH)),
+  ).check(S.isMaxLength(AGENT_MAX_QUEUED_PROMPTS)),
 });
 
 export const AgentTurnCompletedEvent = S.Struct({
@@ -754,6 +785,7 @@ export const AgentEvent = S.Union([
   AgentSessionConfiguredEvent,
   AgentSessionExitedEvent,
   AgentTurnStartedEvent,
+  AgentQueueUpdatedEvent,
   AgentTurnCompletedEvent,
   AgentTurnAbortedEvent,
   AgentItemStartedEvent,

@@ -243,7 +243,21 @@ export const CredentialBlobResponse = S.Struct({
   provider: S.String,
   ciphertext: S.String,
   nonce: S.String,
+  /** Source stamp used to detect stale team credential-share envelopes. */
+  updated_at: S.optional(S.String),
+  /** Source vault generation used to detect stale credential-share envelopes. */
+  vault_version: S.optional(S.Number),
 });
+
+/**
+ * Keep team credential-share wrapping independent from rollout order: older
+ * blob handlers omit source stamps, and the browser simply avoids stamping
+ * rather than inventing one.
+ */
+export type TCredentialBlobSourceStamp = {
+  readonly updated_at?: string;
+  readonly vault_version?: number;
+};
 export type TCredentialBlobResponse = S.Schema.Type<
   typeof CredentialBlobResponse
 >;

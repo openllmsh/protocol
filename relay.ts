@@ -375,6 +375,14 @@ export type TRelayPresenceFrame = S.Schema.Type<typeof RelayPresenceFrame>;
  * the same value so decode stays aligned with Schema maxLength.
  */
 export const DEVICE_GRANT_B64_MAX = 4 * 1024;
+/** Soft wire cap for an origin-signed team grant on `channel_open` / tunnel OPEN. */
+export const TEAM_GRANT_B64_MAX = 4 * 1024;
+/**
+ * Request / tunnel-OPEN carrier for a team grant the serving daemon re-checks
+ * (model, local cap, kill switch). The relay admits on `channel_open.team_grant`
+ * only; this header is defence-in-depth on the request path.
+ */
+export const TEAM_GRANT_HEADER = "x-openllm-team-grant";
 
 /**
  * Internal hop marker: the serving daemon stamps this on every request it
@@ -420,6 +428,13 @@ export const RelayChannelOpenFrame = S.Struct({
    * Bounded so a peer cannot ship an arbitrarily large grant past re-encode.
    */
   grant: S.optional(S.String.check(S.isMaxLength(DEVICE_GRANT_B64_MAX))),
+  /**
+   * Origin-signed team grant (base64 envelope). Required for cross-user
+   * admission: the relay verifies it against `TEAM_GRANT_PUBLIC_KEY` and
+   * checks consumer / device bindings. Same-user opens omit it. Opaque to
+   * the payload path; bounded like {@link DEVICE_GRANT_B64_MAX}.
+   */
+  team_grant: S.optional(S.String.check(S.isMaxLength(TEAM_GRANT_B64_MAX))),
 });
 export type TRelayChannelOpenFrame = S.Schema.Type<
   typeof RelayChannelOpenFrame

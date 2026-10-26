@@ -14,6 +14,7 @@ import {
   OPENLLM_RESOLVED_MODEL_HEADER,
 } from "./inference-headers";
 import { RealtimeStreamOpenPayload } from "./realtime";
+import { TEAM_GRANT_B64_MAX } from "./relay";
 
 /**
  * Capability advertising support for the binary mux wire format: the 16-byte
@@ -44,6 +45,14 @@ export const hasRtcCap = (caps: readonly string[] | undefined): boolean =>
  * pinned from bootstrap.
  */
 export const SEEDGATE_CAP = "seedgate1";
+
+/**
+ * Daemon can serve team-shared inference (verifies origin team grants, local
+ * cap, kill switch). Advertised on bootstrap caps, mux hello, and
+ * `DaemonStatus.control_caps`. Older daemons omit it and are never offered as
+ * contributors.
+ */
+export const TEAM_SERVE_CAP = "team_serve";
 
 /** Returns whether an open-vocabulary capability list advertises seedgate. */
 export const hasSeedgateCap = (caps: readonly string[] | undefined): boolean =>
@@ -356,6 +365,12 @@ export const TunnelForwardHeaders = S.Struct({
   video_id: S.optional(
     S.String.check(S.isMaxLength(256), S.isPattern(/^[A-Za-z0-9._-]+$/)),
   ),
+  /**
+   * Origin-signed team grant for this request. Mapped to
+   * `x-openllm-team-grant` on the in-process `/v1` Request; the serving
+   * daemon re-verifies model / local cap / kill switch. Same-user hops omit it.
+   */
+  team_grant: S.optional(S.String.check(S.isMaxLength(TEAM_GRANT_B64_MAX))),
 });
 export type TTunnelForwardHeaders = S.Schema.Type<typeof TunnelForwardHeaders>;
 

@@ -112,12 +112,19 @@ export const DaemonBootstrap = S.Struct({
    */
   plan_signing_key: S.optional(S.NullOr(S.String)),
   /**
-   * Origin Ed25519 public key (SPKI base64) for verifying team device grants.
-   * Null/absent when `TEAM_GRANT_SIGNING_KEY` is unset — team device routing
-   * is then off (`team_device_unavailable`); the daemon refuses team traffic.
+   * Authenticated account id for this bootstrap. Optional/additive so older
+   * clouds keep bootstrapping; newer daemons use it to compare relay-stamped
+   * `peer_user_id` on `channel_open` (cross-user → require a team grant).
+   */
+  user_id: S.optional(S.String),
+  /**
+   * Per-contributor HMAC key for verifying team device grants (same key
+   * origin uses to sign for this user). Null/absent when
+   * `NEON_AUTH_COOKIE_SECRET` is unset — team device routing is then off
+   * (`team_device_unavailable`); the daemon refuses team traffic.
    * See `docs/plan/2026-10-26-teams.md` §16.2.
    */
-  team_grant_pubkey: S.optional(S.NullOr(S.String)),
+  team_grant_key: S.optional(S.NullOr(S.String)),
   /**
    * The daemon binary version the cloud currently publishes (bare semver, no
    * leading `v` — matches the daemon's compiled `DAEMON_VERSION`). The daemon

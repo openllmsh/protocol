@@ -430,11 +430,20 @@ export const RelayChannelOpenFrame = S.Struct({
   grant: S.optional(S.String.check(S.isMaxLength(DEVICE_GRANT_B64_MAX))),
   /**
    * Origin-signed team grant (base64 envelope). Required for cross-user
-   * admission: the relay verifies it against `TEAM_GRANT_PUBLIC_KEY` and
-   * checks consumer / device bindings. Same-user opens omit it. Opaque to
-   * the payload path; bounded like {@link DEVICE_GRANT_B64_MAX}.
+   * admission: the relay admits when non-empty (it does NOT verify — the
+   * contributor daemon re-checks with its bootstrap `team_grant_key`).
+   * Same-user opens omit it. Opaque to the payload path; bounded like
+   * {@link DEVICE_GRANT_B64_MAX}.
    */
   team_grant: S.optional(S.String.check(S.isMaxLength(TEAM_GRANT_B64_MAX))),
+  /**
+   * Authenticated consumer user id, stamped by the relay on every forwarded
+   * `channel_open` (never trusted from the client). Daemons compare it to
+   * their bootstrap `user_id` to detect cross-user opens. Optional so older
+   * relays stay decodable; absent → daemon treats the open as today's
+   * same-user path (trusted-relay assumption).
+   */
+  peer_user_id: S.optional(S.String),
 });
 export type TRelayChannelOpenFrame = S.Schema.Type<
   typeof RelayChannelOpenFrame

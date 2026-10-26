@@ -269,6 +269,14 @@ export type TAdminStats = S.Schema.Type<typeof AdminStats>;
  * table renders one row per group with an `N×` badge; expanding fans out
  * the individual rows via `requestItems`, each carrying its own endpoint.
  */
+/**
+ * Side of a team-attributed request group, derived (no DB column):
+ * - `consumer` — `provider` starts with `team:`
+ * - `supplier` — `team_id` set and provider is the real upstream
+ */
+export const TeamRequestSide = S.Literals(["consumer", "supplier"]);
+export type TTeamRequestSide = S.Schema.Type<typeof TeamRequestSide>;
+
 export const GroupedRequest = S.Struct({
   id: S.String,
   provider: S.String,
@@ -295,6 +303,14 @@ export const GroupedRequest = S.Struct({
   api_equivalent_cost_usd: S.NullOr(S.Number),
   first_timestamp: S.String,
   last_timestamp: S.String,
+  /**
+   * Teams attribution for the overview "for team X" / "via team X" label.
+   * Null when the group is personal (no `team_id`).
+   */
+  team_id: S.optional(S.NullOr(S.String)),
+  team_slug: S.optional(S.NullOr(S.String)),
+  team_name: S.optional(S.NullOr(S.String)),
+  team_side: S.optional(S.NullOr(TeamRequestSide)),
 });
 export type TGroupedRequest = S.Schema.Type<typeof GroupedRequest>;
 
@@ -332,6 +348,10 @@ export const RequestItem = S.Struct({
    */
   status: S.optional(S.NullOr(RequestStatus)),
   error: S.optional(S.NullOr(S.String)),
+  team_id: S.optional(S.NullOr(S.String)),
+  team_slug: S.optional(S.NullOr(S.String)),
+  team_name: S.optional(S.NullOr(S.String)),
+  team_side: S.optional(S.NullOr(TeamRequestSide)),
 });
 export type TRequestItem = S.Schema.Type<typeof RequestItem>;
 
@@ -356,6 +376,10 @@ export const FailedRequestGroup = S.Struct({
   last_error: S.NullOr(S.String),
   first_timestamp: S.String,
   last_timestamp: S.String,
+  team_id: S.optional(S.NullOr(S.String)),
+  team_slug: S.optional(S.NullOr(S.String)),
+  team_name: S.optional(S.NullOr(S.String)),
+  team_side: S.optional(S.NullOr(TeamRequestSide)),
 });
 export type TFailedRequestGroup = S.Schema.Type<typeof FailedRequestGroup>;
 

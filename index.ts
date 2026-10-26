@@ -54,6 +54,7 @@ export * from "./streaming";
 export * from "./subscription-daemon-floors";
 export * from "./subscription-provider";
 export * from "./subscription-provider-compat";
+export * from "./team-shareable";
 export * from "./transcription-encoding";
 export * from "./url-locality";
 export * from "./usage-snapshots";

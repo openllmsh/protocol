@@ -31,6 +31,13 @@ export const RequestRow = S.Struct({
   error: S.NullOr(S.String),
   idempotency_key: S.NullOr(S.String),
   ts: S.String,
+  /**
+   * Teams attribution (docs/plan/2026-10-26-teams.md §5 / §14 phase 5).
+   * Nullable — personal hops omit both. No FK: deleting a team must not
+   * rewrite history.
+   */
+  team_id: S.NullOr(S.String),
+  served_by_user_id: S.NullOr(S.String),
 });
 export type TRequestRow = S.Schema.Type<typeof RequestRow>;
 

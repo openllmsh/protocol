@@ -281,6 +281,14 @@ export const DaemonRecordRequest = S.Struct({
    *  Optional so daemons predating the field still record (the cloud
    *  stores null → the estimator's conservative null pool). */
   account_hash: S.optional(S.String),
+  /**
+   * Origin-signed team grant echoed on team hops so the cloud attributes
+   * the row to the consumer and settles `team_usage_counters`. Same-user
+   * records omit it. Bounded like the mux forward header.
+   */
+  // Cap matches `TEAM_GRANT_B64_MAX` in `./relay` (inlined to avoid a
+  // daemon↔relay import cycle — relay already imports this module).
+  team_grant: S.optional(S.String.check(S.isMaxLength(4 * 1024))),
   cooldown_reason: S.optional(CooldownReason),
   /** Reset instant for reset-aware TTL cap; optional so old daemons omit. */
   reset_at_ms: S.optional(S.Number),

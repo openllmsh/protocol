@@ -108,21 +108,63 @@ const ResponsesAdditionalToolsItem = S.Struct({
   tools: S.Array(ResponsesToolDef),
 });
 
+/**
+ * A call to OpenAI's hosted `apply_patch` tool replayed on a follow-up turn
+ * (the OpenAI Agents SDK echoes these). The adapter maps it to a function call
+ * to the tool's canonical stand-in; `operation` stays opaque here.
+ */
+const ResponsesApplyPatchCallItem = S.Struct({
+  type: S.Literals(["apply_patch_call"]),
+  call_id: S.String,
+  id: S.optional(S.String),
+  status: S.optional(S.String),
+  operation: S.Unknown,
+});
+
+const ResponsesApplyPatchCallOutputItem = S.Struct({
+  type: S.Literals(["apply_patch_call_output"]),
+  call_id: S.String,
+  id: S.optional(S.String),
+  status: S.optional(S.String),
+  output: S.optional(S.NullishOr(S.String)),
+});
+
 export const ResponsesInputItem = S.Union([
   ResponsesMessageItem,
   ResponsesFunctionCallItem,
   ResponsesFunctionCallOutputItem,
   ResponsesReasoningItem,
   ResponsesAdditionalToolsItem,
+  ResponsesApplyPatchCallItem,
+  ResponsesApplyPatchCallOutputItem,
 ]);
 export type TResponsesAdditionalToolsItem = S.Schema.Type<
   typeof ResponsesAdditionalToolsItem
 >;
 export type TResponsesInputItem = S.Schema.Type<typeof ResponsesInputItem>;
 
+/**
+ * `allowed_tools` restricts one turn to a subset of the declared tools while
+ * the full list stays in the prompt (the OpenAI Agents SDK sends it every
+ * turn). Entries are tool references: `{type:"function", name}` or a
+ * non-function tool's bare `{type}`. `{type:"apply_patch"}` forces the hosted
+ * patch tool.
+ */
+const ResponsesAllowedToolsChoice = S.Struct({
+  type: S.Literals(["allowed_tools"]),
+  mode: S.Literals(["auto", "required"]),
+  tools: S.Array(
+    S.StructWithRest(S.Struct({ type: S.String, name: S.optional(S.String) }), [
+      S.Record(S.String, S.Unknown),
+    ]),
+  ),
+});
+
 const ResponsesToolChoice = S.Union([
   S.Literals(["auto", "none", "required"]),
   S.Struct({ type: S.Literals(["function"]), name: S.String }),
+  S.Struct({ type: S.Literals(["apply_patch"]) }),
+  ResponsesAllowedToolsChoice,
 ]);
 
 export const ResponsesRequest = S.Struct({
@@ -199,10 +241,24 @@ const ResponsesOutputReasoning = S.Struct({
   encrypted_content: S.optional(S.NullishOr(S.String)),
 });
 
+/** A call to the hosted `apply_patch` tool, as OpenAI's API returns it. */
+const ResponsesOutputApplyPatchCall = S.Struct({
+  type: S.Literals(["apply_patch_call"]),
+  id: S.String,
+  call_id: S.String,
+  status: S.Literals(["completed", "in_progress"]),
+  operation: S.Struct({
+    type: S.Literals(["create_file", "update_file", "delete_file"]),
+    path: S.String,
+    diff: S.optional(S.String),
+  }),
+});
+
 export const ResponsesOutputItem = S.Union([
   ResponsesOutputMessage,
   ResponsesOutputFunctionCall,
   ResponsesOutputReasoning,
+  ResponsesOutputApplyPatchCall,
 ]);
 export type TResponsesOutputItem = S.Schema.Type<typeof ResponsesOutputItem>;
 

@@ -5,15 +5,22 @@ import { Effect, Schema as S } from "effect";
  * verified catalog (JSON in the repo) and, later, private user uploads.
  * See `docs/plan/2026-10-13-marketplace.md` §3.
  *
- * Only `remote` (hosted MCP over HTTP) is delivered today; `package` and
- * `download` are reserved for the daemon pipeline (P3).
+ * `remote` is a hosted MCP over HTTP; `builtin` is a first-party integration
+ * served by OpenLLM itself (e.g. OpenLLM Memory) — launch lists it under
+ * `builtins` rather than as an upstream MCP server. `package` and `download`
+ * are reserved for the daemon pipeline (P3).
  */
 export const MarketplaceEntryKind = S.Literals([
   "remote",
+  "builtin",
   "package",
   "download",
 ]);
 export type TMarketplaceEntryKind = S.Schema.Type<typeof MarketplaceEntryKind>;
+
+/** Where an integration can run. `team` entries appear on `/teams/[id]`. */
+export const MarketplaceScope = S.Literals(["personal", "team"]);
+export type TMarketplaceScope = S.Schema.Type<typeof MarketplaceScope>;
 
 /** How access is provided — the pipeline acts on this, never on the vendor. */
 export const MarketplacePolicy = S.Literals(["byok", "oauth", "none"]);
@@ -91,9 +98,25 @@ export const MarketplaceEntry = S.Struct({
   included_usage: S.optional(MarketplaceIncludedUsage),
   /**
    * On for every user until they turn it off — no installation row needed.
-   * Only meaningful with included usage, so it runs without a key.
+   * Meaningful for included-usage remotes (runs without a key) and for
+   * builtins such as OpenLLM Memory.
    */
   default_enabled: S.optional(S.Boolean),
+  /**
+   * Scopes this entry can be toggled in. `["personal"]` (default) is the
+   * per-user marketplace switch; `["personal","team"]` also appears on a
+   * team's Integrations tab (owner-toggled). Schema-decoded; an entry whose
+   * scopes lack `"team"` is never offered there and the API rejects it.
+   */
+  scopes: S.Array(MarketplaceScope).pipe(
+    S.optional,
+    S.withDecodingDefault(Effect.succeed(["personal"] as const)),
+  ),
+  /**
+   * Upstream MCP wiring. Required for `remote` (and reserved kinds); for
+   * `builtin` it is a stub the launch handler ignores — builtins are listed
+   * in `MarketplaceLaunchResponse.builtins` instead.
+   */
   mcp: MarketplaceMcp,
   config: S.Array(MarketplaceConfigField).pipe(
     S.optional,
@@ -123,6 +146,15 @@ export type TMarketplaceLaunchServer = S.Schema.Type<
 
 export const MarketplaceLaunchResponse = S.Struct({
   servers: S.Array(MarketplaceLaunchServer),
+  /**
+   * Enabled first-party builtins (`kind: "builtin"`) the CLI should register
+   * locally — e.g. `"openllm-memory"` for the memory tool group. Omitted or
+   * empty on older gateways; the CLI treats absence as "no builtins".
+   */
+  builtins: S.Array(S.String).pipe(
+    S.optional,
+    S.withDecodingDefault(Effect.succeed([] as const)),
+  ),
 });
 export type TMarketplaceLaunchResponse = S.Schema.Type<
   typeof MarketplaceLaunchResponse

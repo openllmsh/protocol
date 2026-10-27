@@ -544,6 +544,9 @@ export const StreamCtrlPayload = S.Union([
   /** End of an attach replay (an agent `attach` re-emits prior events, then
    * this marker). */
   S.Struct({ t: S.Literal("replay_done") }),
+  /** Browser device-session visibility; ignored by daemons predating it. */
+  S.Struct({ t: S.Literal("focus") }),
+  S.Struct({ t: S.Literal("blur") }),
   S.Struct({ t: S.Literal("close"), intent: S.Literals(["detach", "kill"]) }),
   /** Realtime (`kind:"realtime"`) liveness — either peer may send this while
    * NDJSON event traffic is naturally quiet (e.g. waiting on the user).

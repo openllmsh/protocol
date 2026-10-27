@@ -77,6 +77,8 @@ export const LocalSessionCtrlPayload = S.Union([
   }),
   /** Viewer became the active (focused) consumer — bumps primary election. */
   S.Struct({ t: S.Literal("focus") }),
+  /** An observer left the browser surface; terminal retakes ad placement. */
+  S.Struct({ t: S.Literal("blur") }),
   S.Struct({ t: S.Literal("replay_done") }),
   S.Struct({ t: S.Literal("close"), intent: S.Literals(["detach", "kill"]) }),
 ]);

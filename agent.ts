@@ -71,6 +71,7 @@ export const AGENT_HOOK_LOCAL_PATH = "/local/agent-hook";
  */
 export const AGENT_HOOK_EVENTS = [
   "PermissionRequest",
+  "PreToolUse",
   "Stop",
   "SessionStart",
 ] as const;
@@ -260,6 +261,25 @@ export const AgentSendNowCommand = S.Struct({
 });
 export type TAgentSendNowCommand = S.Schema.Type<typeof AgentSendNowCommand>;
 
+/** Resume a queue that an interrupt deliberately paused. */
+export const AgentResumeQueueCommand = S.Struct({
+  type: S.Literal("resume_queue"),
+  id: S.optional(AgentCommandId),
+});
+export type TAgentResumeQueueCommand = S.Schema.Type<
+  typeof AgentResumeQueueCommand
+>;
+
+/** Remove one queued prompt without affecting the active turn. */
+export const AgentCancelQueuedCommand = S.Struct({
+  type: S.Literal("cancel_queued"),
+  id: S.optional(AgentCommandId),
+  queue_id: AgentRefId,
+});
+export type TAgentCancelQueuedCommand = S.Schema.Type<
+  typeof AgentCancelQueuedCommand
+>;
+
 export const AgentInterruptCommand = S.Struct({
   type: S.Literal("interrupt"),
   id: S.optional(AgentCommandId),
@@ -385,6 +405,8 @@ export const AgentCommand = S.Union([
   AgentAttachCommand,
   AgentSendCommand,
   AgentSendNowCommand,
+  AgentResumeQueueCommand,
+  AgentCancelQueuedCommand,
   AgentInterruptCommand,
   AgentRespondCommand,
   AgentCloseCommand,
@@ -500,11 +522,31 @@ export const AGENT_MAX_QUEUED_PROMPTS = 16;
  * queued on the daemon and goes out as the turn ends (or on `send_now`).
  * Older consumers ignore it.
  */
+export const AgentQueuedPrompt = S.Struct({
+  /** Stable while the prompt is queued; used for a targeted cancel. */
+  id: AgentRefId,
+  /** Clipped preview, never the complete prompt. */
+  prompt: ShortText,
+  attachment_count: S.Number.check(
+    S.isInt(),
+    S.isGreaterThanOrEqualTo(0),
+    S.isLessThanOrEqualTo(AGENT_MAX_ATTACHMENTS),
+  ),
+});
+export type TAgentQueuedPrompt = S.Schema.Type<typeof AgentQueuedPrompt>;
+
 export const AgentQueueUpdatedEvent = S.Struct({
   ...eventBase,
   type: S.Literal("queue.updated"),
-  /** Each clipped to a short line — a preview, not the prompt itself. */
-  prompts: S.Array(ShortText).check(S.isMaxLength(AGENT_MAX_QUEUED_PROMPTS)),
+  /**
+   * Identified entries, oldest first. `string[]` remains valid on the browser
+   * boundary for daemons predating this protocol shape.
+   */
+  prompts: S.Array(S.Union([AgentQueuedPrompt, ShortText])).check(
+    S.isMaxLength(AGENT_MAX_QUEUED_PROMPTS),
+  ),
+  /** An interrupt pauses automatic draining until `resume_queue`. */
+  held: S.optional(S.Boolean),
 });
 
 export const AgentTurnCompletedEvent = S.Struct({

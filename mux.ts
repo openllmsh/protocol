@@ -14,7 +14,7 @@ import {
   OPENLLM_RESOLVED_MODEL_HEADER,
 } from "./inference-headers";
 import { RealtimeStreamOpenPayload } from "./realtime";
-import { TEAM_GRANT_B64_MAX } from "./relay";
+import { TEAM_GRANT_B64_MAX } from "./team-grant";
 
 /**
  * Capability advertising support for the binary mux wire format: the 16-byte

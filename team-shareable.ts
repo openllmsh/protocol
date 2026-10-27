@@ -44,3 +44,10 @@ export const isApiKeyShareProvider = (provider: string): boolean => {
 /** True when a provider may be shared on a team (any share kind). */
 export const teamShareable = (provider: string): boolean =>
   isLocalProvider(provider) || isApiKeyShareProvider(provider);
+
+/** Provider slug of a model id (`provider/model`), or the bare id itself. */
+export const providerOfModel = (model: string): string => {
+  const slash = model.indexOf("/");
+  if (slash <= 0) return model;
+  return model.slice(0, slash);
+};

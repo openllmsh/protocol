@@ -3,6 +3,7 @@ import { AuthEvent } from "./auth";
 import { RelayCommandLifecycleFrame } from "./control-channel";
 import { DaemonCommand, DaemonCommandAck } from "./daemon";
 import { ReplaySessionId } from "./replay-session";
+import { TEAM_GRANT_B64_MAX } from "./team-grant";
 
 // ─── Daemon relay (push over a Sandbox WebSocket, in-memory routing) ──
 //
@@ -375,14 +376,6 @@ export type TRelayPresenceFrame = S.Schema.Type<typeof RelayPresenceFrame>;
  * the same value so decode stays aligned with Schema maxLength.
  */
 export const DEVICE_GRANT_B64_MAX = 4 * 1024;
-/** Soft wire cap for an origin-signed team grant on `channel_open` / tunnel OPEN. */
-export const TEAM_GRANT_B64_MAX = 4 * 1024;
-/**
- * Request / tunnel-OPEN carrier for a team grant the serving daemon re-checks
- * (model, local cap, kill switch). The relay admits on `channel_open.team_grant`
- * only; this header is defence-in-depth on the request path.
- */
-export const TEAM_GRANT_HEADER = "x-openllm-team-grant";
 
 /**
  * Internal hop marker: the serving daemon stamps this on every request it

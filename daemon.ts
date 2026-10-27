@@ -33,6 +33,7 @@ import { ProviderUsageSnapshot } from "./provider-usage";
 import { ReplaySessionId } from "./replay-session";
 import { RequestStatus } from "./stats";
 import { SubscriptionProviderSlug } from "./subscription-provider";
+import { TEAM_GRANT_B64_MAX } from "./team-grant";
 import { VendorCliInstall } from "./vendor-cli-install";
 
 // ─── GET /api/daemon/bootstrap (daemon → cloud) ──────────────────────
@@ -293,9 +294,7 @@ export const DaemonRecordRequest = S.Struct({
    * the row to the consumer and settles `team_usage_counters`. Same-user
    * records omit it. Bounded like the mux forward header.
    */
-  // Cap matches `TEAM_GRANT_B64_MAX` in `./relay` (inlined to avoid a
-  // daemon↔relay import cycle — relay already imports this module).
-  team_grant: S.optional(S.String.check(S.isMaxLength(4 * 1024))),
+  team_grant: S.optional(S.String.check(S.isMaxLength(TEAM_GRANT_B64_MAX))),
   cooldown_reason: S.optional(CooldownReason),
   /** Reset instant for reset-aware TTL cap; optional so old daemons omit. */
   reset_at_ms: S.optional(S.Number),

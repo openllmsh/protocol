@@ -688,6 +688,7 @@ export const parseStreamOpenPayload = (
       "user_agent",
       "media_persistence",
       "video_id",
+      "team_grant",
     ])
   ) {
     return null;

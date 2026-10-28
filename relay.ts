@@ -429,17 +429,26 @@ export const RelayChannelOpenFrame = S.Struct({
    * {@link DEVICE_GRANT_B64_MAX}.
    */
   team_grant: S.optional(S.String.check(S.isMaxLength(TEAM_GRANT_B64_MAX))),
-  /**
-   * Authenticated consumer user id, stamped by the relay on every forwarded
-   * `channel_open` (never trusted from the client). Daemons compare it to
-   * their bootstrap `user_id` to detect cross-user opens. Optional so older
-   * relays stay decodable; absent → daemon treats the open as today's
-   * same-user path (trusted-relay assumption).
-   */
+  /** Authenticated consumer user id. The relay replaces client input. */
   peer_user_id: S.optional(S.String),
 });
 export type TRelayChannelOpenFrame = S.Schema.Type<
   typeof RelayChannelOpenFrame
+>;
+
+/** Relay-to-daemon form of {@link RelayChannelOpenFrame}. The relay stamps
+ * `peer_user_id`; daemons never accept an unstamped open as same-user. */
+export const RelayStampedChannelOpenFrame = S.Struct({
+  type: S.Literal("channel_open"),
+  channel_id: ChannelId,
+  key_id: S.String,
+  consumer: S.optional(S.Literals(["browser", "daemon"])),
+  grant: S.optional(S.String.check(S.isMaxLength(DEVICE_GRANT_B64_MAX))),
+  team_grant: S.optional(S.String.check(S.isMaxLength(TEAM_GRANT_B64_MAX))),
+  peer_user_id: S.String,
+});
+export type TRelayStampedChannelOpenFrame = S.Schema.Type<
+  typeof RelayStampedChannelOpenFrame
 >;
 
 /** serving daemon → relay → consumer. The relay mints failure acknowledgements;
@@ -517,12 +526,30 @@ export const RelayRtcOfferFrame = S.Struct({
   ),
   /** Opaque origin-signed grant required for cross-user RTC admission. */
   team_grant: S.optional(S.String.check(S.isMaxLength(TEAM_GRANT_B64_MAX))),
-  /** Authenticated consumer id, stamped by the relay before forwarding. */
+  /** Authenticated consumer id. The relay replaces client input. */
   peer_user_id: S.optional(S.String),
-  /** Authenticated consumer kind, stamped by the relay before forwarding. */
+  /** Authenticated consumer kind. The relay replaces client input. */
   consumer: S.optional(S.Literals(["browser", "daemon"])),
 });
 export type TRelayRtcOfferFrame = S.Schema.Type<typeof RelayRtcOfferFrame>;
+
+/** Relay-to-daemon form of {@link RelayRtcOfferFrame}. The relay stamps both
+ * identity fields; an unstamped offer is rejected as an outdated relay. */
+export const RelayStampedRtcOfferFrame = S.Struct({
+  type: S.Literal("rtc_offer"),
+  channel_id: ChannelId,
+  key_id: S.String,
+  sdp: S.String.check(S.isMaxLength(RTC_SDP_MAX)),
+  fingerprint_proof: S.String.check(
+    S.isMaxLength(RTC_FINGERPRINT_PROOF_B64_MAX),
+  ),
+  team_grant: S.optional(S.String.check(S.isMaxLength(TEAM_GRANT_B64_MAX))),
+  peer_user_id: S.String,
+  consumer: S.Literals(["browser", "daemon"]),
+});
+export type TRelayStampedRtcOfferFrame = S.Schema.Type<
+  typeof RelayStampedRtcOfferFrame
+>;
 
 /** serving daemon → relay → consumer. Answer the offer for `channel_id`. */
 export const RelayRtcAnswerFrame = S.Struct({
@@ -551,7 +578,8 @@ export type TRelayRtcIceFrame = S.Schema.Type<typeof RelayRtcIceFrame>;
  * soon); `disabled` / `not_capable` / `handshake_failed` = daemon posture or
  * a failed pre-mux handshake (cache the failure — it will not recover on this
  * immediate retry). `proof_open_failed` means the offer was sealed to a stale
- * daemon X25519 key; consumers should refresh the cloud identity projection. */
+ * daemon X25519 key; consumers should refresh the cloud identity projection.
+ * `daemon_outdated` means a relay or daemon omitted a required current stamp. */
 export const RtcNackReason = S.Literals([
   "seedgate",
   "overloaded",
@@ -559,6 +587,7 @@ export const RtcNackReason = S.Literals([
   "not_capable",
   "handshake_failed",
   "proof_open_failed",
+  "daemon_outdated",
 ]);
 export type TRtcNackReason = S.Schema.Type<typeof RtcNackReason>;
 
@@ -571,6 +600,7 @@ export const normalizeRtcNackReason = (reason: string): TRtcNackReason => {
     case "not_capable":
     case "handshake_failed":
     case "proof_open_failed":
+    case "daemon_outdated":
       return reason;
     default:
       return "overloaded";

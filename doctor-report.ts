@@ -114,6 +114,12 @@ export const DOCTOR_SCOPE_FALLBACK = "daemon" as const;
 /** Allowlisted finite timings/counts/booleans. All optional; absent ≠ zero. */
 export const DoctorEventTimings = S.Struct({
   configured_timeout_ms: S.optional(FiniteMs),
+  /** Per-request tunnel channel-open latency. */
+  open_ms: S.optional(FiniteMs),
+  /** Per-request tunnel serving admission latency. */
+  admission_ms: S.optional(FiniteMs),
+  /** Per-request tunnel time to response head. */
+  res_head_ms: S.optional(FiniteMs),
   spawn_elapsed_ms: S.optional(FiniteMs),
   budget_remaining_ms_at_spawn: S.optional(FiniteMs),
   timeout_callback_lateness_ms: S.optional(FiniteMs),
@@ -658,6 +664,36 @@ export const stripDoctorOutcomeLedger = (report: {
 
 const BuildRevision = S.String.check(S.isPattern(/^[0-9a-f]{7,64}$/));
 
+/** Closed, content-free tunnel request diagnostic dimensions. */
+export const TunnelRequestPath = S.Literals([
+  "fleet",
+  "browser",
+  "origin",
+  "team",
+]);
+export type TTunnelRequestPath = S.Schema.Type<typeof TunnelRequestPath>;
+
+export const TunnelRequestTransport = S.Literals(["rtc", "mux"]);
+export type TTunnelRequestTransport = S.Schema.Type<
+  typeof TunnelRequestTransport
+>;
+
+export const TunnelRequestFallbackReason = S.Literals([
+  "none",
+  "rtc_failed",
+  "rtc_unavailable",
+  "mux_unavailable",
+  "channel_open_failed",
+]);
+export type TTunnelRequestFallbackReason = S.Schema.Type<
+  typeof TunnelRequestFallbackReason
+>;
+
+export const TunnelRequestPlanCache = S.Literals(["hit", "miss", "soft"]);
+export type TTunnelRequestPlanCache = S.Schema.Type<
+  typeof TunnelRequestPlanCache
+>;
+
 export const DoctorReportEvent = S.Struct({
   event_id: OpaqueId,
   observed_at_ms: EpochMs,
@@ -671,6 +707,12 @@ export const DoctorReportEvent = S.Struct({
   correlation_id: S.optional(OpaqueId),
   replay_session_id: S.optional(ReplaySessionId),
   timings: S.optional(DoctorEventTimings),
+  tunnel_path: S.optional(TunnelRequestPath),
+  tunnel_transport: S.optional(TunnelRequestTransport),
+  rung_fallback_reason: S.optional(TunnelRequestFallbackReason),
+  channel_reused: S.optional(S.Boolean),
+  plan_cache: S.optional(TunnelRequestPlanCache),
+  serving_inflight: S.optional(FiniteCount),
   provider: S.optional(SubscriptionProviderSlug),
   operation_kind: S.optional(DoctorAuthOperationKind),
   phase: S.optional(DoctorAuthPhase),

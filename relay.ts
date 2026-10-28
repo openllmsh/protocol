@@ -515,6 +515,12 @@ export const RelayRtcOfferFrame = S.Struct({
   fingerprint_proof: S.String.check(
     S.isMaxLength(RTC_FINGERPRINT_PROOF_B64_MAX),
   ),
+  /** Opaque origin-signed grant required for cross-user RTC admission. */
+  team_grant: S.optional(S.String.check(S.isMaxLength(TEAM_GRANT_B64_MAX))),
+  /** Authenticated consumer id, stamped by the relay before forwarding. */
+  peer_user_id: S.optional(S.String),
+  /** Authenticated consumer kind, stamped by the relay before forwarding. */
+  consumer: S.optional(S.Literals(["browser", "daemon"])),
 });
 export type TRelayRtcOfferFrame = S.Schema.Type<typeof RelayRtcOfferFrame>;
 

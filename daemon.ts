@@ -1137,6 +1137,14 @@ export const DaemonStatus = S.Struct({
   cli: S.optional(DaemonCliState),
   /** Advertised transport capabilities, retained in fleet status telemetry. */
   caps: S.optional(S.Array(S.String)),
+  /** Current and maximum concurrently-served tunneled requests. Optional for
+   * older daemons; origin uses it only as an additive target-ranking signal. */
+  served_tunnels: S.optional(
+    S.Struct({
+      active: S.Number,
+      capacity: S.Number,
+    }),
+  ),
   /**
    * Control-plane capabilities this daemon implements (distinct from
    * mux/RTC `caps`). Open strings so a future daemon can advertise an

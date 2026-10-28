@@ -571,7 +571,7 @@ export const normalizeRtcNackReason = (reason: string): TRtcNackReason => {
   }
 };
 
-/** serving daemon → relay → consumer. Refuse the offer for `channel_id` —
+/** serving daemon or relay → consumer. Refuse the offer for `channel_id` —
  *  the explicit non-silent reject so the offerer fails fast instead of
  *  waiting out the signaling/ICE timeout. */
 export const RelayRtcNackFrame = S.Struct({

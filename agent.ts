@@ -470,6 +470,16 @@ export const AgentSessionStartedEvent = S.Struct({
 });
 
 /**
+ * The engine began a new conversation in the same live TUI (for example,
+ * Claude Code's `/new`). The consumer must discard the prior transcript; the
+ * daemon also starts its replay buffer over so a later attach stays clean.
+ */
+export const AgentSessionResetEvent = S.Struct({
+  ...eventBase,
+  type: S.Literal("session.reset"),
+});
+
+/**
  * The session's configuration changed (today: its model), from whichever side
  * changed it (a web `set_model`, or `/model` typed in the terminal). Read from
  * the engine's own record, so every viewer converges on the same value.
@@ -823,6 +833,7 @@ export type TAgentHistoryPageEvent = S.Schema.Type<
 /** One daemon → consumer event line. */
 export const AgentEvent = S.Union([
   AgentSessionStartedEvent,
+  AgentSessionResetEvent,
   AgentSessionConfiguredEvent,
   AgentSessionExitedEvent,
   AgentTurnStartedEvent,

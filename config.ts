@@ -224,6 +224,19 @@ export const RequiredProviderTerm = S.Struct({
 });
 export type TRequiredProviderTerm = S.Schema.Type<typeof RequiredProviderTerm>;
 
+/**
+ * Admin-managed automatic chains, per tier, in the order they are tried.
+ * A tier that is absent (or empty) falls back to the catalog's
+ * `default_tiers` derivation. Each user still only gets the models whose
+ * provider they have connected.
+ */
+export const DefaultTierChains = S.Struct({
+  ultra: S.optional(S.Array(S.String)),
+  plus: S.optional(S.Array(S.String)),
+  lite: S.optional(S.Array(S.String)),
+});
+export type TDefaultTierChains = S.Schema.Type<typeof DefaultTierChains>;
+
 export const GlobalConfig = S.Struct({
   terms_version: S.String,
   terms_url: S.String,
@@ -233,6 +246,7 @@ export const GlobalConfig = S.Struct({
   model_catalog: S.Array(ExtendedModel),
   search_provider: S.String,
   plugin_allow_list: S.Array(S.String),
+  default_tier_chains: S.optional(DefaultTierChains),
 });
 export type TGlobalConfig = S.Schema.Type<typeof GlobalConfig>;
 

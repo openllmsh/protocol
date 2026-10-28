@@ -1,13 +1,17 @@
 import { Schema as S } from "effect";
 
 /**
- * The two daemon-only provider variants. Both are served only by a local
+ * The three daemon-only provider variants. All are served only by a local
  * daemon (never by the hosted gateway); they differ in how the device
  * authenticates and talks upstream:
  *  - `oauth` — today's subscription providers (vendor-CLI login)
  *  - `local` — loopback model servers (Ollama, LM Studio, …)
+ *  - `local_key` — subscription plans that issue only a static API key
+ *    (OpenCode Go, Z.AI GLM Coding Plan, MiniMax Coding Plan). The key is
+ *    pasted in the browser, sealed to the device and stored only there; the
+ *    daemon calls the vendor's hosted endpoint directly.
  */
-export const LocalProviderVariant = S.Literals(["oauth", "local"]);
+export const LocalProviderVariant = S.Literals(["oauth", "local", "local_key"]);
 export type TLocalProviderVariant = S.Schema.Type<typeof LocalProviderVariant>;
 
 /**
@@ -33,6 +37,73 @@ export const OAuthProviderSlug = S.Literals([
   "antigravity",
 ]);
 export type TOAuthProviderSlug = S.Schema.Type<typeof OAuthProviderSlug>;
+
+/**
+ * Closed set of `local_key` provider slugs: subscription plans whose only
+ * credential is an API key. Keys live on the device (multi-account, one slot
+ * per key) and are never stored by the cloud.
+ */
+export const LocalKeyProviderSlug = S.Literals([
+  "opencode_go",
+  "zai_coding",
+  "minimax_coding",
+]);
+export type TLocalKeyProviderSlug = S.Schema.Type<typeof LocalKeyProviderSlug>;
+
+export type TLocalKeyProviderPreset = {
+  readonly slug: TLocalKeyProviderSlug;
+  readonly label: string;
+  /** OpenAI-compatible base URL (`<base>/chat/completions`). */
+  readonly baseUrl: string;
+  /** Where the user obtains the key. */
+  readonly keyUrl: string;
+  /** Placeholder for the paste field. */
+  readonly keyHint: string;
+};
+
+/** Vendor endpoints for each `local_key` provider. */
+export const LOCAL_KEY_PROVIDER_PRESETS: ReadonlyArray<TLocalKeyProviderPreset> =
+  [
+    {
+      slug: "opencode_go",
+      label: "OpenCode Go",
+      baseUrl: "https://opencode.ai/zen/go/v1",
+      keyUrl: "https://opencode.ai/auth",
+      keyHint: "OpenCode API key",
+    },
+    {
+      slug: "zai_coding",
+      label: "Z.AI GLM Coding Plan",
+      baseUrl: "https://api.z.ai/api/coding/paas/v4",
+      keyUrl: "https://z.ai/manage-apikey/apikey-list",
+      keyHint: "Z.AI API key",
+    },
+    {
+      slug: "minimax_coding",
+      label: "MiniMax Coding Plan",
+      baseUrl: "https://api.minimax.io/v1",
+      keyUrl:
+        "https://platform.minimax.io/user-center/basic-information/interface-key",
+      keyHint: "MiniMax Coding Plan key",
+    },
+  ] as const;
+
+export const isLocalKeyProviderSlug = (
+  slug: string,
+): slug is TLocalKeyProviderSlug =>
+  (LocalKeyProviderSlug.literals as ReadonlyArray<string>).includes(slug);
+
+export const localKeyProviderPreset = (
+  slug: string,
+): TLocalKeyProviderPreset | null =>
+  LOCAL_KEY_PROVIDER_PRESETS.find((preset) => preset.slug === slug) ?? null;
+
+/** Base URL of a `local_key` provider (every slug has a preset). */
+export const localKeyBaseUrl = (slug: TLocalKeyProviderSlug): string => {
+  const preset = localKeyProviderPreset(slug);
+  if (preset === null) throw new Error(`no local_key preset for ${slug}`);
+  return preset.baseUrl;
+};
 
 /** Well-known local model-server preset slugs (`local_<product>`). */
 export const LocalServerPresetSlug = S.Literals([
@@ -165,12 +236,20 @@ export const isOAuthProviderSlug = (
   (OAuthProviderSlug.literals as ReadonlyArray<string>).includes(provider);
 
 /**
- * Daemon-only providers: OAuth subscription slugs ∪ local server slugs.
+ * Providers with device-local account slots, routed BY PROVIDER: oauth (one
+ * slot per vendor login) ∪ local_key (one slot per pasted key). A device
+ * reports each slot as a `connections` row.
+ */
+export const isAccountProviderSlug = (provider: string): boolean =>
+  isOAuthProviderSlug(provider) || isLocalKeyProviderSlug(provider);
+
+/**
+ * Daemon-only providers: OAuth ∪ local_key ∪ local server slugs.
  * Replaces `isSubscriptionProvider` at routing / plan / walker sites that
  * mean "cloud never serves this hop".
  */
 export const isLocalProvider = (slug: string): boolean =>
-  isOAuthProviderSlug(slug) || isLocalServerSlug(slug);
+  isAccountProviderSlug(slug) || isLocalServerSlug(slug);
 
 /** Variant for a daemon-only slug, or null when the slug is neither. */
 export const localProviderVariant = (
@@ -178,6 +257,7 @@ export const localProviderVariant = (
 ): TLocalProviderVariant | null => {
   if (isOAuthProviderSlug(slug)) return "oauth";
   if (isLocalServerSlug(slug)) return "local";
+  if (isLocalKeyProviderSlug(slug)) return "local_key";
   return null;
 };
 

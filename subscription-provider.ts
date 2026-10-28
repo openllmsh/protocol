@@ -1,5 +1,6 @@
 import type { TOAuthProviderSlug } from "./local-provider";
 import {
+  isLocalKeyProviderSlug,
   isLocalServerSlug,
   isOAuthProviderSlug,
   OAuthProviderSlug,
@@ -24,6 +25,8 @@ export const isSubscriptionProviderSlug = (
 /** Catalog tagging only — execution still uses registry `authKind`. */
 export const catalogProviderType = (provider: string): TModelProviderType => {
   if (isLocalServerSlug(provider)) return "local";
-  if (isSubscriptionProviderSlug(provider)) return "subscription";
+  // local_key plans are subscriptions too: $0 per token, savings vs list.
+  if (isSubscriptionProviderSlug(provider) || isLocalKeyProviderSlug(provider))
+    return "subscription";
   return "api_key";
 };

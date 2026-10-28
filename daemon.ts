@@ -13,6 +13,7 @@ import {
   DeviceAccessPinReport,
   DeviceSessionsReport,
 } from "./local-device-control";
+import { LocalKeyProviderSlug } from "./local-provider";
 import {
   ModelSettingDefinitions,
   ModelSettingsOverrides,
@@ -619,6 +620,17 @@ const SetLocalKeyPayload = S.Struct({
   ),
   sealed: S.Union([Base64Blob, S.Literal("")]),
 });
+/** Add, replace or remove one `local_key` provider key slot. `sealed` is an
+ *  X25519 sealed box of the API key to the daemon's pubkey; the relay and
+ *  cloud never see plaintext. `account_index` absent ⇒ allocate a new slot
+ *  (lowest free index). Present + empty `sealed` ⇒ remove that slot. Present
+ *  + non-empty ⇒ replace that slot's key. */
+const SetProviderKeyPayload = S.Struct({
+  slug: LocalKeyProviderSlug,
+  account_index: S.optional(AccountIndex),
+  sealed: S.Union([Base64Blob, S.Literal("")]),
+  label: S.optional(S.String.check(S.isMaxLength(64))),
+});
 const SetAutoUpdatePayload = S.Struct({ enabled: S.Boolean });
 /** Disable device sessions remotely: `statement` is the base64 envelope of
  *  `{ v: 1, key_id, ts, nonce, sig }` signed by the account control key
@@ -784,6 +796,14 @@ const commandVariants = <F extends S.Struct.Fields>(addressing: F) =>
       kind: S.Literals(["set_local_key"]),
       payload: SetLocalKeyPayload,
     }),
+    // Add / replace / remove a `local_key` provider key slot (OpenCode Go,
+    // Z.AI, MiniMax). Sent only when `control_caps` advertises
+    // LOCAL_KEY_PROVIDERS_CONTROL_CAP; older daemons ignore the kind.
+    S.Struct({
+      ...addressing,
+      kind: S.Literals(["set_provider_key"]),
+      payload: SetProviderKeyPayload,
+    }),
     // Control-key-signed device-sessions DISABLE. Older daemons ignore the
     // kind; the dashboard sends it only when `control_caps` advertises it.
     // There is no remote enable — re-enable is install/update/login/desktop
@@ -828,6 +848,7 @@ export const DaemonCommandKind = S.Literals([
   "list_local_sessions",
   "local_rescan",
   "set_local_key",
+  "set_provider_key",
   "set_device_sessions",
 ]);
 type TDaemonCommandKindLiteral = S.Schema.Type<typeof DaemonCommandKind>;
@@ -1028,6 +1049,9 @@ export const DaemonProviderConnection = S.Struct({
   account_label: S.optional(S.String.check(S.isMaxLength(64))),
   /** True on the slot the user pinned first in routing for this provider. */
   account_pinned: S.optional(S.Boolean),
+  /** `local_key` slots only: the last four characters of the stored key, so
+   *  the user can tell keys apart. Never more of the secret. */
+  key_hint: S.optional(S.String.check(S.isMaxLength(4))),
   /**
    * Latest live model-list / discover outcome for this provider (UI signal for
    * "Connected, but this device hasn't reported models yet"). Optional +
@@ -1047,6 +1071,9 @@ export type TDaemonProviderConnection = S.Schema.Type<
  *  Senders must not address account n >= 1 without it (old daemons strip the
  *  field and would act on account 0). */
 export const MULTI_ACCOUNT_CONTROL_CAP = "multi_account";
+/** Control cap: the daemon stores `local_key` provider keys
+ *  (`set_provider_key`) and reports each slot as a `connections` row. */
+export const LOCAL_KEY_PROVIDERS_CONTROL_CAP = "local_key_providers_v1";
 /** Control cap: the daemon executes the signed `set_device_sessions` disable. */
 export const DEVICE_SESSIONS_CONTROL_CAP = "device_sessions_v1";
 

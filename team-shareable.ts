@@ -29,7 +29,6 @@ const API_KEY_SHARE_PROVIDERS: ReadonlySet<string> = new Set([
   "google",
   "zai",
   "minimax",
-  "opencode_go",
 ]);
 
 const CUSTOM_PROVIDER_RE = /^custom:[a-z0-9][a-z0-9-]{0,62}$/;

@@ -81,8 +81,12 @@ routing, the daemon walker, and the `/providers` Local tab:
   `SubscriptionProviderSlug` remains a deprecated alias for one release.
 - `LOCAL_SERVER_PRESETS` / `LocalServerPresetSlug` / `local_port_<n>` helpers
   (`isLocalServerSlug`, `localPortSlug`, …).
+- `LocalKeyProviderSlug` / `LOCAL_KEY_PROVIDER_PRESETS` — the `local_key`
+  variant: API-key-only subscription plans whose keys live on the device
+  (`set_provider_key`, gated on `LOCAL_KEY_PROVIDERS_CONTROL_CAP`).
+  `isAccountProviderSlug` = oauth ∪ local_key (routed by provider).
 - `isLocalProvider` / `localProviderVariant` — "cloud never serves this hop"
-  (oauth ∪ local server). OAuth-specific sites keep narrowing to the oauth
+  (oauth ∪ local_key ∪ local server). OAuth-specific sites keep narrowing to the oauth
   variant / `isOAuthProviderSlug`.
 - Refusal codes: `subscription_requires_daemon` (historical oauth string) and
   `local_requires_daemon`.

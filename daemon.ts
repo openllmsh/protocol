@@ -631,6 +631,15 @@ const SetProviderKeyPayload = S.Struct({
   sealed: S.Union([Base64Blob, S.Literal("")]),
   label: S.optional(S.String.check(S.isMaxLength(64))),
 });
+/** Team ids name the daemon's `team-keys/<id>.json`, so the wire admits only
+ *  a path-safe id (the cloud mints UUIDs). */
+const TeamKeyId = S.String.check(S.isPattern(/^[A-Za-z0-9_-]{1,64}$/));
+const SetTeamKeyPayload = S.Struct({
+  team_id: TeamKeyId,
+  epoch: S.Int.check(S.isGreaterThanOrEqualTo(0)),
+  sealed: Base64Blob,
+});
+const DeleteTeamKeyPayload = S.Struct({ team_id: TeamKeyId });
 const SetAutoUpdatePayload = S.Struct({ enabled: S.Boolean });
 /** Disable device sessions remotely: `statement` is the base64 envelope of
  *  `{ v: 1, key_id, ts, nonce, sig }` signed by the account control key
@@ -804,6 +813,16 @@ const commandVariants = <F extends S.Struct.Fields>(addressing: F) =>
       kind: S.Literals(["set_provider_key"]),
       payload: SetProviderKeyPayload,
     }),
+    S.Struct({
+      ...addressing,
+      kind: S.Literals(["set_team_key"]),
+      payload: SetTeamKeyPayload,
+    }),
+    S.Struct({
+      ...addressing,
+      kind: S.Literals(["delete_team_key"]),
+      payload: DeleteTeamKeyPayload,
+    }),
     // Control-key-signed device-sessions DISABLE. Older daemons ignore the
     // kind; the dashboard sends it only when `control_caps` advertises it.
     // There is no remote enable — re-enable is install/update/login/desktop
@@ -849,6 +868,8 @@ export const DaemonCommandKind = S.Literals([
   "local_rescan",
   "set_local_key",
   "set_provider_key",
+  "set_team_key",
+  "delete_team_key",
   "set_device_sessions",
 ]);
 type TDaemonCommandKindLiteral = S.Schema.Type<typeof DaemonCommandKind>;
@@ -1076,6 +1097,16 @@ export const MULTI_ACCOUNT_CONTROL_CAP = "multi_account";
 export const LOCAL_KEY_PROVIDERS_CONTROL_CAP = "local_key_providers_v1";
 /** Control cap: the daemon executes the signed `set_device_sessions` disable. */
 export const DEVICE_SESSIONS_CONTROL_CAP = "device_sessions_v1";
+/** Control cap: the daemon holds team keys (`set_team_key` /
+ *  `delete_team_key`) and reports them in `team_psk`. */
+export const TEAM_KEY_CUSTODY_CONTROL_CAP = "team_key_custody_v1";
+
+/** One team key this device holds — the epoch only, never the key. */
+export const DaemonTeamKeyEpoch = S.Struct({
+  team_id: S.String,
+  epoch: S.Int.check(S.isGreaterThanOrEqualTo(0)),
+});
+export type TDaemonTeamKeyEpoch = S.Schema.Type<typeof DaemonTeamKeyEpoch>;
 
 /**
  * A `pending_auth` self-expires after this **on cached / unconfirmed
@@ -1160,6 +1191,10 @@ export const DaemonStatus = S.Struct({
    *  Absent on daemons too old to report it. */
   sandbox: S.optional(S.Literals(["enforced", "off", "unsupported", "error"])),
   connections: S.Array(DaemonProviderConnection),
+  /** Team keys this device holds for team tunnels' PSK handshake, so the
+   *  browser can tell which teams still need T sealed here. Absent on daemons
+   *  without `TEAM_KEY_CUSTODY_CONTROL_CAP`. */
+  team_psk: S.optional(S.Array(DaemonTeamKeyEpoch)),
   /** The openllm CLI on this box. Absent on daemons too old to report it. */
   cli: S.optional(DaemonCliState),
   /** Advertised transport capabilities, retained in fleet status telemetry. */

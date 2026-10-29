@@ -35,6 +35,9 @@ export const hasMuxCap = (caps: readonly string[] | undefined): boolean =>
  */
 export const RTC_CAP = "rtc1";
 
+/** Cross-user team RTC admission (outer + sealed team grant required). */
+export const TEAM_RTC_CAP = "team-rtc1";
+
 /** Returns whether an open-vocabulary capability list advertises RTC support. */
 export const hasRtcCap = (caps: readonly string[] | undefined): boolean =>
   caps?.includes(RTC_CAP) ?? false;

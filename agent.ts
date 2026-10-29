@@ -249,15 +249,18 @@ export const AgentSendCommand = S.Struct({
 export type TAgentSendCommand = S.Schema.Type<typeof AgentSendCommand>;
 
 /**
- * Deliver the queued prompts NOW instead of after the running turn: the
- * engine's own send-now (Claude Code's ctrl+enter), which hands them to the
- * model mid-turn and moves a running command to the background. A daemon
- * that predates it rejects the line; consumers offer it only after a
- * `queue.updated` showed the daemon queues.
+ * Deliver the queued prompts NOW instead of after the running turn. Plain,
+ * they join the running turn at its next tool boundary and running tools
+ * finish. With `interrupt`, the engine's own send-now (Claude Code's
+ * ctrl+enter) runs: running shells move to the background and tools that
+ * can't (an MCP call) are stopped — consumers ask the user before setting it.
+ * A daemon that predates it rejects the line; consumers offer it only after
+ * a `queue.updated` showed the daemon queues.
  */
 export const AgentSendNowCommand = S.Struct({
   type: S.Literal("send_now"),
   id: S.optional(AgentCommandId),
+  interrupt: S.optional(S.Boolean),
 });
 export type TAgentSendNowCommand = S.Schema.Type<typeof AgentSendNowCommand>;
 
@@ -769,6 +772,14 @@ export const AgentRuntimeWarningEvent = S.Struct({
   code: S.optional(S.String.check(S.isMaxLength(64))),
   message: DetailText,
 });
+
+/**
+ * `runtime.error` code of a `set_model` the engine accepted but could not
+ * apply (the CLI refused the model, or never confirmed the switch).
+ */
+export const AGENT_MODEL_SWITCH_FAILED_CODE = "model_switch_failed";
+/** `runtime.warning` code of a model switch the user declined. */
+export const AGENT_MODEL_SWITCH_DECLINED_CODE = "model_switch_declined";
 
 export const AgentRuntimeErrorEvent = S.Struct({
   ...eventBase,

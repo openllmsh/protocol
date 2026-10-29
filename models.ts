@@ -331,6 +331,17 @@ export const ModelCaps = S.Struct({
     S.Array(S.Literals(["auto", "current_turn", "all_turns"])),
   ),
 
+  /**
+   * Whether this model accepts a `tool_addition` block inline in an
+   * inline system turn (`inline-tools-2026-09-15`, sent by Claude Code when a
+   * tool appears mid-session). Not derivable from family or version — measured
+   * live by `tests/server/inline-system-capability.e2e.test.ts`. When false the
+   * passthrough moves the tool definition into top-level `tools` instead
+   * (one cache rebuild per added tool). Absent = unknown = PERMISSIVE: the
+   * block is forwarded as the client sent it.
+   */
+  inlineToolAdditions: S.optional(S.Boolean),
+
   // ─── Image ─────────────────────────────────────────────────────────
   /**
    * Whether `response_format` is a real knob on this model's upstream.

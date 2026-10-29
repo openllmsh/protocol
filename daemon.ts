@@ -633,7 +633,8 @@ const SetProviderKeyPayload = S.Struct({
 });
 /** Team ids name the daemon's `team-keys/<id>.json`, so the wire admits only
  *  a path-safe id (the cloud mints UUIDs). */
-const TeamKeyId = S.String.check(S.isPattern(/^[A-Za-z0-9_-]{1,64}$/));
+export const TEAM_KEY_ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
+const TeamKeyId = S.String.check(S.isPattern(TEAM_KEY_ID_PATTERN));
 const SetTeamKeyPayload = S.Struct({
   team_id: TeamKeyId,
   epoch: S.Int.check(S.isGreaterThanOrEqualTo(0)),

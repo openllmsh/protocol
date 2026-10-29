@@ -273,6 +273,18 @@ const AnthropicBrowserStateBlock = S.Struct({
   cache_control: S.optional(S.NullOr(AnthropicCacheControl)),
 });
 
+/**
+ * A tool definition added mid-conversation (`inline-tools-2026-09-15` beta):
+ * Claude Code sends one per newly-available tool (e.g. an MCP server that
+ * connected late) inside a `role: "system"` turn. `tool` stays opaque — the
+ * passthrough forwards the raw body; nothing downstream re-parses it.
+ */
+const AnthropicToolAdditionBlock = S.Struct({
+  type: S.Literal("tool_addition"),
+  tool: S.Unknown,
+  cache_control: S.optional(S.NullOr(AnthropicCacheControl)),
+});
+
 /** Encrypted thinking returned by native Anthropic passthrough. */
 const AnthropicRedactedThinkingBlock = S.Struct({
   type: S.Literal("redacted_thinking"),
@@ -300,6 +312,7 @@ export const AnthropicContentBlock = S.Union([
   AnthropicMcpToolResultBlock,
   AnthropicToolReferenceBlock,
   AnthropicBrowserStateBlock,
+  AnthropicToolAdditionBlock,
   AnthropicRedactedThinkingBlock,
 ]);
 export type TAnthropicContentBlock = S.Schema.Type<

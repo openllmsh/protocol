@@ -770,6 +770,14 @@ export const AgentRuntimeWarningEvent = S.Struct({
   message: DetailText,
 });
 
+/**
+ * `runtime.error` code of a `set_model` the engine accepted but could not
+ * apply (the CLI refused the model, or never confirmed the switch).
+ */
+export const AGENT_MODEL_SWITCH_FAILED_CODE = "model_switch_failed";
+/** `runtime.warning` code of a model switch the user declined. */
+export const AGENT_MODEL_SWITCH_DECLINED_CODE = "model_switch_declined";
+
 export const AgentRuntimeErrorEvent = S.Struct({
   ...eventBase,
   type: S.Literal("runtime.error"),

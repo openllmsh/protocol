@@ -30,6 +30,8 @@ const API_KEY_SHARE_PROVIDERS: ReadonlySet<string> = new Set([
   "mistral",
   "groq",
   "cerebras",
+  "opencode_zen",
+  "ollama_cloud",
   "google",
   "zai",
   "minimax",

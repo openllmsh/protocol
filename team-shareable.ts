@@ -26,6 +26,7 @@ const API_KEY_SHARE_PROVIDERS: ReadonlySet<string> = new Set([
   "openai",
   "anthropic",
   "alibaba",
+  "nvidia",
   "google",
   "zai",
   "minimax",

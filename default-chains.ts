@@ -7,10 +7,12 @@ import { MEDIA_DEFAULT_CLASS } from "./models";
 
 /**
  * Shared catalog default-chain ranking. Browser-safe (no DB/HTTP).
- * Lead: host-paid included models (`included_usage`) come first in every
- * chain they belong to — a fresh user starts on what OpenLLM gives them.
- * Primary: index of `chainClass` in `default_tiers` (lower first).
- * Tie-break: `tier_rank` ascending. Catalog array order is not policy.
+ * Trail: host-paid included models (`included_usage`) come LAST in every
+ * chain they belong to — a user's own providers are tried first, and a
+ * fresh user with none still lands on what OpenLLM gives them.
+ * Primary: `tier_rank` ascending — the provider bands (subscriptions
+ * 10–79, free-tier APIs 100–199, metered APIs 200+).
+ * Tie-break: index of `chainClass` in `default_tiers`, then catalog order.
  */
 export type TDefaultChainRankable = Pick<
   TExtendedModel,
@@ -27,17 +29,15 @@ export const compareDefaultChainMembers = (
   b: TDefaultChainRankable,
   chainClass: TDefaultChainClass,
 ): number => {
-  const leadA = a.included_usage === undefined ? 1 : 0;
-  const leadB = b.included_usage === undefined ? 1 : 0;
-  if (leadA !== leadB) return leadA - leadB;
-  const depthA =
-    a.default_tiers?.indexOf(chainClass) ?? Number.MAX_SAFE_INTEGER;
-  const depthB =
-    b.default_tiers?.indexOf(chainClass) ?? Number.MAX_SAFE_INTEGER;
-  if (depthA !== depthB) return depthA - depthB;
+  const trailA = a.included_usage === undefined ? 0 : 1;
+  const trailB = b.included_usage === undefined ? 0 : 1;
+  if (trailA !== trailB) return trailA - trailB;
+  const rankA = a.tier_rank ?? Number.MAX_SAFE_INTEGER;
+  const rankB = b.tier_rank ?? Number.MAX_SAFE_INTEGER;
+  if (rankA !== rankB) return rankA - rankB;
   return (
-    (a.tier_rank ?? Number.MAX_SAFE_INTEGER) -
-    (b.tier_rank ?? Number.MAX_SAFE_INTEGER)
+    (a.default_tiers?.indexOf(chainClass) ?? Number.MAX_SAFE_INTEGER) -
+    (b.default_tiers?.indexOf(chainClass) ?? Number.MAX_SAFE_INTEGER)
   );
 };
 

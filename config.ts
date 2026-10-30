@@ -170,6 +170,13 @@ export const ExtraConfig = S.Struct({
    */
   subscription_providers: S.optional(S.Array(S.String)),
   /**
+   * Per-provider model picks for {@link MODEL_SELECTABLE_PROVIDERS}
+   * (provider → `provider_model_id`s). Absent entry = the curated catalog
+   * models only; present = exactly these ids. Listing only — routing an
+   * explicit id is unaffected.
+   */
+  provider_models: S.optional(S.Record(S.String, S.Array(S.String))),
+  /**
    * What the user pays each month for the subscriptions above — declared
    * by hand on the overview savings card, one row per connected provider.
    * There is no vendor API that reports a plan tier, so the user picks it

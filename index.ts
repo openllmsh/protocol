@@ -38,6 +38,7 @@ export * from "./model-settings";
 export * from "./models";
 export * from "./mux";
 export * from "./plan-surface";
+export * from "./provider-models";
 export * from "./provider-status";
 export * from "./provider-tier";
 export * from "./provider-usage";

@@ -7,6 +7,47 @@ export type TServiceTier = S.Schema.Type<typeof ServiceTier>;
 export const InputTokenLimit = S.Int.check(S.isGreaterThan(0));
 export type TInputTokenLimit = S.Schema.Type<typeof InputTokenLimit>;
 
+/**
+ * Reasoning-effort floor a user can pin per model. A request asking for less
+ * (or omitting effort) is raised to it; a request asking for more keeps its
+ * own. Exists because clients pick effort for the model they THINK they talk
+ * to (Claude Code sends `low` for an unrecognised alias), which can starve a
+ * model that quits early at low effort.
+ */
+export const MinReasoningEffort = S.Literals([
+  "low",
+  "medium",
+  "high",
+  "xhigh",
+]);
+export type TMinReasoningEffort = S.Schema.Type<typeof MinReasoningEffort>;
+
+/** Ascending effort order used to compare a request against the floor. */
+const EFFORT_RANK: Readonly<Record<string, number>> = {
+  none: 0,
+  minimal: 1,
+  low: 2,
+  medium: 3,
+  high: 4,
+  xhigh: 5,
+  max: 6,
+};
+
+/**
+ * Raise `effort` to `floor`. `undefined` effort (provider default) is raised
+ * too; an explicit `none` is the caller turning reasoning off and is kept.
+ */
+export const applyReasoningEffortFloor = <TEffort extends string>(
+  effort: TEffort | undefined,
+  floor: TMinReasoningEffort | undefined,
+): TEffort | TMinReasoningEffort | undefined => {
+  if (floor === undefined || effort === "none") return effort;
+  if (effort === undefined) return floor;
+  return (EFFORT_RANK[effort] ?? 0) < (EFFORT_RANK[floor] ?? 0)
+    ? floor
+    : effort;
+};
+
 /** Sparse user overrides. Add named, schema-checked settings here as they ship. */
 export const ModelSettings = S.Struct({
   service_tier: S.optional(ServiceTier),
@@ -16,6 +57,7 @@ export const ModelSettings = S.Struct({
    * written into config.
    */
   input_token_limit: S.optional(InputTokenLimit),
+  min_reasoning_effort: S.optional(MinReasoningEffort),
 });
 export type TModelSettings = S.Schema.Type<typeof ModelSettings>;
 
@@ -44,10 +86,17 @@ export const InputTokenLimitSetting = S.Struct({
   reported: S.optional(InputTokenLimit),
 });
 
+export const MinReasoningEffortSetting = S.Struct({
+  label: S.String,
+  description: S.String,
+  options: S.Array(S.Struct({ value: MinReasoningEffort, label: S.String })),
+});
+
 /** Catalog-owned controls and defaults, shared by discovery, UI and dispatch. */
 export const ModelSettingDefinitions = S.Struct({
   service_tier: S.optional(ServiceTierSetting),
   input_token_limit: S.optional(InputTokenLimitSetting),
+  min_reasoning_effort: S.optional(MinReasoningEffortSetting),
 });
 export type TModelSettingDefinitions = S.Schema.Type<
   typeof ModelSettingDefinitions
@@ -94,6 +143,16 @@ export const resolveModelSettings = (
     }
   }
 
+  const effortSetting = definitions?.min_reasoning_effort;
+  const effortOverride = overrides?.min_reasoning_effort;
+  if (
+    effortSetting !== undefined &&
+    effortOverride !== undefined &&
+    effortSetting.options.some((option) => option.value === effortOverride)
+  ) {
+    resolved.min_reasoning_effort = effortOverride;
+  }
+
   return resolved;
 };
 
@@ -105,6 +164,8 @@ export const updateModelSettings = (
     readonly input_token_limit?: number | undefined;
     readonly clearServiceTier?: boolean;
     readonly clearInputTokenLimit?: boolean;
+    readonly min_reasoning_effort?: TMinReasoningEffort | undefined;
+    readonly clearMinReasoningEffort?: boolean;
   },
 ): TModelSettingsOverrides => {
   const next = { ...overrides };
@@ -123,6 +184,12 @@ export const updateModelSettings = (
     delete updated.input_token_limit;
   } else if (patch.input_token_limit !== undefined) {
     updated.input_token_limit = patch.input_token_limit;
+  }
+
+  if (patch.clearMinReasoningEffort === true) {
+    delete updated.min_reasoning_effort;
+  } else if (patch.min_reasoning_effort !== undefined) {
+    updated.min_reasoning_effort = patch.min_reasoning_effort;
   }
 
   if (Object.keys(updated).length > 0) {
@@ -237,3 +304,24 @@ export const synthesizeInputTokenLimitSetting = (params: {
     ...(reported !== undefined ? { reported } : {}),
   };
 };
+
+const MIN_REASONING_EFFORT_SETTING: TModelSettingDefinitions["min_reasoning_effort"] =
+  {
+    label: "Minimum effort",
+    description:
+      "Raises the reasoning effort of every request this model answers to at least this level. A request asking for more keeps its own; one turning reasoning off is left alone.",
+    options: [
+      { value: "low", label: "Low" },
+      { value: "medium", label: "Medium" },
+      { value: "high", label: "High" },
+      { value: "xhigh", label: "Extra high" },
+    ],
+  };
+
+/** The effort-floor control exists on every reasoning-capable model. */
+export const synthesizeMinReasoningEffortSetting = (
+  capabilities: ReadonlyArray<string> | undefined,
+): TModelSettingDefinitions["min_reasoning_effort"] | undefined =>
+  capabilities?.includes("reasoning") === true
+    ? MIN_REASONING_EFFORT_SETTING
+    : undefined;

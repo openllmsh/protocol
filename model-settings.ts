@@ -309,7 +309,7 @@ const MIN_REASONING_EFFORT_SETTING: TModelSettingDefinitions["min_reasoning_effo
   {
     label: "Minimum effort",
     description:
-      "Raises the reasoning effort of every request this model answers to at least this level. A request asking for more keeps its own; one turning reasoning off is left alone.",
+      "Default uses whatever effort the caller requested. Pick a level to raise lower requests to it; a request asking for more keeps its own, and one turning reasoning off is left alone.",
     options: [
       { value: "low", label: "Low" },
       { value: "medium", label: "Medium" },

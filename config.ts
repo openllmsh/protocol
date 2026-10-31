@@ -264,3 +264,80 @@ export const ProviderCredential = S.Struct({
   has_credential: S.Boolean,
 });
 export type TProviderCredential = S.Schema.Type<typeof ProviderCredential>;
+
+/**
+ * Body of `PATCH /api/config/user`: only what the caller changed.
+ *
+ * Omitted fields keep their stored value; an explicit `null` removes an
+ * optional field. `extra` is keyed loosely here because each field's
+ * schema already lives on {@link ExtraConfig}: the merged result is decoded
+ * as a whole {@link UserConfig}, so an unknown key or a bad value still
+ * fails the write.
+ */
+export const UserConfigPatch = S.Struct({
+  fallback_groups: S.optional(S.Array(FallbackGroup)),
+  model_fallback_bindings: S.optional(S.NullOr(S.Array(ModelFallbackBinding))),
+  extra: S.optional(S.Record(S.String, S.Unknown)),
+});
+export type TUserConfigPatch = S.Schema.Type<typeof UserConfigPatch>;
+
+const decodeUserConfig = S.decodeUnknownSync(UserConfig);
+
+const sameValue = (a: unknown, b: unknown): boolean =>
+  JSON.stringify(a) === JSON.stringify(b);
+
+/** Merge a patch onto the stored config; throws when the result is invalid. */
+export const applyUserConfigPatch = (
+  stored: TUserConfig,
+  patch: TUserConfigPatch,
+): TUserConfig => {
+  const extra: Record<string, unknown> = { ...stored.extra };
+  for (const [key, value] of Object.entries(patch.extra ?? {})) {
+    if (value === null) delete extra[key];
+    else extra[key] = value;
+  }
+  const merged: Record<string, unknown> = {
+    ...stored,
+    ...(patch.fallback_groups !== undefined
+      ? { fallback_groups: patch.fallback_groups }
+      : {}),
+    extra,
+  };
+  if (patch.model_fallback_bindings === null) {
+    delete merged.model_fallback_bindings;
+  } else if (patch.model_fallback_bindings !== undefined) {
+    merged.model_fallback_bindings = patch.model_fallback_bindings;
+  }
+  return decodeUserConfig(merged);
+};
+
+/**
+ * The patch that turns `base` into `next`: changed fields only, removed
+ * optional fields as `null`. Callers edit a full config view and send this,
+ * so a stale page never overwrites fields it didn't touch.
+ */
+export const diffUserConfig = (
+  base: TUserConfig,
+  next: TUserConfig,
+): TUserConfigPatch => {
+  const extra: Record<string, unknown> = {};
+  const keys = new Set([
+    ...Object.keys(base.extra),
+    ...Object.keys(next.extra),
+  ]);
+  for (const key of keys) {
+    const before = (base.extra as Record<string, unknown>)[key];
+    const after = (next.extra as Record<string, unknown>)[key];
+    if (sameValue(before, after)) continue;
+    extra[key] = after === undefined ? null : after;
+  }
+  return {
+    ...(sameValue(base.fallback_groups, next.fallback_groups)
+      ? {}
+      : { fallback_groups: next.fallback_groups }),
+    ...(sameValue(base.model_fallback_bindings, next.model_fallback_bindings)
+      ? {}
+      : { model_fallback_bindings: next.model_fallback_bindings ?? null }),
+    ...(Object.keys(extra).length > 0 ? { extra } : {}),
+  };
+};
